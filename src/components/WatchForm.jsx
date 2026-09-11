@@ -42,7 +42,7 @@ export default function WatchForm({ onClose, onSubmit }) {
               query={form.name}
               onQueryChange={(v) => set('name', v)}
               onSelect={(r) => {
-                set('symbol', r.symbol);
+                set('symbol', r.exchange ? `${r.symbol}:${r.exchange}` : r.symbol);
                 set('name', r.name);
               }}
               placeholder="Nvidia"

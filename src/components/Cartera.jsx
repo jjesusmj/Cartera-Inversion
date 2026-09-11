@@ -14,7 +14,7 @@ function agruparPorSimbolo(openLots) {
   return Object.values(grupos);
 }
 
-export default function Cartera({ openLots, prices, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onComentario, onBorrarLote }) {
+export default function Cartera({ openLots, prices, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onComentario, onBorrarLote, onEditarLote }) {
   const [abierto, setAbierto] = useState(null);
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
   const fx = useFxToday(grupos.map((g) => g.currency));
@@ -148,19 +148,30 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                                     ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
                                 </span>
                                 {intacto ? (
-                                  <button
-                                    className="btn btn-ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (window.confirm(`¿Borrar este lote de ${f.symbol} del ${fmtDate(lote.buyDate)}? No se puede deshacer.`)) {
-                                        onBorrarLote(lote.id);
-                                      }
-                                    }}
-                                  >
-                                    Borrar
-                                  </button>
+                                  <div className="btn-row">
+                                    <button
+                                      className="btn btn-ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditarLote(lote);
+                                      }}
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      className="btn btn-ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`¿Borrar este lote de ${f.symbol} del ${fmtDate(lote.buyDate)}? No se puede deshacer.`)) {
+                                          onBorrarLote(lote.id);
+                                        }
+                                      }}
+                                    >
+                                      Borrar
+                                    </button>
+                                  </div>
                                 ) : (
-                                  <span className="hint">No se puede borrar: ya tiene ventas asociadas</span>
+                                  <span className="hint">No se puede editar ni borrar: ya tiene ventas asociadas</span>
                                 )}
                               </div>
                             </td>

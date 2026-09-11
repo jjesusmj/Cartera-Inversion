@@ -34,6 +34,12 @@ export async function actualizarComentarioLote(id, comment) {
   return updateDoc(doc(db, 'lots', id), { comment });
 }
 
+export async function actualizarLote(id, datos) {
+  // Solo se llama desde la UI para lotes intactos (remainingQuantity === quantity),
+  // así que es seguro actualizar también remainingQuantity junto con quantity.
+  return updateDoc(doc(db, 'lots', id), { ...datos, remainingQuantity: datos.quantity });
+}
+
 export async function borrarLote(id) {
   return deleteDoc(doc(db, 'lots', id));
 }

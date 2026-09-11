@@ -4,17 +4,21 @@ import { BROKERS } from '../lib/brokers';
 
 const DIVISAS = ['EUR', 'USD', 'GBP', 'GBX', 'CHF', 'JPY'];
 
-export default function BuyForm({ onClose, onSubmit }) {
+// Sirve tanto para registrar una compra nueva como para editar un lote
+// existente: si se pasa `initial`, el formulario arranca precargado y
+// cambia a modo edición.
+export default function BuyForm({ onClose, onSubmit, initial }) {
+  const esEdicion = !!initial;
   const [form, setForm] = useState({
-    symbol: '',
-    name: '',
-    broker: BROKERS[0],
-    buyDate: new Date().toISOString().slice(0, 10),
-    quantity: '',
-    price: '',
-    currency: 'EUR',
-    commission: '0',
-    comment: '',
+    symbol: initial?.symbol || '',
+    name: initial?.name || '',
+    broker: initial?.broker || BROKERS[0],
+    buyDate: initial?.buyDate || new Date().toISOString().slice(0, 10),
+    quantity: initial?.quantity ?? '',
+    price: initial?.price ?? '',
+    currency: initial?.currency || 'EUR',
+    commission: initial?.commission ?? '0',
+    comment: initial?.comment || '',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -52,7 +56,7 @@ export default function BuyForm({ onClose, onSubmit }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Nueva compra</h3>
+        <h3>{esEdicion ? 'Editar compra' : 'Nueva compra'}</h3>
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field-row">
@@ -62,7 +66,7 @@ export default function BuyForm({ onClose, onSubmit }) {
                 query={form.name}
                 onQueryChange={(v) => set('name', v)}
                 onSelect={(r) => {
-                  set('symbol', r.symbol);
+                  set('symbol', r.exchange ? `${r.symbol}:${r.exchange}` : r.symbol);
                   set('name', r.name);
                   if (r.currency) set('currency', r.currency);
                 }}
@@ -71,7 +75,7 @@ export default function BuyForm({ onClose, onSubmit }) {
             </div>
             <div className="field">
               <label>Símbolo elegido</label>
-              <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder="ITX.MC" />
+              <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder="ITX:BME" />
               <div className="hint">Se rellena solo al elegir de la lista. Puedes corregirlo a mano si hace falta.</div>
             </div>
           </div>
@@ -137,7 +141,7 @@ export default function BuyForm({ onClose, onSubmit }) {
           <div className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={enviando}>
-              {enviando ? 'Guardando…' : 'Guardar compra'}
+              {enviando ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Guardar compra'}
             </button>
           </div>
         </form>

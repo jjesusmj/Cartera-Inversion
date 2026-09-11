@@ -16,6 +16,7 @@ import {
   crearLote,
   crearWatch,
   actualizarComentarioLote,
+  actualizarLote,
   actualizarComentarioWatch,
   borrarWatch,
   borrarLote,
@@ -34,6 +35,7 @@ export default function App() {
   const [error, setError] = useState(null);
 
   const [showBuyForm, setShowBuyForm] = useState(false);
+  const [editLote, setEditLote] = useState(null);
   const [showWatchForm, setShowWatchForm] = useState(false);
   const [sellTarget, setSellTarget] = useState(null); // { symbol, name, currency, openLots }
 
@@ -112,6 +114,12 @@ export default function App() {
   async function handleBorrarLote(id) {
     await borrarLote(id);
     setLots((prev) => prev.filter((l) => l.id !== id));
+  }
+
+  async function handleEditarLote(datos) {
+    await actualizarLote(editLote.id, datos);
+    setEditLote(null);
+    cargarTodo();
   }
 
   function abrirVenta(symbol) {
@@ -198,6 +206,7 @@ export default function App() {
                 onVender={abrirVenta}
                 onComentario={handleComentarioLote}
                 onBorrarLote={handleBorrarLote}
+                onEditarLote={setEditLote}
               />
             )}
             {view === 'watchlist' && (
@@ -216,6 +225,9 @@ export default function App() {
       </main>
 
       {showBuyForm && <BuyForm onClose={() => setShowBuyForm(false)} onSubmit={handleAddLote} />}
+      {editLote && (
+        <BuyForm initial={editLote} onClose={() => setEditLote(null)} onSubmit={handleEditarLote} />
+      )}
       {showWatchForm && <WatchForm onClose={() => setShowWatchForm(false)} onSubmit={handleAddWatch} />}
       {sellTarget && (
         <SaleForm target={sellTarget} onClose={() => setSellTarget(null)} onSubmit={handleConfirmarVenta} />
