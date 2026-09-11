@@ -1,0 +1,13 @@
+// Reglas de Firestore para uso personal sin sistema de login.
+// Restringen el acceso a quien tenga las claves de tu proyecto Firebase
+// (que solo están en tus variables de entorno de Vercel), no a cualquiera
+// en internet. Si en el futuro añades login, cámbialas por reglas basadas
+// en request.auth.uid.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
