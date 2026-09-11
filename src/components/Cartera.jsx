@@ -105,6 +105,7 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                   <tr className="row-clickable" onClick={() => setAbierto(abierto === f.symbol ? null : f.symbol)}>
                     <td>
                       <span className="symbol">{f.symbol}</span>
+                      {f.lotes.length > 1 && <span className="tag" style={{ marginLeft: 8 }}>{f.lotes.length} lotes</span>}
                       <span className="symbol-name">{f.name}</span>
                     </td>
                     <td>{[...f.brokers].join(', ')}</td>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import SymbolSearch from './SymbolSearch';
 
 export default function WatchForm({ onClose, onSubmit }) {
-  const [form, setForm] = useState({ symbol: '', name: '', comment: '' });
+  const [form, setForm] = useState({ symbol: '', micCode: '', name: '', comment: '' });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -20,6 +20,7 @@ export default function WatchForm({ onClose, onSubmit }) {
     try {
       await onSubmit({
         symbol: form.symbol.toUpperCase().trim(),
+        micCode: form.micCode,
         name: form.name.trim() || form.symbol.toUpperCase().trim(),
         comment: form.comment.trim(),
       });
@@ -42,7 +43,8 @@ export default function WatchForm({ onClose, onSubmit }) {
               query={form.name}
               onQueryChange={(v) => set('name', v)}
               onSelect={(r) => {
-                set('symbol', r.exchange ? `${r.symbol}:${r.exchange}` : r.symbol);
+                set('symbol', r.symbol);
+                set('micCode', r.micCode || '');
                 set('name', r.name);
               }}
               placeholder="Nvidia"
@@ -50,8 +52,17 @@ export default function WatchForm({ onClose, onSubmit }) {
           </div>
           <div className="field">
             <label>Símbolo elegido</label>
-            <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder="NVDA" />
-            <div className="hint">Se rellena solo al elegir de la lista.</div>
+            <input
+              value={form.symbol}
+              onChange={(e) => {
+                set('symbol', e.target.value);
+                set('micCode', '');
+              }}
+              placeholder="NVDA"
+            />
+            <div className="hint">
+              Se rellena solo al elegir de la lista{form.micCode ? ` (bolsa: ${form.micCode})` : ''}.
+            </div>
           </div>
           <div className="field">
             <label>Comentario (posible punto de entrada)</label>

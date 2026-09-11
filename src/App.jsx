@@ -60,10 +60,10 @@ export default function App() {
   const openLots = useMemo(() => lots.filter((l) => l.remainingQuantity > 1e-9), [lots]);
 
   const allSymbols = useMemo(() => {
-    const s = new Set();
-    openLots.forEach((l) => s.add(l.symbol));
-    watchlist.forEach((w) => s.add(w.symbol));
-    return [...s];
+    const m = new Map();
+    openLots.forEach((l) => m.set(l.symbol, { symbol: l.symbol, micCode: l.micCode }));
+    watchlist.forEach((w) => m.set(w.symbol, { symbol: w.symbol, micCode: w.micCode }));
+    return [...m.values()];
   }, [openLots, watchlist]);
 
   const refreshPrices = useCallback(async () => {

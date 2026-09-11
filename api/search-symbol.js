@@ -22,6 +22,7 @@ export default async function handler(req, res) {
       symbol: r.symbol,
       name: r.instrument_name,
       exchange: r.exchange,
+      micCode: r.mic_code,
       country: r.country,
       currency: r.currency,
       type: r.instrument_type,

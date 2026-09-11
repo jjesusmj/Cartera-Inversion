@@ -11,6 +11,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
   const esEdicion = !!initial;
   const [form, setForm] = useState({
     symbol: initial?.symbol || '',
+    micCode: initial?.micCode || '',
     name: initial?.name || '',
     broker: initial?.broker || BROKERS[0],
     buyDate: initial?.buyDate || new Date().toISOString().slice(0, 10),
@@ -37,6 +38,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
     try {
       await onSubmit({
         symbol: form.symbol.toUpperCase().trim(),
+        micCode: form.micCode,
         name: form.name.trim() || form.symbol.toUpperCase().trim(),
         broker: form.broker.trim() || 'Sin especificar',
         buyDate: form.buyDate,
@@ -66,7 +68,8 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
                 query={form.name}
                 onQueryChange={(v) => set('name', v)}
                 onSelect={(r) => {
-                  set('symbol', r.exchange ? `${r.symbol}:${r.exchange}` : r.symbol);
+                  set('symbol', r.symbol);
+                  set('micCode', r.micCode || '');
                   set('name', r.name);
                   if (r.currency) set('currency', r.currency);
                 }}
@@ -75,8 +78,18 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
             </div>
             <div className="field">
               <label>Símbolo elegido</label>
-              <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder="ITX:BME" />
-              <div className="hint">Se rellena solo al elegir de la lista. Puedes corregirlo a mano si hace falta.</div>
+              <input
+                value={form.symbol}
+                onChange={(e) => {
+                  set('symbol', e.target.value);
+                  set('micCode', '');
+                }}
+                placeholder="ITX"
+              />
+              <div className="hint">
+                Se rellena solo al elegir de la lista{form.micCode ? ` (bolsa: ${form.micCode})` : ''}. Si lo corriges a
+                mano, se pierde la bolsa asociada — vuelve a buscarlo si la cotización deja de aparecer.
+              </div>
             </div>
           </div>
 
