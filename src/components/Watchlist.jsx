@@ -17,7 +17,7 @@ export default function Watchlist({ watchlist, prices, onNuevo, onComentario, on
       {watchlist.length === 0 ? (
         <div className="empty-state">No estás siguiendo ningún activo todavía.</div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap table-scroll">
           <table>
             <thead>
               <tr>

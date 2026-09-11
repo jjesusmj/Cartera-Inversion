@@ -14,7 +14,7 @@ function agruparPorSimbolo(openLots) {
   return Object.values(grupos);
 }
 
-export default function Cartera({ openLots, prices, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onComentario }) {
+export default function Cartera({ openLots, prices, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onComentario, onBorrarLote }) {
   const [abierto, setAbierto] = useState(null);
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
   const fx = useFxToday(grupos.map((g) => g.currency));
@@ -27,10 +27,14 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
     const precioActual = cotizacion?.price;
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
 
+    // El % no necesita tipo de cambio: es una proporción en la misma divisa,
+    // el cambio se cancela matemáticamente. Así sigue mostrándose aunque
+    // falle la conversión a euros.
+    const plPct = precioActual != null && precioMedio ? (precioActual / precioMedio - 1) * 100 : null;
+
     const valorEUR = precioActual != null && rate != null ? precioActual * cantidad * rate : null;
     const costeEUR = rate != null ? costeOriginal * rate : null;
     const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
-    const plPct = costeEUR ? (plEUR / costeEUR) * 100 : null;
 
     return { ...g, cantidad, precioMedio, precioActual, cotizacion, valorEUR, costeEUR, plEUR, plPct };
   });
@@ -79,7 +83,7 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
       {filas.length === 0 ? (
         <div className="empty-state">Todavía no tienes ninguna compra registrada.</div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap table-scroll">
           <table>
             <thead>
               <tr>
@@ -89,7 +93,8 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                 <th className="num">Precio medio</th>
                 <th className="num">Precio actual</th>
                 <th className="num">Hoy</th>
-                <th className="num">P/L</th>
+                <th className="num">P/L €</th>
+                <th className="num">P/L %</th>
                 <th>Comentario</th>
                 <th></th>
               </tr>
@@ -110,7 +115,10 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                       {f.cotizacion ? fmtPercent(f.cotizacion.changePercent) : '—'}
                     </td>
                     <td className={`num ${f.plEUR >= 0 ? 'gain' : 'loss'}`}>
-                      {f.plEUR != null ? `${fmtMoney(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'}
+                      {f.plEUR != null ? fmtMoney(f.plEUR) : '—'}
+                    </td>
+                    <td className={`num ${f.plPct >= 0 ? 'gain' : 'loss'}`}>
+                      {f.plPct != null ? fmtPercent(f.plPct) : '—'}
                     </td>
                     <td>
                       <ComentarioInline
@@ -127,16 +135,38 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                   {abierto === f.symbol &&
                     f.lotes
                       .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
-                      .map((lote) => (
-                        <tr className="lots-detail" key={lote.id}>
-                          <td colSpan={9}>
-                            Lote del {fmtDate(lote.buyDate)} · {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
-                            {fmtMoney(lote.price, lote.currency)} · {lote.broker}
-                            {lote.remainingQuantity < lote.quantity &&
-                              ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
-                          </td>
-                        </tr>
-                      ))}
+                      .map((lote) => {
+                        const intacto = lote.remainingQuantity === lote.quantity;
+                        return (
+                          <tr className="lots-detail" key={lote.id}>
+                            <td colSpan={10}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                <span>
+                                  Lote del {fmtDate(lote.buyDate)} · {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
+                                  {fmtMoney(lote.price, lote.currency)} · {lote.broker}
+                                  {!intacto &&
+                                    ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
+                                </span>
+                                {intacto ? (
+                                  <button
+                                    className="btn btn-ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm(`¿Borrar este lote de ${f.symbol} del ${fmtDate(lote.buyDate)}? No se puede deshacer.`)) {
+                                        onBorrarLote(lote.id);
+                                      }
+                                    }}
+                                  >
+                                    Borrar
+                                  </button>
+                                ) : (
+                                  <span className="hint">No se puede borrar: ya tiene ventas asociadas</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                 </React.Fragment>
               ))}
             </tbody>

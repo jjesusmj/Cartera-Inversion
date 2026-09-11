@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { fmtMoney, fmtPercent, fmtNumber } from '../lib/format';
 import { useFxToday } from '../lib/useFxToday';
+import AllocationDonut from './AllocationDonut';
 
 export default function Resumen({ openLots, prices, sales }) {
   const grupos = useMemo(() => {
@@ -19,10 +20,16 @@ export default function Resumen({ openLots, prices, sales }) {
     .map((g) => {
       const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
       const precioActual = prices[g.symbol]?.price;
+      const precioMedio = g.coste / g.cantidad;
+
+      // El % es una proporción dentro de la misma divisa: no necesita tipo de
+      // cambio, así que se calcula siempre que haya cotización, aunque falle
+      // la conversión a euros.
+      const plPct = precioActual != null && precioMedio ? (precioActual / precioMedio - 1) * 100 : null;
+
       const valorEUR = precioActual != null && rate != null ? precioActual * g.cantidad * rate : null;
       const costeEUR = rate != null ? g.coste * rate : null;
-      const plEUR = valorEUR != null ? valorEUR - costeEUR : null;
-      const plPct = costeEUR ? (plEUR / costeEUR) * 100 : null;
+      const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
       return { ...g, valorEUR, costeEUR, plEUR, plPct };
     })
     .sort((a, b) => (b.plEUR || 0) - (a.plEUR || 0));
@@ -33,6 +40,8 @@ export default function Resumen({ openLots, prices, sales }) {
   const maxAbsPL = Math.max(1, ...filas.map((f) => Math.abs(f.plPct || 0)));
 
   const totalRealizado = sales.reduce((s, v) => s + v.totalGainEUR, 0);
+
+  const asignacion = filas.filter((f) => f.valorEUR != null).map((f) => ({ label: f.symbol, value: f.valorEUR }));
 
   return (
     <div>
@@ -68,17 +77,25 @@ export default function Resumen({ openLots, prices, sales }) {
         el tipo de cambio de la fecha real de cada compra y venta, que es el que exige Hacienda.
       </p>
 
+      {asignacion.length > 0 && (
+        <>
+          <div className="page-sub" style={{ marginBottom: 10 }}>Asignación de la cartera</div>
+          <AllocationDonut data={asignacion} />
+        </>
+      )}
+
       {filas.length === 0 ? (
         <div className="empty-state">Sin posiciones abiertas todavía.</div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap table-scroll">
           <table>
             <thead>
               <tr>
                 <th>Activo</th>
                 <th className="num">Coste</th>
                 <th className="num">Valor</th>
-                <th className="num">P/L</th>
+                <th className="num">P/L €</th>
+                <th className="num">P/L %</th>
                 <th style={{ width: 160 }}>Relativo</th>
               </tr>
             </thead>
@@ -92,7 +109,10 @@ export default function Resumen({ openLots, prices, sales }) {
                   <td className="num">{f.costeEUR != null ? fmtMoney(f.costeEUR) : '—'}</td>
                   <td className="num">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</td>
                   <td className={`num ${f.plEUR >= 0 ? 'gain' : 'loss'}`}>
-                    {f.plEUR != null ? `${fmtMoney(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'}
+                    {f.plEUR != null ? fmtMoney(f.plEUR) : '—'}
+                  </td>
+                  <td className={`num ${f.plPct >= 0 ? 'gain' : 'loss'}`}>
+                    {f.plPct != null ? fmtPercent(f.plPct) : '—'}
                   </td>
                   <td>
                     <div className="bar-track">

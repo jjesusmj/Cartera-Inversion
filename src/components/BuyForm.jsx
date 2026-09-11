@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SymbolSearch from './SymbolSearch';
+import { BROKERS } from '../lib/brokers';
 
 const DIVISAS = ['EUR', 'USD', 'GBP', 'GBX', 'CHF', 'JPY'];
 
@@ -7,7 +8,7 @@ export default function BuyForm({ onClose, onSubmit }) {
   const [form, setForm] = useState({
     symbol: '',
     name: '',
-    broker: '',
+    broker: BROKERS[0],
     buyDate: new Date().toISOString().slice(0, 10),
     quantity: '',
     price: '',
@@ -78,7 +79,23 @@ export default function BuyForm({ onClose, onSubmit }) {
           <div className="field-row">
             <div className="field">
               <label>Bróker / banco</label>
-              <input value={form.broker} onChange={(e) => set('broker', e.target.value)} placeholder="ING" />
+              <select
+                value={BROKERS.includes(form.broker) ? form.broker : '__otro__'}
+                onChange={(e) => set('broker', e.target.value === '__otro__' ? '' : e.target.value)}
+              >
+                {BROKERS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+                <option value="__otro__">Otro…</option>
+              </select>
+              {!BROKERS.includes(form.broker) && (
+                <input
+                  style={{ marginTop: 8 }}
+                  value={form.broker}
+                  onChange={(e) => set('broker', e.target.value)}
+                  placeholder="Nombre del bróker"
+                />
+              )}
             </div>
             <div className="field">
               <label>Fecha de compra</label>

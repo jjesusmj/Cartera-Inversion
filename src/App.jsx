@@ -18,6 +18,7 @@ import {
   actualizarComentarioLote,
   actualizarComentarioWatch,
   borrarWatch,
+  borrarLote,
   registrarVentaEnFirestore,
 } from './lib/api';
 import { venderFIFO } from './lib/fifo';
@@ -108,6 +109,11 @@ export default function App() {
     setWatchlist((prev) => prev.filter((w) => w.id !== id));
   }
 
+  async function handleBorrarLote(id) {
+    await borrarLote(id);
+    setLots((prev) => prev.filter((l) => l.id !== id));
+  }
+
   function abrirVenta(symbol) {
     const lotesDelSimbolo = openLots.filter((l) => l.symbol === symbol);
     if (lotesDelSimbolo.length === 0) return;
@@ -191,6 +197,7 @@ export default function App() {
                 onNuevaCompra={() => setShowBuyForm(true)}
                 onVender={abrirVenta}
                 onComentario={handleComentarioLote}
+                onBorrarLote={handleBorrarLote}
               />
             )}
             {view === 'watchlist' && (

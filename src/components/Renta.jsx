@@ -101,7 +101,7 @@ export default function Renta({ sales }) {
       {resumen.ventas.length === 0 ? (
         <div className="empty-state">No hay ventas registradas en {anio}.</div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap table-scroll">
           <table>
             <thead>
               <tr>
