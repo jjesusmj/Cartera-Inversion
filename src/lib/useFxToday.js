@@ -12,11 +12,22 @@ export function useFxToday(currencies) {
     const unicas = [...new Set(currencies)].filter((c) => c && c !== 'EUR');
     if (unicas.length === 0) return;
     const hoy = new Date().toISOString().slice(0, 10);
-    Promise.all(unicas.map((c) => obtenerTipoCambio(hoy, c).then((r) => [c, r]))).then((pairs) => {
-      setRates((prev) => ({ ...prev, EUR: 1, ...Object.fromEntries(pairs) }));
+    Promise.all(
+      unicas.map((c) =>
+        obtenerTipoCambio(hoy, c)
+          .then((r) => [c, r])
+          .catch((err) => {
+            console.error(`No se pudo obtener el tipo de cambio de ${c}:`, err);
+            return [c, null];
+          })
+      )
+    ).then((pairs) => {
+      const validas = pairs.filter(([, r]) => r != null);
+      setRates((prev) => ({ ...prev, EUR: 1, ...Object.fromEntries(validas) }));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currencies.join(',')]);
 
   return { EUR: 1, ...rates };
 }
+
