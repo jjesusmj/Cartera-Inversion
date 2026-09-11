@@ -100,7 +100,7 @@ export async function obtenerTipoCambio(fecha, desde, hasta = 'EUR') {
   const key = `${fecha}_${desde}_${hasta}`;
   if (fxCache.has(key)) return fxCache.get(key);
 
-  const res = await fetch(`https://api.frankfurter.app/${fecha}?from=${desde}&to=${hasta}`);
+  const res = await fetch(`https://api.frankfurter.dev/v1/${fecha}?from=${desde}&to=${hasta}`);
   if (!res.ok) throw new Error(`No se pudo obtener el tipo de cambio ${desde}->${hasta} para ${fecha}.`);
   const data = await res.json();
   const rate = data.rates[hasta];
