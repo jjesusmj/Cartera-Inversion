@@ -7,9 +7,10 @@ export default function Resumen({ openLots, prices, sales }) {
   const grupos = useMemo(() => {
     const g = {};
     for (const lot of openLots) {
-      if (!g[lot.symbol]) g[lot.symbol] = { symbol: lot.symbol, name: lot.name, currency: lot.currency, cantidad: 0, coste: 0 };
+      if (!g[lot.symbol]) g[lot.symbol] = { symbol: lot.symbol, name: lot.name, currency: lot.currency, cantidad: 0, coste: 0, manualPrice: null };
       g[lot.symbol].cantidad += lot.remainingQuantity;
       g[lot.symbol].coste += lot.price * lot.remainingQuantity;
+      if (g[lot.symbol].manualPrice == null && lot.manualPrice != null) g[lot.symbol].manualPrice = lot.manualPrice;
     }
     return Object.values(g);
   }, [openLots]);
@@ -19,7 +20,7 @@ export default function Resumen({ openLots, prices, sales }) {
   const filas = grupos
     .map((g) => {
       const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
-      const precioActual = prices[g.symbol]?.price;
+      const precioActual = prices[g.symbol]?.price ?? g.manualPrice ?? undefined;
       const precioMedio = g.coste / g.cantidad;
 
       // El % es una proporción dentro de la misma divisa: no necesita tipo de

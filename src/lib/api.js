@@ -91,11 +91,14 @@ export async function borrarWatch(id) {
 // ---------- Cotizaciones (vía nuestra función serverless, oculta la API key) ----------
 
 export async function obtenerCotizaciones(items) {
-  // items: [{ symbol, micCode }]
+  // items: [{ symbol, micCode, currency }]
   if (items.length === 0) return {};
   const symbols = items.map((i) => i.symbol).join(',');
   const micCodes = items.map((i) => i.micCode || '').join(',');
-  const res = await fetch(`/api/prices?symbols=${encodeURIComponent(symbols)}&micCodes=${encodeURIComponent(micCodes)}`);
+  const currencies = items.map((i) => i.currency || '').join(',');
+  const res = await fetch(
+    `/api/prices?symbols=${encodeURIComponent(symbols)}&micCodes=${encodeURIComponent(micCodes)}&currencies=${encodeURIComponent(currencies)}`
+  );
   if (!res.ok) throw new Error('No se pudieron obtener las cotizaciones.');
   return res.json(); // { SYMBOL: { price, changePercent, currency } }
 }

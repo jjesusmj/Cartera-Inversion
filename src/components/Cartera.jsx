@@ -24,7 +24,9 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
     const costeOriginal = g.lotes.reduce((s, l) => s + l.price * l.remainingQuantity, 0);
     const precioMedio = costeOriginal / cantidad;
     const cotizacion = prices[g.symbol];
-    const precioActual = cotizacion?.price;
+    const manualPrice = g.lotes.find((l) => l.manualPrice != null)?.manualPrice ?? null;
+    const precioActual = cotizacion?.price ?? manualPrice ?? undefined;
+    const esManual = cotizacion?.price == null && manualPrice != null;
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
 
     // El % no necesita tipo de cambio: es una proporción en la misma divisa,
@@ -36,7 +38,7 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
     const costeEUR = rate != null ? costeOriginal * rate : null;
     const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
 
-    return { ...g, cantidad, precioMedio, precioActual, cotizacion, valorEUR, costeEUR, plEUR, plPct };
+    return { ...g, cantidad, precioMedio, precioActual, esManual, cotizacion, valorEUR, costeEUR, plEUR, plPct };
   });
 
   const totalValor = filas.reduce((s, f) => s + (f.valorEUR || 0), 0);
@@ -111,7 +113,10 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                     <td>{[...f.brokers].join(', ')}</td>
                     <td className="num">{fmtNumber(f.cantidad, 2)}</td>
                     <td className="num">{fmtMoney(f.precioMedio, f.currency)}</td>
-                    <td className="num">{f.precioActual != null ? fmtMoney(f.precioActual, f.currency) : '—'}</td>
+                    <td className="num">
+                      {f.precioActual != null ? fmtMoney(f.precioActual, f.currency) : '—'}
+                      {f.esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
+                    </td>
                     <td className={`num ${f.cotizacion?.changePercent >= 0 ? 'gain' : 'loss'}`}>
                       {f.cotizacion ? fmtPercent(f.cotizacion.changePercent) : '—'}
                     </td>

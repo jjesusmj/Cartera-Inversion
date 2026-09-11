@@ -61,8 +61,8 @@ export default function App() {
 
   const allSymbols = useMemo(() => {
     const m = new Map();
-    openLots.forEach((l) => m.set(l.symbol, { symbol: l.symbol, micCode: l.micCode }));
-    watchlist.forEach((w) => m.set(w.symbol, { symbol: w.symbol, micCode: w.micCode }));
+    openLots.forEach((l) => m.set(l.symbol, { symbol: l.symbol, micCode: l.micCode, currency: l.currency }));
+    watchlist.forEach((w) => m.set(w.symbol, { symbol: w.symbol, micCode: w.micCode, currency: w.currency }));
     return [...m.values()];
   }, [openLots, watchlist]);
 

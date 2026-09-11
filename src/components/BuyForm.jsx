@@ -20,6 +20,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
     currency: initial?.currency || 'EUR',
     commission: initial?.commission ?? '0',
     comment: initial?.comment || '',
+    manualPrice: initial?.manualPrice ?? '',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -27,6 +28,8 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
+
+  const esUSD = form.currency === 'USD';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -47,6 +50,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
         currency: form.currency,
         commission: parseFloat(form.commission || 0),
         comment: form.comment.trim(),
+        manualPrice: form.manualPrice === '' ? null : parseFloat(form.manualPrice),
       });
     } catch (err) {
       setError(err.message);
@@ -84,12 +88,18 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
                   set('symbol', e.target.value);
                   set('micCode', '');
                 }}
-                placeholder="ITX"
+                placeholder={esUSD ? 'FN' : 'ITX.MC'}
               />
-              <div className="hint">
-                Se rellena solo al elegir de la lista{form.micCode ? ` (bolsa: ${form.micCode})` : ''}. Si lo corriges a
-                mano, se pierde la bolsa asociada — vuelve a buscarlo si la cotización deja de aparecer.
-              </div>
+              {esUSD ? (
+                <div className="hint">
+                  Se rellena solo al elegir de la lista{form.micCode ? ` (bolsa: ${form.micCode})` : ''}.
+                </div>
+              ) : (
+                <div className="hint">
+                  Al no ser USD, la cotización se busca en Yahoo Finance: el símbolo debe llevar el sufijo de bolsa
+                  (ITX.MC, SAN.MC, ENI.MI, TEP.PA, IAG.L…), no solo el ticker sin más.
+                </div>
+              )}
             </div>
           </div>
 
@@ -144,6 +154,18 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
               <label>Comisión</label>
               <input type="number" step="any" value={form.commission} onChange={(e) => set('commission', e.target.value)} />
             </div>
+          </div>
+
+          <div className="field">
+            <label>Precio manual (red de seguridad, opcional)</label>
+            <input
+              type="number"
+              step="any"
+              value={form.manualPrice}
+              onChange={(e) => set('manualPrice', e.target.value)}
+              placeholder="Solo se usa si falla la cotización automática"
+            />
+            <div className="hint">Si un día no llega cotización automática, se usa este precio en su lugar.</div>
           </div>
 
           <div className="field">

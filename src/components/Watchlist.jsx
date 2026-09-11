@@ -31,13 +31,18 @@ export default function Watchlist({ watchlist, prices, onNuevo, onComentario, on
             <tbody>
               {watchlist.map((w) => {
                 const q = prices[w.symbol];
+                const precio = q?.price ?? w.manualPrice ?? null;
+                const esManual = q?.price == null && w.manualPrice != null;
                 return (
                   <tr key={w.id}>
                     <td>
                       <span className="symbol">{w.symbol}</span>
                       <span className="symbol-name">{w.name}</span>
                     </td>
-                    <td className="num">{q ? fmtMoney(q.price, q.currency) : '—'}</td>
+                    <td className="num">
+                      {precio != null ? fmtMoney(precio, q?.currency || w.currency) : '—'}
+                      {esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
+                    </td>
                     <td className={`num ${q?.changePercent >= 0 ? 'gain' : 'loss'}`}>
                       {q ? fmtPercent(q.changePercent) : '—'}
                     </td>
