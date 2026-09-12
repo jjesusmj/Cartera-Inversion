@@ -7,6 +7,7 @@ import Renta from './components/Renta';
 import BuyForm from './components/BuyForm';
 import SaleForm from './components/SaleForm';
 import WatchForm from './components/WatchForm';
+import NotesModal from './components/NotesModal';
 import {
   listarLotes,
   listarVentas,
@@ -15,9 +16,10 @@ import {
   obtenerTipoCambio,
   crearLote,
   crearWatch,
-  actualizarComentarioLote,
   actualizarLote,
-  actualizarComentarioWatch,
+  actualizarWatch,
+  anadirNotaLote,
+  anadirNotaWatch,
   borrarWatch,
   borrarLote,
   registrarVentaEnFirestore,
@@ -37,7 +39,9 @@ export default function App() {
   const [showBuyForm, setShowBuyForm] = useState(false);
   const [editLote, setEditLote] = useState(null);
   const [showWatchForm, setShowWatchForm] = useState(false);
+  const [editWatch, setEditWatch] = useState(null);
   const [sellTarget, setSellTarget] = useState(null); // { symbol, name, currency, openLots }
+  const [notasTarget, setNotasTarget] = useState(null); // { tipo: 'lote'|'watch', ids, notas, titulo }
 
   const cargarTodo = useCallback(async () => {
     setLoading(true);
@@ -96,14 +100,10 @@ export default function App() {
     cargarTodo();
   }
 
-  async function handleComentarioLote(id, comment) {
-    await actualizarComentarioLote(id, comment);
-    setLots((prev) => prev.map((l) => (l.id === id ? { ...l, comment } : l)));
-  }
-
-  async function handleComentarioWatch(id, comment) {
-    await actualizarComentarioWatch(id, comment);
-    setWatchlist((prev) => prev.map((w) => (w.id === id ? { ...w, comment } : w)));
+  async function handleEditarWatch(data) {
+    await actualizarWatch(editWatch.id, data);
+    setEditWatch(null);
+    cargarTodo();
   }
 
   async function handleBorrarWatch(id) {
@@ -119,6 +119,29 @@ export default function App() {
   async function handleEditarLote(datos) {
     await actualizarLote(editLote.id, datos);
     setEditLote(null);
+    cargarTodo();
+  }
+
+  // --- Cuaderno de notas: una nota se añade a todos los lotes del mismo
+  // símbolo a la vez (misma lógica que ya usaba el comentario único antes),
+  // porque representan la misma tesis de inversión aunque haya varias compras.
+  function abrirNotasLote(grupo) {
+    setNotasTarget({
+      tipo: 'lote',
+      ids: grupo.lotes.map((l) => l.id),
+      notas: grupo.lotes[0].notes || [],
+      titulo: grupo.symbol,
+    });
+  }
+
+  function abrirNotasWatch(w) {
+    setNotasTarget({ tipo: 'watch', ids: [w.id], notas: w.notes || [], titulo: w.symbol });
+  }
+
+  async function handleAgregarNota(texto) {
+    const fn = notasTarget.tipo === 'lote' ? anadirNotaLote : anadirNotaWatch;
+    await Promise.all(notasTarget.ids.map((id) => fn(id, texto)));
+    setNotasTarget((t) => ({ ...t, notas: [...t.notas, { date: new Date().toISOString(), text: texto }] }));
     cargarTodo();
   }
 
@@ -204,7 +227,7 @@ export default function App() {
                 onRefreshPrices={refreshPrices}
                 onNuevaCompra={() => setShowBuyForm(true)}
                 onVender={abrirVenta}
-                onComentario={handleComentarioLote}
+                onAbrirNotas={abrirNotasLote}
                 onBorrarLote={handleBorrarLote}
                 onEditarLote={setEditLote}
               />
@@ -214,7 +237,8 @@ export default function App() {
                 watchlist={watchlist}
                 prices={prices}
                 onNuevo={() => setShowWatchForm(true)}
-                onComentario={handleComentarioWatch}
+                onEditar={setEditWatch}
+                onAbrirNotas={abrirNotasWatch}
                 onBorrar={handleBorrarWatch}
               />
             )}
@@ -229,8 +253,19 @@ export default function App() {
         <BuyForm initial={editLote} onClose={() => setEditLote(null)} onSubmit={handleEditarLote} />
       )}
       {showWatchForm && <WatchForm onClose={() => setShowWatchForm(false)} onSubmit={handleAddWatch} />}
+      {editWatch && (
+        <WatchForm initial={editWatch} onClose={() => setEditWatch(null)} onSubmit={handleEditarWatch} />
+      )}
       {sellTarget && (
         <SaleForm target={sellTarget} onClose={() => setSellTarget(null)} onSubmit={handleConfirmarVenta} />
+      )}
+      {notasTarget && (
+        <NotesModal
+          titulo={notasTarget.titulo}
+          notas={notasTarget.notas}
+          onAdd={handleAgregarNota}
+          onClose={() => setNotasTarget(null)}
+        />
       )}
     </div>
   );

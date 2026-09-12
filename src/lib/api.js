@@ -7,6 +7,7 @@ import {
   getDocs,
   writeBatch,
   serverTimestamp,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -32,6 +33,10 @@ export async function listarLotes() {
 
 export async function actualizarComentarioLote(id, comment) {
   return updateDoc(doc(db, 'lots', id), { comment });
+}
+
+export async function anadirNotaLote(id, texto) {
+  return updateDoc(doc(db, 'lots', id), { notes: arrayUnion({ date: new Date().toISOString(), text: texto }) });
 }
 
 export async function actualizarLote(id, datos) {
@@ -75,6 +80,10 @@ export async function crearWatch(item) {
   return addDoc(watchlistCol, { ...item, createdAt: serverTimestamp() });
 }
 
+export async function actualizarWatch(id, datos) {
+  return updateDoc(doc(db, 'watchlist', id), datos);
+}
+
 export async function listarWatch() {
   const snap = await getDocs(watchlistCol);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -82,6 +91,10 @@ export async function listarWatch() {
 
 export async function actualizarComentarioWatch(id, comment) {
   return updateDoc(doc(db, 'watchlist', id), { comment });
+}
+
+export async function anadirNotaWatch(id, texto) {
+  return updateDoc(doc(db, 'watchlist', id), { notes: arrayUnion({ date: new Date().toISOString(), text: texto }) });
 }
 
 export async function borrarWatch(id) {

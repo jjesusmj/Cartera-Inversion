@@ -9,6 +9,9 @@
 //    puede cambiar o bloquearse sin aviso. Si falla, el frontend usa el
 //    precio manual guardado en el lote como red de seguridad.
 //
+// Incluye también el máximo y mínimo de las últimas 52 semanas: ambas APIs
+// ya lo traen en la misma llamada, así que no cuesta ninguna petición extra.
+//
 // Solo se llama cuando el usuario abre la app o pulsa "Actualizar" (no hay
 // polling continuo).
 //
@@ -29,6 +32,8 @@ async function cotizacionTwelveData(symbol, micCode, apiKey) {
     price: parseFloat(quote.close),
     changePercent: parseFloat(quote.percent_change),
     currency: quote.currency,
+    week52Low: quote.fifty_two_week ? parseFloat(quote.fifty_two_week.low) : null,
+    week52High: quote.fifty_two_week ? parseFloat(quote.fifty_two_week.high) : null,
   };
 }
 
@@ -56,6 +61,8 @@ async function cotizacionYahoo(symbol) {
     price: meta.regularMarketPrice,
     changePercent,
     currency: meta.currency,
+    week52Low: meta.fiftyTwoWeekLow ?? null,
+    week52High: meta.fiftyTwoWeekHigh ?? null,
   };
 }
 

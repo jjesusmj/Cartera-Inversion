@@ -7,7 +7,30 @@ function alertaActiva(item, precio) {
   return precio <= item.alertPrice;
 }
 
-export default function Watchlist({ watchlist, prices, onNuevo, onComentario, onBorrar }) {
+function distanciaAlerta(item, precio) {
+  if (item.alertPrice == null || precio == null || !item.alertPrice) return null;
+  const pct = (precio / item.alertPrice - 1) * 100;
+  return pct;
+}
+
+function RangoSemanas({ q }) {
+  if (q?.week52Low == null || q?.week52High == null || q.price == null) return null;
+  const { week52Low: low, week52High: high, price } = q;
+  const pct = high > low ? ((price - low) / (high - low)) * 100 : 50;
+  return (
+    <div>
+      <div className="range-bar">
+        <div className="range-marker" style={{ left: `${Math.min(100, Math.max(0, pct))}%` }} />
+      </div>
+      <div className="range-labels">
+        <span>{fmtMoney(low, q.currency)}</span>
+        <span>{fmtMoney(high, q.currency)}</span>
+      </div>
+    </div>
+  );
+}
+
+export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorrar, onAbrirNotas }) {
   return (
     <div>
       <div className="page-head">
@@ -30,7 +53,8 @@ export default function Watchlist({ watchlist, prices, onNuevo, onComentario, on
                 <th>Activo</th>
                 <th className="num">Precio actual</th>
                 <th className="num">Hoy</th>
-                <th>Comentario / posible entrada</th>
+                <th>Rango 52 semanas</th>
+                <th>Cuaderno</th>
                 <th></th>
               </tr>
             </thead>
@@ -40,12 +64,22 @@ export default function Watchlist({ watchlist, prices, onNuevo, onComentario, on
                 const precio = q?.price ?? w.manualPrice ?? null;
                 const esManual = q?.price == null && w.manualPrice != null;
                 const conAlerta = alertaActiva(w, precio);
+                const distancia = distanciaAlerta(w, precio);
+                const notas = w.notes || [];
+                const ultimaNota = notas.length ? notas[notas.length - 1].text : w.comment;
+
                 return (
                   <tr key={w.id} className={conAlerta ? 'row-alert' : ''}>
                     <td>
                       <span className="symbol">{w.symbol}</span>
                       {conAlerta && <span className="tag" style={{ marginLeft: 8, borderColor: 'var(--accent)', color: 'var(--accent)' }}>alerta</span>}
                       <span className="symbol-name">{w.name}</span>
+                      {w.alertPrice != null && (
+                        <div className="alert-info">
+                          Alerta si {w.alertDirection === 'above' ? 'sube de' : 'baja de'} {fmtMoney(w.alertPrice, w.currency)}
+                          {distancia != null && ` · a ${fmtPercent(distancia)} de esa alerta`}
+                        </div>
+                      )}
                     </td>
                     <td className="num">
                       {precio != null ? fmtMoney(precio, q?.currency || w.currency) : '—'}
@@ -54,13 +88,18 @@ export default function Watchlist({ watchlist, prices, onNuevo, onComentario, on
                     <td className={`num ${q?.changePercent >= 0 ? 'gain' : 'loss'}`}>
                       {q ? fmtPercent(q.changePercent) : '—'}
                     </td>
+                    <td><RangoSemanas q={q} /></td>
                     <td>
-                      <ComentarioInline valor={w.comment} onGuardar={(texto) => onComentario(w.id, texto)} />
+                      <button className="btn btn-ghost" onClick={() => onAbrirNotas(w)}>
+                        {ultimaNota ? `"${ultimaNota.slice(0, 24)}${ultimaNota.length > 24 ? '…' : ''}"` : 'Añadir nota'}
+                        {notas.length > 1 && ` (${notas.length})`}
+                      </button>
                     </td>
                     <td>
-                      <button className="btn btn-ghost" onClick={() => onBorrar(w.id)}>
-                        Quitar
-                      </button>
+                      <div className="btn-row">
+                        <button className="btn btn-ghost" onClick={() => onEditar(w)}>Editar</button>
+                        <button className="btn btn-ghost" onClick={() => onBorrar(w.id)}>Quitar</button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -69,41 +108,6 @@ export default function Watchlist({ watchlist, prices, onNuevo, onComentario, on
           </table>
         </div>
       )}
-    </div>
-  );
-}
-
-function ComentarioInline({ valor, onGuardar }) {
-  const [editando, setEditando] = useState(false);
-  const [texto, setTexto] = useState(valor || '');
-
-  if (editando) {
-    return (
-      <input
-        autoFocus
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        onBlur={() => {
-          setEditando(false);
-          onGuardar(texto);
-        }}
-        onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
-        style={{
-          width: '100%',
-          background: 'var(--bg-inset)',
-          border: '1px solid var(--line)',
-          color: 'var(--ink)',
-          padding: '4px 6px',
-          fontSize: '12.5px',
-          borderRadius: '3px',
-        }}
-      />
-    );
-  }
-
-  return (
-    <div className={`comment-cell ${!valor ? 'empty' : ''}`} onClick={() => setEditando(true)} title="Clic para editar">
-      {valor || 'Añadir nota…'}
     </div>
   );
 }

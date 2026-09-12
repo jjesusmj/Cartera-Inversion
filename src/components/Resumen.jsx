@@ -55,6 +55,11 @@ export default function Resumen({ lots, openLots, prices, sales }) {
   const mejor = conPL.length ? conPL.reduce((a, b) => (b.plPct > a.plPct ? b : a)) : null;
   const peor = conPL.length ? conPL.reduce((a, b) => (b.plPct < a.plPct ? b : a)) : null;
 
+  const UMBRAL_CONCENTRACION = 0.25;
+  const concentradas = totalValor > 0
+    ? filasSinOrdenar.filter((f) => f.valorEUR != null && f.valorEUR / totalValor > UMBRAL_CONCENTRACION)
+    : [];
+
   // --- XIRR: rentabilidad anualizada teniendo en cuenta la fecha de cada operación ---
   const paresFx = lots.map((l) => ({ date: l.buyDate, currency: l.currency }));
   const rateFor = useFxHistorico(paresFx);
@@ -118,6 +123,15 @@ export default function Resumen({ lots, openLots, prices, sales }) {
         de la pestaña Declaración usa el tipo de cambio de la fecha real de cada compra y venta, que es el que
         exige Hacienda.
       </p>
+
+      {concentradas.length > 0 && (
+        <div className="warn-box">
+          {concentradas
+            .map((f) => `${f.symbol} es el ${((f.valorEUR / totalValor) * 100).toFixed(0)}% de tu cartera`)
+            .join(' · ')}
+          . Una sola posición pesando tanto significa que su comportamiento individual mueve el conjunto entero.
+        </div>
+      )}
 
       {(mejor || peor) && (
         <div className="callout-row">

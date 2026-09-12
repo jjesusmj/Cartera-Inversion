@@ -12,6 +12,11 @@ export default function Renta({ sales }) {
   const [anio, setAnio] = useState(aniosDisponibles[0] || new Date().getFullYear());
   const resumen = resumenPorAnio(sales, anio);
 
+  const hoy = new Date();
+  const anioActual = hoy.getFullYear();
+  const resumenAnioActual = resumenPorAnio(sales, anioActual);
+  const mostrarAvisoCierre = hoy.getMonth() >= 9 && resumenAnioActual.perdidas < 0; // octubre en adelante
+
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
 
@@ -71,6 +76,14 @@ export default function Renta({ sales }) {
           </button>
         </div>
       </div>
+
+      {mostrarAvisoCierre && (
+        <div className="warn-box">
+          Llevas {fmtMoney(resumenAnioActual.perdidas)} en pérdidas realizadas en {anioActual}. Si tienes posiciones
+          ganadoras y las vendes antes de que acabe el año, esa ganancia podría compensarse con estas pérdidas en la
+          declaración — merece la pena revisarlo con tiempo, no en el último día de diciembre.
+        </div>
+      )}
 
       <div className="kpi-row">
         <div className="kpi">

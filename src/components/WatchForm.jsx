@@ -2,16 +2,21 @@ import React, { useState } from 'react';
 import SymbolSearch from './SymbolSearch';
 import { EXCHANGES, exchangeById } from '../lib/exchanges';
 
-export default function WatchForm({ onClose, onSubmit }) {
+// Sirve para crear un seguimiento nuevo o editar uno existente: si se pasa
+// `initial`, arranca precargado y cambia a modo edición.
+export default function WatchForm({ onClose, onSubmit, initial }) {
+  const esEdicion = !!initial;
+  const exchangeInicial = initial?.exchangeId || (initial?.currency === 'USD' ? 'us' : 'es');
+
   const [form, setForm] = useState({
-    exchangeId: 'us',
-    symbol: '',
-    micCode: '',
-    name: '',
-    comment: '',
-    manualPrice: '',
-    alertPrice: '',
-    alertDirection: 'below',
+    exchangeId: exchangeInicial,
+    symbol: initial?.symbol || '',
+    micCode: initial?.micCode || '',
+    name: initial?.name || '',
+    comment: initial?.comment || '',
+    manualPrice: initial?.manualPrice ?? '',
+    alertPrice: initial?.alertPrice ?? '',
+    alertDirection: initial?.alertDirection || 'below',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -52,7 +57,7 @@ export default function WatchForm({ onClose, onSubmit }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Añadir a seguimiento</h3>
+        <h3>{esEdicion ? 'Editar seguimiento' : 'Añadir a seguimiento'}</h3>
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field">
@@ -121,7 +126,7 @@ export default function WatchForm({ onClose, onSubmit }) {
           <div className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={enviando}>
-              {enviando ? 'Guardando…' : 'Guardar'}
+              {enviando ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Guardar'}
             </button>
           </div>
         </form>
