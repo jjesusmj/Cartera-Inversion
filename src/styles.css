@@ -591,3 +591,11 @@ tr.row-clickable:hover { background: var(--bg-inset); }
   width: 110px;
   margin-top: 2px;
 }
+
+.cell-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-top: 2px;
+  font-weight: 400;
+}

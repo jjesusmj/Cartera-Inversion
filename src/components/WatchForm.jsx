@@ -15,6 +15,8 @@ export default function WatchForm({ onClose, onSubmit, initial }) {
     name: initial?.name || '',
     comment: initial?.comment || '',
     manualPrice: initial?.manualPrice ?? '',
+    entryLow: initial?.entryLow ?? '',
+    entryHigh: initial?.entryHigh ?? '',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -42,6 +44,8 @@ export default function WatchForm({ onClose, onSubmit, initial }) {
         currency: exchange.currency,
         comment: form.comment.trim(),
         manualPrice: form.manualPrice === '' ? null : parseFloat(form.manualPrice),
+        entryLow: form.entryLow === '' ? null : parseFloat(form.entryLow),
+        entryHigh: form.entryHigh === '' ? null : parseFloat(form.entryHigh),
       });
     } catch (err) {
       setError(err.message);
@@ -101,6 +105,16 @@ export default function WatchForm({ onClose, onSubmit, initial }) {
               value={form.manualPrice}
               onChange={(e) => set('manualPrice', e.target.value)}
             />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Entrada (avisar si baja de, opcional)</label>
+              <input type="number" step="any" value={form.entryLow} onChange={(e) => set('entryLow', e.target.value)} placeholder="Ej. 140" />
+            </div>
+            <div className="field">
+              <label>Ruptura (avisar si sube de, opcional)</label>
+              <input type="number" step="any" value={form.entryHigh} onChange={(e) => set('entryHigh', e.target.value)} placeholder="Ej. 160" />
+            </div>
           </div>
           <div className="field">
             <label>Comentario (posible punto de entrada)</label>

@@ -46,10 +46,13 @@ function EditableEntry({ valor, precio, currency, onGuardar }) {
   return (
     <span
       onClick={() => { setTexto(valor ?? ''); setEditando(true); }}
-      style={{ cursor: 'pointer', borderBottom: '1px dashed var(--line)', color: valor != null ? 'var(--accent)' : 'var(--ink-faint)' }}
+      style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'right' }}
       title="Clic para editar"
     >
-      {valor != null ? `${fmtMoney(valor, currency)}${dist != null ? ` · a ${fmtPercent(dist)}` : ''}` : '—'}
+      <span style={{ color: valor != null ? 'var(--accent)' : 'var(--ink-faint)', borderBottom: '1px dashed var(--line)' }}>
+        {valor != null ? fmtMoney(valor, currency) : '—'}
+      </span>
+      {dist != null && <span className="cell-sub">a {fmtPercent(dist)}</span>}
     </span>
   );
 }

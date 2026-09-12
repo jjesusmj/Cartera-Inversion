@@ -152,6 +152,7 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
                       <td className="num" onClick={(e) => e.stopPropagation()}>
                         <EditableNumber
                           valor={f.stopPrice}
+                          precioActual={f.precioActual}
                           resaltado={f.stopSaltado}
                           color="loss"
                           onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)}
@@ -160,6 +161,7 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
                       <td className="num" onClick={(e) => e.stopPropagation()}>
                         <EditableNumber
                           valor={f.targetPrice}
+                          precioActual={f.precioActual}
                           resaltado={f.objetivoSaltado}
                           color="gain"
                           onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)}
@@ -272,9 +274,10 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
   );
 }
 
-function EditableNumber({ valor, resaltado, color, onGuardar }) {
+function EditableNumber({ valor, precioActual, resaltado, color, onGuardar }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(valor ?? '');
+  const dist = valor != null && precioActual != null && valor ? (precioActual / valor - 1) * 100 : null;
 
   if (editando) {
     return (
@@ -306,16 +309,13 @@ function EditableNumber({ valor, resaltado, color, onGuardar }) {
   return (
     <span
       onClick={() => { setTexto(valor ?? ''); setEditando(true); }}
-      className={color}
-      style={{
-        cursor: 'pointer',
-        borderBottom: '1px dashed var(--line)',
-        fontWeight: resaltado ? 700 : 400,
-        opacity: valor != null ? 1 : 0.5,
-      }}
+      style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'right' }}
       title="Clic para editar"
     >
-      {valor != null ? valor : '—'}
+      <span className={color} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5 }}>
+        {valor != null ? valor : '—'}
+      </span>
+      {dist != null && <span className="cell-sub">a {fmtPercent(dist)}</span>}
     </span>
   );
 }
