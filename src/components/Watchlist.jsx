@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { fmtMoney, fmtPercent } from '../lib/format';
 
+function alertaActiva(item, precio) {
+  if (item.alertPrice == null || precio == null) return false;
+  if (item.alertDirection === 'above') return precio >= item.alertPrice;
+  return precio <= item.alertPrice;
+}
+
 export default function Watchlist({ watchlist, prices, onNuevo, onComentario, onBorrar }) {
   return (
     <div>
@@ -33,10 +39,12 @@ export default function Watchlist({ watchlist, prices, onNuevo, onComentario, on
                 const q = prices[w.symbol];
                 const precio = q?.price ?? w.manualPrice ?? null;
                 const esManual = q?.price == null && w.manualPrice != null;
+                const conAlerta = alertaActiva(w, precio);
                 return (
-                  <tr key={w.id}>
+                  <tr key={w.id} className={conAlerta ? 'row-alert' : ''}>
                     <td>
                       <span className="symbol">{w.symbol}</span>
+                      {conAlerta && <span className="tag" style={{ marginLeft: 8, borderColor: 'var(--accent)', color: 'var(--accent)' }}>alerta</span>}
                       <span className="symbol-name">{w.name}</span>
                     </td>
                     <td className="num">

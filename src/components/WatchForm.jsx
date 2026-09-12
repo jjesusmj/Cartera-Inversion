@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import SymbolSearch from './SymbolSearch';
-
-const DIVISAS = ['USD', 'EUR', 'GBP', 'GBX', 'CHF', 'JPY'];
+import { EXCHANGES, exchangeById } from '../lib/exchanges';
 
 export default function WatchForm({ onClose, onSubmit }) {
   const [form, setForm] = useState({
+    exchangeId: 'us',
     symbol: '',
     micCode: '',
     name: '',
-    currency: 'USD',
     comment: '',
     manualPrice: '',
+    alertPrice: '',
+    alertDirection: 'below',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -19,7 +20,8 @@ export default function WatchForm({ onClose, onSubmit }) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  const esUSD = form.currency === 'USD';
+  const exchange = exchangeById(form.exchangeId);
+  const esUSD = exchange.id === 'us';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -30,12 +32,15 @@ export default function WatchForm({ onClose, onSubmit }) {
     setEnviando(true);
     try {
       await onSubmit({
+        exchangeId: form.exchangeId,
         symbol: form.symbol.toUpperCase().trim(),
         micCode: form.micCode,
         name: form.name.trim() || form.symbol.toUpperCase().trim(),
-        currency: form.currency,
+        currency: exchange.currency,
         comment: form.comment.trim(),
         manualPrice: form.manualPrice === '' ? null : parseFloat(form.manualPrice),
+        alertPrice: form.alertPrice === '' ? null : parseFloat(form.alertPrice),
+        alertDirection: form.alertDirection,
       });
     } catch (err) {
       setError(err.message);
@@ -51,42 +56,41 @@ export default function WatchForm({ onClose, onSubmit }) {
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field">
+            <label>Bolsa</label>
+            <select value={form.exchangeId} onChange={(e) => set('exchangeId', e.target.value)}>
+              {EXCHANGES.map((ex) => (
+                <option key={ex.id} value={ex.id}>{ex.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
             <label>Empresa (busca por nombre)</label>
             <SymbolSearch
               query={form.name}
               onQueryChange={(v) => set('name', v)}
               onSelect={(r) => {
-                set('symbol', r.symbol);
-                set('micCode', r.micCode || '');
+                if (esUSD) {
+                  set('symbol', r.symbol);
+                  set('micCode', r.micCode || '');
+                } else {
+                  set('symbol', `${r.symbol}${exchange.yahooSuffix}`);
+                  set('micCode', '');
+                }
                 set('name', r.name);
-                if (r.currency) set('currency', r.currency);
               }}
               placeholder="Nvidia"
             />
           </div>
-          <div className="field-row">
-            <div className="field">
-              <label>Símbolo elegido</label>
-              <input
-                value={form.symbol}
-                onChange={(e) => {
-                  set('symbol', e.target.value);
-                  set('micCode', '');
-                }}
-                placeholder={esUSD ? 'NVDA' : 'ITX.MC'}
-              />
-              {!esUSD && (
-                <div className="hint">Al no ser USD, va por Yahoo Finance: incluye el sufijo de bolsa (.MC, .MI, .PA, .L…).</div>
-              )}
-            </div>
-            <div className="field">
-              <label>Divisa</label>
-              <select value={form.currency} onChange={(e) => set('currency', e.target.value)}>
-                {[...new Set([...DIVISAS, form.currency])].map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
+          <div className="field">
+            <label>Símbolo elegido</label>
+            <input
+              value={form.symbol}
+              onChange={(e) => {
+                set('symbol', e.target.value);
+                set('micCode', '');
+              }}
+              placeholder={esUSD ? 'NVDA' : `ITX${exchange.yahooSuffix}`}
+            />
           </div>
           <div className="field">
             <label>Precio manual (red de seguridad, opcional)</label>
@@ -95,8 +99,20 @@ export default function WatchForm({ onClose, onSubmit }) {
               step="any"
               value={form.manualPrice}
               onChange={(e) => set('manualPrice', e.target.value)}
-              placeholder="Solo se usa si falla la cotización automática"
             />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Alerta de precio (opcional)</label>
+              <input type="number" step="any" value={form.alertPrice} onChange={(e) => set('alertPrice', e.target.value)} placeholder="Ej. 40" />
+            </div>
+            <div className="field">
+              <label>Avisar cuando el precio…</label>
+              <select value={form.alertDirection} onChange={(e) => set('alertDirection', e.target.value)}>
+                <option value="below">baje de ese valor</option>
+                <option value="above">suba de ese valor</option>
+              </select>
+            </div>
           </div>
           <div className="field">
             <label>Comentario (posible punto de entrada)</label>

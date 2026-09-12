@@ -18,3 +18,13 @@ export function fmtDate(value) {
   const d = typeof value === 'string' ? new Date(value) : value;
   return new Intl.DateTimeFormat('es-ES').format(d);
 }
+
+export function fmtAntiguedad(fechaCompra) {
+  if (!fechaCompra) return '—';
+  const dias = Math.floor((Date.now() - new Date(fechaCompra).getTime()) / (1000 * 60 * 60 * 24));
+  if (dias < 0) return '—';
+  if (dias < 60) return `${dias} día${dias === 1 ? '' : 's'}`;
+  const meses = Math.floor(dias / 30.44);
+  if (meses < 24) return `${meses} meses`;
+  return `${(dias / 365).toFixed(1)} años`;
+}

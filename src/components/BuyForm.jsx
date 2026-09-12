@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import SymbolSearch from './SymbolSearch';
 import { BROKERS } from '../lib/brokers';
-
-const DIVISAS = ['EUR', 'USD', 'GBP', 'GBX', 'CHF', 'JPY'];
+import { EXCHANGES, exchangeById } from '../lib/exchanges';
 
 // Sirve tanto para registrar una compra nueva como para editar un lote
 // existente: si se pasa `initial`, el formulario arranca precargado y
 // cambia a modo edición.
 export default function BuyForm({ onClose, onSubmit, initial }) {
   const esEdicion = !!initial;
+  const exchangeInicial = initial?.exchangeId || (initial?.currency === 'USD' ? 'us' : 'es');
+
   const [form, setForm] = useState({
+    exchangeId: exchangeInicial,
     symbol: initial?.symbol || '',
     micCode: initial?.micCode || '',
     name: initial?.name || '',
@@ -17,10 +19,11 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
     buyDate: initial?.buyDate || new Date().toISOString().slice(0, 10),
     quantity: initial?.quantity ?? '',
     price: initial?.price ?? '',
-    currency: initial?.currency || 'EUR',
     commission: initial?.commission ?? '0',
     comment: initial?.comment || '',
     manualPrice: initial?.manualPrice ?? '',
+    alertPrice: initial?.alertPrice ?? '',
+    alertDirection: initial?.alertDirection || 'below',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -29,7 +32,8 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  const esUSD = form.currency === 'USD';
+  const exchange = exchangeById(form.exchangeId);
+  const esUSD = exchange.id === 'us';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -40,6 +44,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
     setEnviando(true);
     try {
       await onSubmit({
+        exchangeId: form.exchangeId,
         symbol: form.symbol.toUpperCase().trim(),
         micCode: form.micCode,
         name: form.name.trim() || form.symbol.toUpperCase().trim(),
@@ -47,10 +52,12 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
         buyDate: form.buyDate,
         quantity: parseFloat(form.quantity),
         price: parseFloat(form.price),
-        currency: form.currency,
+        currency: exchange.currency,
         commission: parseFloat(form.commission || 0),
         comment: form.comment.trim(),
         manualPrice: form.manualPrice === '' ? null : parseFloat(form.manualPrice),
+        alertPrice: form.alertPrice === '' ? null : parseFloat(form.alertPrice),
+        alertDirection: form.alertDirection,
       });
     } catch (err) {
       setError(err.message);
@@ -65,6 +72,16 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
         <h3>{esEdicion ? 'Editar compra' : 'Nueva compra'}</h3>
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label>Bolsa</label>
+            <select value={form.exchangeId} onChange={(e) => set('exchangeId', e.target.value)}>
+              {EXCHANGES.map((ex) => (
+                <option key={ex.id} value={ex.id}>{ex.label}</option>
+              ))}
+            </select>
+            <div className="hint">Fija la divisa ({exchange.currency}) y el sufijo del símbolo automáticamente.</div>
+          </div>
+
           <div className="field-row">
             <div className="field">
               <label>Empresa (busca por nombre)</label>
@@ -72,10 +89,14 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
                 query={form.name}
                 onQueryChange={(v) => set('name', v)}
                 onSelect={(r) => {
-                  set('symbol', r.symbol);
-                  set('micCode', r.micCode || '');
+                  if (esUSD) {
+                    set('symbol', r.symbol);
+                    set('micCode', r.micCode || '');
+                  } else {
+                    set('symbol', `${r.symbol}${exchange.yahooSuffix}`);
+                    set('micCode', '');
+                  }
                   set('name', r.name);
-                  if (r.currency) set('currency', r.currency);
                 }}
                 placeholder="Inditex"
               />
@@ -88,18 +109,11 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
                   set('symbol', e.target.value);
                   set('micCode', '');
                 }}
-                placeholder={esUSD ? 'FN' : 'ITX.MC'}
+                placeholder={esUSD ? 'FN' : `ITX${exchange.yahooSuffix}`}
               />
-              {esUSD ? (
-                <div className="hint">
-                  Se rellena solo al elegir de la lista{form.micCode ? ` (bolsa: ${form.micCode})` : ''}.
-                </div>
-              ) : (
-                <div className="hint">
-                  Al no ser USD, la cotización se busca en Yahoo Finance: el símbolo debe llevar el sufijo de bolsa
-                  (ITX.MC, SAN.MC, ENI.MI, TEP.PA, IAG.L…), no solo el ticker sin más.
-                </div>
-              )}
+              <div className="hint">
+                Se rellena solo al elegir de la lista, con el sufijo de "{exchange.label}" si no es EE. UU.
+              </div>
             </div>
           </div>
 
@@ -136,24 +150,14 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
               <input type="number" step="any" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
             </div>
             <div className="field">
-              <label>Precio de compra (por unidad)</label>
+              <label>Precio de compra (por unidad, en {exchange.currency})</label>
               <input type="number" step="any" value={form.price} onChange={(e) => set('price', e.target.value)} />
             </div>
           </div>
 
-          <div className="field-row">
-            <div className="field">
-              <label>Divisa</label>
-              <select value={form.currency} onChange={(e) => set('currency', e.target.value)}>
-                {[...new Set([...DIVISAS, form.currency])].map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Comisión</label>
-              <input type="number" step="any" value={form.commission} onChange={(e) => set('commission', e.target.value)} />
-            </div>
+          <div className="field">
+            <label>Comisión</label>
+            <input type="number" step="any" value={form.commission} onChange={(e) => set('commission', e.target.value)} />
           </div>
 
           <div className="field">
@@ -166,6 +170,26 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
               placeholder="Solo se usa si falla la cotización automática"
             />
             <div className="hint">Si un día no llega cotización automática, se usa este precio en su lugar.</div>
+          </div>
+
+          <div className="field-row">
+            <div className="field">
+              <label>Alerta de precio (opcional)</label>
+              <input
+                type="number"
+                step="any"
+                value={form.alertPrice}
+                onChange={(e) => set('alertPrice', e.target.value)}
+                placeholder="Ej. 40"
+              />
+            </div>
+            <div className="field">
+              <label>Avisar cuando el precio…</label>
+              <select value={form.alertDirection} onChange={(e) => set('alertDirection', e.target.value)}>
+                <option value="below">baje de ese valor</option>
+                <option value="above">suba de ese valor</option>
+              </select>
+            </div>
           </div>
 
           <div className="field">

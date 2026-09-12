@@ -218,7 +218,7 @@ export default function App() {
                 onBorrar={handleBorrarWatch}
               />
             )}
-            {view === 'resumen' && <Resumen openLots={openLots} prices={prices} sales={sales} />}
+            {view === 'resumen' && <Resumen lots={lots} openLots={openLots} prices={prices} sales={sales} />}
             {view === 'renta' && <Renta sales={sales} />}
           </>
         )}

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { fmtMoney, fmtPercent, fmtNumber, fmtDate } from '../lib/format';
+import { fmtMoney, fmtPercent, fmtNumber, fmtDate, fmtAntiguedad } from '../lib/format';
 import { useFxToday } from '../lib/useFxToday';
+import { useSort } from '../lib/useSort';
 
 function agruparPorSimbolo(openLots) {
   const grupos = {};
@@ -14,12 +15,18 @@ function agruparPorSimbolo(openLots) {
   return Object.values(grupos);
 }
 
+function alertaActiva(lote, precioActual) {
+  if (lote.alertPrice == null || precioActual == null) return false;
+  if (lote.alertDirection === 'above') return precioActual >= lote.alertPrice;
+  return precioActual <= lote.alertPrice;
+}
+
 export default function Cartera({ openLots, prices, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onComentario, onBorrarLote, onEditarLote }) {
   const [abierto, setAbierto] = useState(null);
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
   const fx = useFxToday(grupos.map((g) => g.currency));
 
-  const filas = grupos.map((g) => {
+  const filasSinOrdenar = grupos.map((g) => {
     const cantidad = g.lotes.reduce((s, l) => s + l.remainingQuantity, 0);
     const costeOriginal = g.lotes.reduce((s, l) => s + l.price * l.remainingQuantity, 0);
     const precioMedio = costeOriginal / cantidad;
@@ -29,22 +36,28 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
     const esManual = cotizacion?.price == null && manualPrice != null;
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
 
-    // El % no necesita tipo de cambio: es una proporción en la misma divisa,
-    // el cambio se cancela matemáticamente. Así sigue mostrándose aunque
-    // falle la conversión a euros.
     const plPct = precioActual != null && precioMedio ? (precioActual / precioMedio - 1) * 100 : null;
-
     const valorEUR = precioActual != null && rate != null ? precioActual * cantidad * rate : null;
     const costeEUR = rate != null ? costeOriginal * rate : null;
     const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
 
-    return { ...g, cantidad, precioMedio, precioActual, esManual, cotizacion, valorEUR, costeEUR, plEUR, plPct };
+    const hoyPct = cotizacion?.changePercent ?? null;
+    const hoyEUR = valorEUR != null && hoyPct != null ? valorEUR - valorEUR / (1 + hoyPct / 100) : 0;
+
+    const conAlerta = g.lotes.some((l) => alertaActiva(l, precioActual));
+
+    return { ...g, cantidad, precioMedio, precioActual, esManual, cotizacion, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct, conAlerta };
   });
 
-  const totalValor = filas.reduce((s, f) => s + (f.valorEUR || 0), 0);
-  const totalCoste = filas.reduce((s, f) => s + (f.costeEUR || 0), 0);
+  const { sortKey, toggleSort, sortedRows: filas, arrow } = useSort(filasSinOrdenar, 'symbol');
+
+  const totalValor = filasSinOrdenar.reduce((s, f) => s + (f.valorEUR || 0), 0);
+  const totalCoste = filasSinOrdenar.reduce((s, f) => s + (f.costeEUR || 0), 0);
   const totalPL = totalValor - totalCoste;
   const totalPLPct = totalCoste ? (totalPL / totalCoste) * 100 : 0;
+  const totalHoyEUR = filasSinOrdenar.reduce((s, f) => s + (f.hoyEUR || 0), 0);
+  const valorInicioDia = totalValor - totalHoyEUR;
+  const totalHoyPct = valorInicioDia ? (totalHoyEUR / valorInicioDia) * 100 : 0;
 
   return (
     <div>
@@ -65,20 +78,26 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
 
       <div className="kpi-row">
         <div className="kpi">
-          <div className="kpi-label">Valor de mercado</div>
-          <div className="kpi-value">{fmtMoney(totalValor)}</div>
+          <div className="kpi-label">Invertido</div>
+          <div className="kpi-value">{fmtMoney(totalCoste)}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Coste total</div>
-          <div className="kpi-value">{fmtMoney(totalCoste)}</div>
+          <div className="kpi-label">Valor de mercado</div>
+          <div className="kpi-value">{fmtMoney(totalValor)}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Ganancia / pérdida</div>
           <div className={`kpi-value ${totalPL >= 0 ? 'gain' : 'loss'}`}>{fmtMoney(totalPL)}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">% sobre coste</div>
+          <div className="kpi-label">Rentabilidad</div>
           <div className={`kpi-value ${totalPL >= 0 ? 'gain' : 'loss'}`}>{fmtPercent(totalPLPct)}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Hoy</div>
+          <div className={`kpi-value ${totalHoyEUR >= 0 ? 'gain' : 'loss'}`}>
+            {fmtMoney(totalHoyEUR)} ({fmtPercent(totalHoyPct)})
+          </div>
         </div>
       </div>
 
@@ -89,14 +108,14 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
           <table>
             <thead>
               <tr>
-                <th>Activo</th>
+                <th className="sortable" onClick={() => toggleSort('symbol')}>Activo{arrow('symbol')}</th>
                 <th>Bróker</th>
-                <th className="num">Cantidad</th>
-                <th className="num">Precio medio</th>
-                <th className="num">Precio actual</th>
-                <th className="num">Hoy</th>
-                <th className="num">P/L €</th>
-                <th className="num">P/L %</th>
+                <th className="num sortable" onClick={() => toggleSort('cantidad')}>Cantidad{arrow('cantidad')}</th>
+                <th className="num sortable" onClick={() => toggleSort('precioMedio')}>Precio medio{arrow('precioMedio')}</th>
+                <th className="num sortable" onClick={() => toggleSort('precioActual')}>Precio actual{arrow('precioActual')}</th>
+                <th className="num sortable" onClick={() => toggleSort('hoyPct')}>Hoy{arrow('hoyPct')}</th>
+                <th className="num sortable" onClick={() => toggleSort('plEUR')}>P/L €{arrow('plEUR')}</th>
+                <th className="num sortable" onClick={() => toggleSort('plPct')}>P/L %{arrow('plPct')}</th>
                 <th>Comentario</th>
                 <th></th>
               </tr>
@@ -104,10 +123,14 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
             <tbody>
               {filas.map((f) => (
                 <React.Fragment key={f.symbol}>
-                  <tr className="row-clickable" onClick={() => setAbierto(abierto === f.symbol ? null : f.symbol)}>
+                  <tr
+                    className={`row-clickable ${f.conAlerta ? 'row-alert' : ''}`}
+                    onClick={() => setAbierto(abierto === f.symbol ? null : f.symbol)}
+                  >
                     <td>
                       <span className="symbol">{f.symbol}</span>
                       {f.lotes.length > 1 && <span className="tag" style={{ marginLeft: 8 }}>{f.lotes.length} lotes</span>}
+                      {f.conAlerta && <span className="tag" style={{ marginLeft: 8, borderColor: 'var(--accent)', color: 'var(--accent)' }}>alerta</span>}
                       <span className="symbol-name">{f.name}</span>
                     </td>
                     <td>{[...f.brokers].join(', ')}</td>
@@ -117,8 +140,8 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                       {f.precioActual != null ? fmtMoney(f.precioActual, f.currency) : '—'}
                       {f.esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
                     </td>
-                    <td className={`num ${f.cotizacion?.changePercent >= 0 ? 'gain' : 'loss'}`}>
-                      {f.cotizacion ? fmtPercent(f.cotizacion.changePercent) : '—'}
+                    <td className={`num ${f.hoyPct >= 0 ? 'gain' : 'loss'}`}>
+                      {f.hoyPct != null ? fmtPercent(f.hoyPct) : '—'}
                     </td>
                     <td className={`num ${f.plEUR >= 0 ? 'gain' : 'loss'}`}>
                       {f.plEUR != null ? fmtMoney(f.plEUR) : '—'}
@@ -146,12 +169,14 @@ export default function Cartera({ openLots, prices, pricesLoading, onRefreshPric
                         return (
                           <tr className="lots-detail" key={lote.id}>
                             <td colSpan={10}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                                 <span>
-                                  Lote del {fmtDate(lote.buyDate)} · {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
+                                  Lote del {fmtDate(lote.buyDate)} ({fmtAntiguedad(lote.buyDate)}) · {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
                                   {fmtMoney(lote.price, lote.currency)} · {lote.broker}
                                   {!intacto &&
                                     ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
+                                  {lote.alertPrice != null &&
+                                    ` · alerta si ${lote.alertDirection === 'above' ? 'sube de' : 'baja de'} ${fmtMoney(lote.alertPrice, lote.currency)}`}
                                 </span>
                                 {intacto ? (
                                   <div className="btn-row">

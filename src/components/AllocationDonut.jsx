@@ -1,6 +1,6 @@
 import React from 'react';
 
-const PALETA = ['#b8895a', '#6f9bb0', '#8a7ca8', '#a8763f', '#5f8f8a', '#9a8a5f', '#6b7fa8', '#a86f7f'];
+const PALETA = ['#4F9DDE', '#E0A22C', '#5FBF8F', '#C15FBF', '#E0684C', '#7A8FE0', '#D4C64C', '#4CBFB0'];
 
 // Donut de asignación: qué porcentaje del valor total de la cartera representa
 // cada activo. No mezcla con P/L (verde/rojo) a propósito, para no confundir
