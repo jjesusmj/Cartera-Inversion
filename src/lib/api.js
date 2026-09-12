@@ -4,6 +4,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  setDoc,
   getDocs,
   writeBatch,
   serverTimestamp,
@@ -14,6 +15,18 @@ import { db } from '../firebase';
 const lotsCol = collection(db, 'lots');
 const salesCol = collection(db, 'sales');
 const watchlistCol = collection(db, 'watchlist');
+const positionSettingsCol = collection(db, 'positionSettings');
+
+// ---------- Ajustes de posición (stop / objetivo) — uno por símbolo, no por lote ----------
+
+export async function listarPositionSettings() {
+  const snap = await getDocs(positionSettingsCol);
+  return snap.docs.map((d) => ({ symbol: d.id, ...d.data() }));
+}
+
+export async function actualizarPositionSettings(symbol, datos) {
+  return setDoc(doc(db, 'positionSettings', symbol), datos, { merge: true });
+}
 
 // ---------- Lotes de compra ----------
 

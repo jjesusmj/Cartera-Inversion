@@ -22,8 +22,6 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
     commission: initial?.commission ?? '0',
     comment: initial?.comment || '',
     manualPrice: initial?.manualPrice ?? '',
-    alertPrice: initial?.alertPrice ?? '',
-    alertDirection: initial?.alertDirection || 'below',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -56,8 +54,6 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
         commission: parseFloat(form.commission || 0),
         comment: form.comment.trim(),
         manualPrice: form.manualPrice === '' ? null : parseFloat(form.manualPrice),
-        alertPrice: form.alertPrice === '' ? null : parseFloat(form.alertPrice),
-        alertDirection: form.alertDirection,
       });
     } catch (err) {
       setError(err.message);
@@ -170,26 +166,6 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
               placeholder="Solo se usa si falla la cotización automática"
             />
             <div className="hint">Si un día no llega cotización automática, se usa este precio en su lugar.</div>
-          </div>
-
-          <div className="field-row">
-            <div className="field">
-              <label>Alerta de precio (opcional)</label>
-              <input
-                type="number"
-                step="any"
-                value={form.alertPrice}
-                onChange={(e) => set('alertPrice', e.target.value)}
-                placeholder="Ej. 40"
-              />
-            </div>
-            <div className="field">
-              <label>Avisar cuando el precio…</label>
-              <select value={form.alertDirection} onChange={(e) => set('alertDirection', e.target.value)}>
-                <option value="below">baje de ese valor</option>
-                <option value="above">suba de ese valor</option>
-              </select>
-            </div>
           </div>
 
           <div className="field">

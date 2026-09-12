@@ -18,6 +18,8 @@ import {
   crearWatch,
   actualizarLote,
   actualizarWatch,
+  listarPositionSettings,
+  actualizarPositionSettings,
   anadirNotaLote,
   anadirNotaWatch,
   borrarWatch,
@@ -31,6 +33,7 @@ export default function App() {
   const [lots, setLots] = useState([]);
   const [sales, setSales] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [positionSettings, setPositionSettings] = useState({});
   const [prices, setPrices] = useState({});
   const [loading, setLoading] = useState(true);
   const [pricesLoading, setPricesLoading] = useState(false);
@@ -46,10 +49,11 @@ export default function App() {
   const cargarTodo = useCallback(async () => {
     setLoading(true);
     try {
-      const [l, s, w] = await Promise.all([listarLotes(), listarVentas(), listarWatch()]);
+      const [l, s, w, ps] = await Promise.all([listarLotes(), listarVentas(), listarWatch(), listarPositionSettings()]);
       setLots(l);
       setSales(s);
       setWatchlist(w);
+      setPositionSettings(Object.fromEntries(ps.map((p) => [p.symbol, p])));
     } catch (e) {
       setError('No se pudo conectar con Firebase. Revisa la configuración en src/firebase.js.');
     } finally {
@@ -120,6 +124,12 @@ export default function App() {
     await actualizarLote(editLote.id, datos);
     setEditLote(null);
     cargarTodo();
+  }
+
+  async function handleActualizarPosSettings(symbol, campo, valor) {
+    const datos = { [campo]: valor === '' || valor == null ? null : parseFloat(valor) };
+    await actualizarPositionSettings(symbol, datos);
+    setPositionSettings((prev) => ({ ...prev, [symbol]: { ...prev[symbol], symbol, ...datos } }));
   }
 
   // --- Cuaderno de notas: una nota se añade a todos los lotes del mismo
@@ -223,6 +233,8 @@ export default function App() {
               <Cartera
                 openLots={openLots}
                 prices={prices}
+                positionSettings={positionSettings}
+                onActualizarPosSettings={handleActualizarPosSettings}
                 pricesLoading={pricesLoading}
                 onRefreshPrices={refreshPrices}
                 onNuevaCompra={() => setShowBuyForm(true)}
