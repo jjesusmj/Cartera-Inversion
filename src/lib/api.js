@@ -24,8 +24,8 @@ export async function listarPositionSettings() {
   return snap.docs.map((d) => ({ symbol: d.id, ...d.data() }));
 }
 
-export async function actualizarPositionSettings(symbol, datos) {
-  return setDoc(doc(db, 'positionSettings', symbol), datos, { merge: true });
+export async function actualizarPositionSettings(owner, symbol, datos) {
+  return setDoc(doc(db, 'positionSettings', `${owner}_${symbol}`), { owner, symbol, ...datos }, { merge: true });
 }
 
 // ---------- Lotes de compra ----------

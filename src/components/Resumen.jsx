@@ -170,48 +170,73 @@ export default function Resumen({ lots, openLots, prices, sales }) {
       {filas.length === 0 ? (
         <div className="empty-state">Sin posiciones abiertas todavía.</div>
       ) : (
-        <div className="table-wrap table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th className="sortable" onClick={() => toggleSort('symbol')}>Activo{arrow('symbol')}</th>
-                <th className="num sortable" onClick={() => toggleSort('costeEUR')}>Invertido{arrow('costeEUR')}</th>
-                <th className="num sortable" onClick={() => toggleSort('valorEUR')}>Valor de mercado{arrow('valorEUR')}</th>
-                <th className="num sortable" onClick={() => toggleSort('plEUR')}>P/L €{arrow('plEUR')}</th>
-                <th className="num sortable" onClick={() => toggleSort('plPct')}>P/L %{arrow('plPct')}</th>
-                <th style={{ width: 160 }}>Relativo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filas.map((f) => (
-                <tr key={f.symbol}>
-                  <td>
+        <>
+          <div className="table-wrap table-scroll table-only-desktop">
+            <table>
+              <thead>
+                <tr>
+                  <th className="sortable" onClick={() => toggleSort('symbol')}>Activo{arrow('symbol')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('costeEUR')}>Invertido{arrow('costeEUR')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('valorEUR')}>Valor de mercado{arrow('valorEUR')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('plEUR')}>P/L €{arrow('plEUR')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('plPct')}>P/L %{arrow('plPct')}</th>
+                  <th style={{ width: 160 }}>Relativo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((f) => (
+                  <tr key={f.symbol}>
+                    <td>
+                      <span className="symbol">{f.symbol}</span>
+                      <span className="symbol-name">{f.name}</span>
+                    </td>
+                    <td className="num">{f.costeEUR != null ? fmtMoney(f.costeEUR) : '—'}</td>
+                    <td className="num">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</td>
+                    <td className={`num ${f.plEUR >= 0 ? 'gain' : 'loss'}`}>
+                      {f.plEUR != null ? fmtMoney(f.plEUR) : '—'}
+                    </td>
+                    <td className={`num ${f.plPct >= 0 ? 'gain' : 'loss'}`}>
+                      {f.plPct != null ? fmtPercent(f.plPct) : '—'}
+                    </td>
+                    <td>
+                      <div className="bar-track">
+                        {f.plPct != null && (
+                          <div
+                            className={`bar-fill ${f.plPct >= 0 ? 'gain' : 'loss'}`}
+                            style={{ width: `${(Math.abs(f.plPct) / maxAbsPL) * 50}%` }}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card-list">
+            {filas.map((f) => (
+              <div className="card" key={f.symbol}>
+                <div className="card-top">
+                  <div>
                     <span className="symbol">{f.symbol}</span>
                     <span className="symbol-name">{f.name}</span>
-                  </td>
-                  <td className="num">{f.costeEUR != null ? fmtMoney(f.costeEUR) : '—'}</td>
-                  <td className="num">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</td>
-                  <td className={`num ${f.plEUR >= 0 ? 'gain' : 'loss'}`}>
-                    {f.plEUR != null ? fmtMoney(f.plEUR) : '—'}
-                  </td>
-                  <td className={`num ${f.plPct >= 0 ? 'gain' : 'loss'}`}>
-                    {f.plPct != null ? fmtPercent(f.plPct) : '—'}
-                  </td>
-                  <td>
-                    <div className="bar-track">
-                      {f.plPct != null && (
-                        <div
-                          className={`bar-fill ${f.plPct >= 0 ? 'gain' : 'loss'}`}
-                          style={{ width: `${(Math.abs(f.plPct) / maxAbsPL) * 50}%` }}
-                        />
-                      )}
+                  </div>
+                  <div className="card-price">
+                    {f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}
+                    <div className={f.plPct >= 0 ? 'gain' : 'loss'} style={{ fontSize: 12 }}>
+                      {f.plPct != null ? fmtPercent(f.plPct) : '—'}
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+                <div className="card-sub">
+                  <span>Invertido: {f.costeEUR != null ? fmtMoney(f.costeEUR) : '—'}</span>
+                  <span className={f.plEUR >= 0 ? 'gain' : 'loss'}>{f.plEUR != null ? fmtMoney(f.plEUR) : '—'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

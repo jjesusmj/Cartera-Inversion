@@ -256,8 +256,8 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
                   </span>
                 </div>
                 <div className="card-sub">
-                  <span className={f.stopSaltado ? 'loss' : ''}>Stop: {f.stopPrice != null ? fmtMoney(f.stopPrice, f.currency) : '—'}</span>
-                  <span className={f.objetivoSaltado ? 'gain' : ''}>Objetivo: {f.targetPrice != null ? fmtMoney(f.targetPrice, f.currency) : '—'}</span>
+                  <span className="loss">Stop: {f.stopPrice != null ? fmtMoney(f.stopPrice, f.currency) : '—'}</span>
+                  <span className="gain">Objetivo: {f.targetPrice != null ? fmtMoney(f.targetPrice, f.currency) : '—'}</span>
                 </div>
                 <div className="card-actions">
                   <button className="btn btn-ghost" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
@@ -306,8 +306,13 @@ function EditableNumber({ valor, resaltado, color, onGuardar }) {
   return (
     <span
       onClick={() => { setTexto(valor ?? ''); setEditando(true); }}
-      className={resaltado ? color : ''}
-      style={{ cursor: 'pointer', borderBottom: '1px dashed var(--line)' }}
+      className={color}
+      style={{
+        cursor: 'pointer',
+        borderBottom: '1px dashed var(--line)',
+        fontWeight: resaltado ? 700 : 400,
+        opacity: valor != null ? 1 : 0.5,
+      }}
       title="Clic para editar"
     >
       {valor != null ? valor : '—'}

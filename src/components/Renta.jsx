@@ -114,32 +114,55 @@ export default function Renta({ sales }) {
       {resumen.ventas.length === 0 ? (
         <div className="empty-state">No hay ventas registradas en {anio}.</div>
       ) : (
-        <div className="table-wrap table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Activo</th>
-                <th>Fecha venta</th>
-                <th className="num">Cantidad</th>
-                <th className="num">Coste (EUR)</th>
-                <th className="num">Ingreso (EUR)</th>
-                <th className="num">Ganancia/Pérdida</th>
-              </tr>
-            </thead>
-            <tbody>
-              {resumen.ventas.map((v) => (
-                <tr key={v.id}>
-                  <td className="symbol">{v.symbol}</td>
-                  <td>{fmtDate(v.saleDate)}</td>
-                  <td className="num">{fmtNumber(v.totalQuantity, 2)}</td>
-                  <td className="num">{fmtMoney(v.totalCostEUR)}</td>
-                  <td className="num">{fmtMoney(v.totalProceedsEUR)}</td>
-                  <td className={`num ${v.totalGainEUR >= 0 ? 'gain' : 'loss'}`}>{fmtMoney(v.totalGainEUR)}</td>
+        <>
+          <div className="table-wrap table-scroll table-only-desktop">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activo</th>
+                  <th>Fecha venta</th>
+                  <th className="num">Cantidad</th>
+                  <th className="num">Coste (EUR)</th>
+                  <th className="num">Ingreso (EUR)</th>
+                  <th className="num">Ganancia/Pérdida</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {resumen.ventas.map((v) => (
+                  <tr key={v.id}>
+                    <td className="symbol">{v.symbol}</td>
+                    <td>{fmtDate(v.saleDate)}</td>
+                    <td className="num">{fmtNumber(v.totalQuantity, 2)}</td>
+                    <td className="num">{fmtMoney(v.totalCostEUR)}</td>
+                    <td className="num">{fmtMoney(v.totalProceedsEUR)}</td>
+                    <td className={`num ${v.totalGainEUR >= 0 ? 'gain' : 'loss'}`}>{fmtMoney(v.totalGainEUR)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card-list">
+            {resumen.ventas.map((v) => (
+              <div className="card" key={v.id}>
+                <div className="card-top">
+                  <div>
+                    <span className="symbol">{v.symbol}</span>
+                    <span className="symbol-name">{fmtDate(v.saleDate)} · {fmtNumber(v.totalQuantity, 2)} ud.</span>
+                  </div>
+                  <div className={`card-price ${v.totalGainEUR >= 0 ? 'gain' : 'loss'}`}>
+                    {fmtMoney(v.totalGainEUR)}
+                  </div>
+                </div>
+                <div className="card-sub">
+                  <span>Coste: {fmtMoney(v.totalCostEUR)}</span>
+                  <span>Ingreso: {fmtMoney(v.totalProceedsEUR)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="hint">El detalle completo por lote (tipo de cambio de cada compra y venta) está en el Excel exportado.</p>
+        </>
       )}
     </div>
   );

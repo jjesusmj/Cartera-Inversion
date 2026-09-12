@@ -8,6 +8,7 @@ import BuyForm from './components/BuyForm';
 import SaleForm from './components/SaleForm';
 import WatchForm from './components/WatchForm';
 import NotesModal from './components/NotesModal';
+import { OWNERS, ownerOf } from './lib/owners';
 import {
   listarLotes,
   listarVentas,
@@ -30,10 +31,16 @@ import { venderFIFO } from './lib/fifo';
 
 export default function App() {
   const [view, setView] = useState('cartera');
-  const [lots, setLots] = useState([]);
-  const [sales, setSales] = useState([]);
-  const [watchlist, setWatchlist] = useState([]);
-  const [positionSettings, setPositionSettings] = useState({});
+  const [owner, setOwnerState] = useState(() => localStorage.getItem('cartera_owner') || OWNERS[0]);
+  function setOwner(o) {
+    localStorage.setItem('cartera_owner', o);
+    setOwnerState(o);
+  }
+
+  const [lotsAll, setLotsAll] = useState([]);
+  const [salesAll, setSalesAll] = useState([]);
+  const [watchlistAll, setWatchlistAll] = useState([]);
+  const [positionSettingsAll, setPositionSettingsAll] = useState([]);
   const [prices, setPrices] = useState({});
   const [loading, setLoading] = useState(true);
   const [pricesLoading, setPricesLoading] = useState(false);
@@ -50,10 +57,10 @@ export default function App() {
     setLoading(true);
     try {
       const [l, s, w, ps] = await Promise.all([listarLotes(), listarVentas(), listarWatch(), listarPositionSettings()]);
-      setLots(l);
-      setSales(s);
-      setWatchlist(w);
-      setPositionSettings(Object.fromEntries(ps.map((p) => [p.symbol, p])));
+      setLotsAll(l);
+      setSalesAll(s);
+      setWatchlistAll(w);
+      setPositionSettingsAll(ps);
     } catch (e) {
       setError('No se pudo conectar con Firebase. Revisa la configuración en src/firebase.js.');
     } finally {
@@ -64,6 +71,15 @@ export default function App() {
   useEffect(() => {
     cargarTodo();
   }, [cargarTodo]);
+
+  // --- Todo lo que sigue está filtrado por el titular activo ---
+  const lots = useMemo(() => lotsAll.filter((l) => ownerOf(l) === owner), [lotsAll, owner]);
+  const sales = useMemo(() => salesAll.filter((s) => ownerOf(s) === owner), [salesAll, owner]);
+  const watchlist = useMemo(() => watchlistAll.filter((w) => ownerOf(w) === owner), [watchlistAll, owner]);
+  const positionSettings = useMemo(() => {
+    const propias = positionSettingsAll.filter((p) => ownerOf(p) === owner);
+    return Object.fromEntries(propias.map((p) => [p.symbol, p]));
+  }, [positionSettingsAll, owner]);
 
   const openLots = useMemo(() => lots.filter((l) => l.remainingQuantity > 1e-9), [lots]);
 
@@ -79,7 +95,7 @@ export default function App() {
     setPricesLoading(true);
     try {
       const data = await obtenerCotizaciones(allSymbols);
-      setPrices(data);
+      setPrices((prev) => ({ ...prev, ...data }));
     } catch (e) {
       setError('No se pudieron actualizar las cotizaciones (revisa TWELVE_DATA_API_KEY en Vercel).');
     } finally {
@@ -90,16 +106,16 @@ export default function App() {
   useEffect(() => {
     if (allSymbols.length > 0) refreshPrices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allSymbols.length]);
+  }, [allSymbols.length, owner]);
 
   async function handleAddLote(data) {
-    await crearLote(data);
+    await crearLote({ ...data, owner });
     setShowBuyForm(false);
     cargarTodo();
   }
 
   async function handleAddWatch(data) {
-    await crearWatch(data);
+    await crearWatch({ ...data, owner });
     setShowWatchForm(false);
     cargarTodo();
   }
@@ -112,12 +128,12 @@ export default function App() {
 
   async function handleBorrarWatch(id) {
     await borrarWatch(id);
-    setWatchlist((prev) => prev.filter((w) => w.id !== id));
+    setWatchlistAll((prev) => prev.filter((w) => w.id !== id));
   }
 
   async function handleBorrarLote(id) {
     await borrarLote(id);
-    setLots((prev) => prev.filter((l) => l.id !== id));
+    setLotsAll((prev) => prev.filter((l) => l.id !== id));
   }
 
   async function handleEditarLote(datos) {
@@ -128,8 +144,8 @@ export default function App() {
 
   async function handleActualizarPosSettings(symbol, campo, valor) {
     const datos = { [campo]: valor === '' || valor == null ? null : parseFloat(valor) };
-    await actualizarPositionSettings(symbol, datos);
-    setPositionSettings((prev) => ({ ...prev, [symbol]: { ...prev[symbol], symbol, ...datos } }));
+    await actualizarPositionSettings(owner, symbol, datos);
+    cargarTodo();
   }
 
   // --- Cuaderno de notas: una nota se añade a todos los lotes del mismo
@@ -201,6 +217,7 @@ export default function App() {
 
     const ventaData = {
       symbol,
+      owner,
       saleDate,
       totalQuantity: parseFloat(quantity),
       salePricePerShare: parseFloat(salePricePerShare),
@@ -221,7 +238,14 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar view={view} setView={setView} />
+      <Sidebar view={view} setView={setView} owner={owner} setOwner={setOwner} />
+
+      <select className="owner-mobile" value={owner} onChange={(e) => setOwner(e.target.value)}>
+        {OWNERS.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+
       <main className="main">
         {error && <div className="error-box">{error}</div>}
 

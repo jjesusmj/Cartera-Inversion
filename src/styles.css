@@ -368,6 +368,7 @@ tr.row-clickable:hover { background: var(--bg-inset); }
   }
 
   .sidebar .brand,
+  .sidebar .field,
   .sidebar-foot {
     display: none;
   }
@@ -462,6 +463,29 @@ tr.row-clickable:hover { background: var(--bg-inset); }
   }
   .card-list {
     display: none;
+  }
+  .owner-mobile {
+    display: none;
+  }
+}
+
+.owner-mobile {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .owner-mobile {
+    display: block;
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 14px;
+    z-index: 25;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 4px;
   }
 }
 
