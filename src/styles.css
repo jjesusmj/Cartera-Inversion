@@ -1,17 +1,17 @@
 :root {
-  --ink: #eae6dc;
-  --ink-dim: #9a9488;
-  --ink-faint: #6b6659;
-  --bg: #14130f;
-  --bg-raised: #1c1a15;
-  --bg-inset: #100f0c;
-  --line: #322f27;
-  --line-soft: #221f19;
-  --accent: #b8895a;
-  --gain: #7fa87a;
-  --loss: #c17b6b;
-  --gain-bg: rgba(127, 168, 122, 0.12);
-  --loss-bg: rgba(193, 123, 107, 0.12);
+  --ink: #1a1a1a;
+  --ink-dim: #666666;
+  --ink-faint: #8a8a8a;
+  --bg: #ffffff;
+  --bg-raised: #fafafa;
+  --bg-inset: #f2f2f2;
+  --line: #e2e2e2;
+  --line-soft: #ececec;
+  --accent: #a8703d;
+  --gain: #22884d;
+  --loss: #c22b2b;
+  --gain-bg: rgba(34, 136, 77, 0.08);
+  --loss-bg: rgba(194, 43, 43, 0.08);
 
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
@@ -188,8 +188,8 @@ th {
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--ink); }
 
-tr.row-alert { background: rgba(184, 137, 90, 0.14); }
-tr.row-alert:hover { background: rgba(184, 137, 90, 0.2); }
+tr.row-alert { background: rgba(168, 112, 61, 0.12); }
+tr.row-alert:hover { background: rgba(168, 112, 61, 0.18); }
 
 .callout-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 .callout {
@@ -322,7 +322,7 @@ tr.row-clickable:hover { background: var(--bg-inset); }
 }
 
 .warn-box {
-  background: rgba(184, 137, 90, 0.14);
+  background: rgba(168, 112, 61, 0.12);
   border: 1px solid var(--accent);
   color: var(--accent);
   padding: 10px 14px;
@@ -436,7 +436,7 @@ tr.row-clickable:hover { background: var(--bg-inset); }
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
     z-index: 25;
     cursor: pointer;
   }
@@ -497,7 +497,7 @@ tr.row-clickable:hover { background: var(--bg-inset); }
 }
 
 .card.row-alert {
-  background: rgba(184, 137, 90, 0.14);
+  background: rgba(168, 112, 61, 0.12);
   border-color: var(--accent);
 }
 
