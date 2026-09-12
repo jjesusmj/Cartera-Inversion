@@ -1,15 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { fmtMoney, fmtPercent } from '../lib/format';
 
-function alertaActiva(item, precio) {
-  if (item.alertPrice == null || precio == null) return false;
-  if (item.alertDirection === 'above') return precio >= item.alertPrice;
-  return precio <= item.alertPrice;
-}
-
-function distanciaAlerta(item, precio) {
-  if (item.alertPrice == null || precio == null || !item.alertPrice) return null;
-  return (precio / item.alertPrice - 1) * 100;
+function distancia(precio, objetivo) {
+  if (objetivo == null || precio == null || !objetivo) return null;
+  return (precio / objetivo - 1) * 100;
 }
 
 function RangoSemanas({ q }) {
@@ -29,20 +23,51 @@ function RangoSemanas({ q }) {
   );
 }
 
+function EditableEntry({ valor, precio, currency, onGuardar }) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(valor ?? '');
+  const dist = distancia(precio, valor);
+
+  if (editando) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        step="any"
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={() => { setEditando(false); onGuardar(texto); }}
+        onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+        style={{ width: 90, background: 'var(--bg-inset)', border: '1px solid var(--line)', color: 'var(--ink)', padding: '4px 6px', fontSize: '12.5px', borderRadius: '3px' }}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => { setTexto(valor ?? ''); setEditando(true); }}
+      style={{ cursor: 'pointer', borderBottom: '1px dashed var(--line)', color: valor != null ? 'var(--accent)' : 'var(--ink-faint)' }}
+      title="Clic para editar"
+    >
+      {valor != null ? `${fmtMoney(valor, currency)}${dist != null ? ` · a ${fmtPercent(dist)}` : ''}` : '—'}
+    </span>
+  );
+}
+
 function filasCalculadas(watchlist, prices) {
   return watchlist.map((w) => {
     const q = prices[w.symbol];
     const precio = q?.price ?? w.manualPrice ?? null;
     const esManual = q?.price == null && w.manualPrice != null;
-    const conAlerta = alertaActiva(w, precio);
-    const distancia = distanciaAlerta(w, precio);
+    const entradaSaltada = w.entryLow != null && precio != null && precio <= w.entryLow;
+    const rupturaSaltada = w.entryHigh != null && precio != null && precio >= w.entryHigh;
     const notas = w.notes || [];
     const ultimaNota = notas.length ? notas[notas.length - 1].text : w.comment;
-    return { ...w, q, precio, esManual, conAlerta, distancia, notas, ultimaNota };
+    return { ...w, q, precio, esManual, entradaSaltada, rupturaSaltada, conAlerta: entradaSaltada || rupturaSaltada, notas, ultimaNota };
   });
 }
 
-export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorrar, onAbrirNotas }) {
+export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada }) {
   const filas = filasCalculadas(watchlist, prices);
 
   return (
@@ -68,6 +93,8 @@ export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorr
                 <tr>
                   <th>Activo</th>
                   <th className="num">Precio actual</th>
+                  <th className="num">Entrada</th>
+                  <th className="num">Ruptura</th>
                   <th className="num">Hoy</th>
                   <th>Rango 52 semanas</th>
                   <th>Cuaderno</th>
@@ -81,16 +108,16 @@ export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorr
                       <span className="symbol">{w.symbol}</span>
                       {w.conAlerta && <span className="tag" style={{ marginLeft: 8, borderColor: 'var(--accent)', color: 'var(--accent)' }}>alerta</span>}
                       <span className="symbol-name">{w.name}</span>
-                      {w.alertPrice != null && (
-                        <div className="alert-info">
-                          Alerta si {w.alertDirection === 'above' ? 'sube de' : 'baja de'} {fmtMoney(w.alertPrice, w.currency)}
-                          {w.distancia != null && ` · a ${fmtPercent(w.distancia)} de esa alerta`}
-                        </div>
-                      )}
                     </td>
                     <td className="num">
                       {w.precio != null ? fmtMoney(w.precio, w.q?.currency || w.currency) : '—'}
                       {w.esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
+                    </td>
+                    <td className="num">
+                      <EditableEntry valor={w.entryLow} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryLow', v)} />
+                    </td>
+                    <td className="num">
+                      <EditableEntry valor={w.entryHigh} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryHigh', v)} />
                     </td>
                     <td className={`num ${w.q?.changePercent >= 0 ? 'gain' : 'loss'}`}>
                       {w.q ? fmtPercent(w.q.changePercent) : '—'}
@@ -98,7 +125,7 @@ export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorr
                     <td><RangoSemanas q={w.q} /></td>
                     <td>
                       <button className="btn btn-ghost" onClick={() => onAbrirNotas(w)}>
-                        {w.ultimaNota ? `"${w.ultimaNota.slice(0, 24)}${w.ultimaNota.length > 24 ? '…' : ''}"` : 'Añadir nota'}
+                        {w.ultimaNota ? `"${w.ultimaNota.slice(0, 20)}${w.ultimaNota.length > 20 ? '…' : ''}"` : 'Añadir nota'}
                         {w.notas.length > 1 && ` (${w.notas.length})`}
                       </button>
                     </td>
@@ -131,12 +158,10 @@ export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorr
                     </div>
                   </div>
                 </div>
-                {w.alertPrice != null && (
-                  <div className="alert-info">
-                    Alerta si {w.alertDirection === 'above' ? 'sube de' : 'baja de'} {fmtMoney(w.alertPrice, w.currency)}
-                    {w.distancia != null && ` · a ${fmtPercent(w.distancia)}`}
-                  </div>
-                )}
+                <div className="card-sub">
+                  <span>Entrada: <EditableEntry valor={w.entryLow} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryLow', v)} /></span>
+                  <span>Ruptura: <EditableEntry valor={w.entryHigh} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryHigh', v)} /></span>
+                </div>
                 <RangoSemanas q={w.q} />
                 <div className="card-actions">
                   <button className="btn btn-ghost" onClick={() => onAbrirNotas(w)}>Cuaderno{w.notas.length ? ` (${w.notas.length})` : ''}</button>

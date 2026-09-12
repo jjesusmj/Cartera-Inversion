@@ -126,6 +126,12 @@ export default function App() {
     cargarTodo();
   }
 
+  async function handleActualizarEntrada(id, campo, valor) {
+    const datos = { [campo]: valor === '' || valor == null ? null : parseFloat(valor) };
+    await actualizarWatch(id, datos);
+    cargarTodo();
+  }
+
   async function handleBorrarWatch(id) {
     await borrarWatch(id);
     setWatchlistAll((prev) => prev.filter((w) => w.id !== id));
@@ -274,6 +280,7 @@ export default function App() {
                 prices={prices}
                 onNuevo={() => setShowWatchForm(true)}
                 onEditar={setEditWatch}
+                onActualizarEntrada={handleActualizarEntrada}
                 onAbrirNotas={abrirNotasWatch}
                 onBorrar={handleBorrarWatch}
               />

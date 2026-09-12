@@ -28,7 +28,8 @@ export default function Resumen({ lots, openLots, prices, sales }) {
     const valorEUR = precioActual != null && rate != null ? precioActual * g.cantidad * rate : null;
     const costeEUR = rate != null ? g.coste * rate : null;
     const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
-    return { ...g, valorEUR, costeEUR, plEUR, plPct };
+    const hoyPct = prices[g.symbol]?.changePercent ?? null;
+    return { ...g, valorEUR, costeEUR, plEUR, plPct, hoyPct };
   });
 
   const { toggleSort, sortedRows: filas, arrow } = useSort(filasSinOrdenar, 'plEUR', 'desc');
@@ -51,9 +52,9 @@ export default function Resumen({ lots, openLots, prices, sales }) {
     return Object.entries(porDivisa).map(([label, value]) => ({ label, value }));
   }, [filasSinOrdenar]);
 
-  const conPL = filasSinOrdenar.filter((f) => f.plPct != null);
-  const mejor = conPL.length ? conPL.reduce((a, b) => (b.plPct > a.plPct ? b : a)) : null;
-  const peor = conPL.length ? conPL.reduce((a, b) => (b.plPct < a.plPct ? b : a)) : null;
+  const conHoy = filasSinOrdenar.filter((f) => f.hoyPct != null);
+  const mejor = conHoy.length ? conHoy.reduce((a, b) => (b.hoyPct > a.hoyPct ? b : a)) : null;
+  const peor = conHoy.length ? conHoy.reduce((a, b) => (b.hoyPct < a.hoyPct ? b : a)) : null;
 
   const UMBRAL_CONCENTRACION = 0.25;
   const concentradas = totalValor > 0
@@ -137,14 +138,14 @@ export default function Resumen({ lots, openLots, prices, sales }) {
         <div className="callout-row">
           {mejor && (
             <div className="callout">
-              <div className="callout-label">Mejor posición</div>
-              <div className="callout-value gain">{mejor.symbol} {fmtPercent(mejor.plPct)}</div>
+              <div className="callout-label">Mejor de hoy</div>
+              <div className="callout-value gain">{mejor.symbol} {fmtPercent(mejor.hoyPct)}</div>
             </div>
           )}
           {peor && (
             <div className="callout">
-              <div className="callout-label">Peor posición</div>
-              <div className="callout-value loss">{peor.symbol} {fmtPercent(peor.plPct)}</div>
+              <div className="callout-label">Peor de hoy</div>
+              <div className="callout-value loss">{peor.symbol} {fmtPercent(peor.hoyPct)}</div>
             </div>
           )}
         </div>
