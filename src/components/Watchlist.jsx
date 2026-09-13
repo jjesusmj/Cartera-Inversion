@@ -52,7 +52,7 @@ function EditableEntry({ valor, precio, currency, onGuardar }) {
       <span style={{ color: valor != null ? 'var(--accent)' : 'var(--ink-faint)', borderBottom: '1px dashed var(--line)' }}>
         {valor != null ? fmtMoney(valor, currency) : '—'}
       </span>
-      {dist != null && <span className="cell-sub">a {fmtPercent(dist)}</span>}
+      {dist != null && <span className="cell-sub">{fmtPercent(dist)}</span>}
     </span>
   );
 }

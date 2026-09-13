@@ -153,6 +153,7 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
                         <EditableNumber
                           valor={f.stopPrice}
                           precioActual={f.precioActual}
+                          currency={f.currency}
                           resaltado={f.stopSaltado}
                           color="loss"
                           onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)}
@@ -162,6 +163,7 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
                         <EditableNumber
                           valor={f.targetPrice}
                           precioActual={f.precioActual}
+                          currency={f.currency}
                           resaltado={f.objetivoSaltado}
                           color="gain"
                           onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)}
@@ -274,7 +276,7 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
   );
 }
 
-function EditableNumber({ valor, precioActual, resaltado, color, onGuardar }) {
+function EditableNumber({ valor, precioActual, currency, resaltado, color, onGuardar }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(valor ?? '');
   const dist = valor != null && precioActual != null && valor ? (precioActual / valor - 1) * 100 : null;
@@ -313,9 +315,9 @@ function EditableNumber({ valor, precioActual, resaltado, color, onGuardar }) {
       title="Clic para editar"
     >
       <span className={color} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5 }}>
-        {valor != null ? valor : '—'}
+        {valor != null ? fmtMoney(valor, currency) : '—'}
       </span>
-      {dist != null && <span className="cell-sub">a {fmtPercent(dist)}</span>}
+      {dist != null && <span className="cell-sub">{fmtPercent(dist)}</span>}
     </span>
   );
 }
