@@ -260,8 +260,8 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
                   </span>
                 </div>
                 <div className="card-sub">
-                  <span className="loss">Stop: {f.stopPrice != null ? fmtMoney(f.stopPrice, f.currency) : '—'}</span>
-                  <span className="gain">Objetivo: {f.targetPrice != null ? fmtMoney(f.targetPrice, f.currency) : '—'}</span>
+                  <span>Stop: <EditableNumber valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} /></span>
+                  <span>Objetivo: <EditableNumber valor={f.targetPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.objetivoSaltado} color="gain" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)} /></span>
                 </div>
                 <div className="card-actions">
                   <button className="btn btn-ghost" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
@@ -279,7 +279,7 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
 function EditableNumber({ valor, precioActual, currency, resaltado, color, onGuardar }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(valor ?? '');
-  const dist = valor != null && precioActual != null && valor ? (precioActual / valor - 1) * 100 : null;
+  const dist = valor != null && precioActual != null && precioActual ? (valor / precioActual - 1) * 100 : null;
 
   if (editando) {
     return (
@@ -311,7 +311,7 @@ function EditableNumber({ valor, precioActual, currency, resaltado, color, onGua
   return (
     <span
       onClick={() => { setTexto(valor ?? ''); setEditando(true); }}
-      style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'right' }}
+      style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'center' }}
       title="Clic para editar"
     >
       <span className={color} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5 }}>

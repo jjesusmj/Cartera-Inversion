@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { fmtMoney, fmtPercent } from '../lib/format';
 
 function distancia(precio, objetivo) {
-  if (objetivo == null || precio == null || !objetivo) return null;
-  return (precio / objetivo - 1) * 100;
+  if (objetivo == null || precio == null || !precio) return null;
+  return (objetivo / precio - 1) * 100;
 }
 
 function RangoSemanas({ q }) {
@@ -46,7 +46,7 @@ function EditableEntry({ valor, precio, currency, onGuardar }) {
   return (
     <span
       onClick={() => { setTexto(valor ?? ''); setEditando(true); }}
-      style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'right' }}
+      style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'center' }}
       title="Clic para editar"
     >
       <span style={{ color: valor != null ? 'var(--accent)' : 'var(--ink-faint)', borderBottom: '1px dashed var(--line)' }}>
