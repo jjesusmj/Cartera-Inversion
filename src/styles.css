@@ -599,3 +599,37 @@ tr.row-clickable:hover { background: var(--bg-inset); }
   margin-top: 2px;
   font-weight: 400;
 }
+
+.stat-block {
+  text-align: center;
+}
+.stat-block-label {
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-bottom: 2px;
+}
+.stat-block-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.exchange-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.exchange-filter button {
+  all: unset;
+  cursor: pointer;
+  font-size: 12.5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+}
+.exchange-filter button.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+}

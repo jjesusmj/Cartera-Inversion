@@ -14,3 +14,9 @@ export const EXCHANGES = [
 export function exchangeById(id) {
   return EXCHANGES.find((e) => e.id === id) || EXCHANGES[0];
 }
+
+// Para lo que se guardó antes de que existiera este campo: se infiere por
+// la divisa (igual que ya hacía el formulario de edición).
+export function exchangeIdOf(item) {
+  return item.exchangeId || (item.currency === 'USD' ? 'us' : 'es');
+}

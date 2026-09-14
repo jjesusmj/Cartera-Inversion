@@ -9,6 +9,7 @@ import SaleForm from './components/SaleForm';
 import WatchForm from './components/WatchForm';
 import NotesModal from './components/NotesModal';
 import { OWNERS, ownerOf } from './lib/owners';
+import { exchangeIdOf } from './lib/exchanges';
 import {
   listarLotes,
   listarVentas,
@@ -35,6 +36,12 @@ export default function App() {
   function setOwner(o) {
     localStorage.setItem('cartera_owner', o);
     setOwnerState(o);
+  }
+
+  const [exchangeFilter, setExchangeFilterState] = useState(() => localStorage.getItem('cartera_exchange_filter') || 'todas');
+  function setExchangeFilter(id) {
+    localStorage.setItem('cartera_exchange_filter', id);
+    setExchangeFilterState(id);
   }
 
   const [lotsAll, setLotsAll] = useState([]);
@@ -82,6 +89,17 @@ export default function App() {
   }, [positionSettingsAll, owner]);
 
   const openLots = useMemo(() => lots.filter((l) => l.remainingQuantity > 1e-9), [lots]);
+
+  // Filtro por bolsa: solo afecta a lo que se ve en Cartera y Seguimiento.
+  // Resumen y Declaración siguen usando la cartera completa, sin filtrar.
+  const openLotsFiltrados = useMemo(
+    () => (exchangeFilter === 'todas' ? openLots : openLots.filter((l) => exchangeIdOf(l) === exchangeFilter)),
+    [openLots, exchangeFilter]
+  );
+  const watchlistFiltrada = useMemo(
+    () => (exchangeFilter === 'todas' ? watchlist : watchlist.filter((w) => exchangeIdOf(w) === exchangeFilter)),
+    [watchlist, exchangeFilter]
+  );
 
   const allSymbols = useMemo(() => {
     const m = new Map();
@@ -261,7 +279,10 @@ export default function App() {
           <>
             {view === 'cartera' && (
               <Cartera
-                openLots={openLots}
+                openLots={openLotsFiltrados}
+                todosLosLotes={openLots}
+                exchangeFilter={exchangeFilter}
+                onCambiarExchangeFilter={setExchangeFilter}
                 prices={prices}
                 positionSettings={positionSettings}
                 onActualizarPosSettings={handleActualizarPosSettings}
@@ -276,7 +297,10 @@ export default function App() {
             )}
             {view === 'watchlist' && (
               <Watchlist
-                watchlist={watchlist}
+                watchlist={watchlistFiltrada}
+                todaLaWatchlist={watchlist}
+                exchangeFilter={exchangeFilter}
+                onCambiarExchangeFilter={setExchangeFilter}
                 prices={prices}
                 onNuevo={() => setShowWatchForm(true)}
                 onEditar={setEditWatch}

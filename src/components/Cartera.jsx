@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { fmtMoney, fmtPercent, fmtNumber, fmtDate, fmtAntiguedad } from '../lib/format';
 import { useFxToday } from '../lib/useFxToday';
 import { useSort } from '../lib/useSort';
+import ExchangeFilter from './ExchangeFilter';
 
 function agruparPorSimbolo(openLots) {
   const grupos = {};
@@ -15,7 +16,7 @@ function agruparPorSimbolo(openLots) {
   return Object.values(grupos);
 }
 
-export default function Cartera({ openLots, prices, positionSettings, onActualizarPosSettings, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, positionSettings, onActualizarPosSettings, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote }) {
   const [abierto, setAbierto] = useState(null);
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
   const fx = useFxToday(grupos.map((g) => g.currency));
@@ -81,6 +82,8 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
       </div>
 
       <button className="fab" onClick={onNuevaCompra} aria-label="Nueva compra">+</button>
+
+      <ExchangeFilter items={todosLosLotes} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
       <div className="kpi-row">
         <div className="kpi">
@@ -254,14 +257,14 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
                   </div>
                 </div>
                 <div className="card-sub">
-                  <span>{fmtNumber(f.cantidad, 2)} ud. · {[...f.brokers].join(', ')}</span>
+                  <span>{[...f.brokers].join(', ')} · {fmtNumber(f.cantidad, 2)} ud.</span>
                   <span className={f.plEUR >= 0 ? 'gain' : 'loss'}>
                     {f.plEUR != null ? `${fmtMoney(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'}
                   </span>
                 </div>
-                <div className="card-sub">
-                  <span>Stop: <EditableNumber valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} /></span>
-                  <span>Objetivo: <EditableNumber valor={f.targetPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.objetivoSaltado} color="gain" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)} /></span>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 10 }}>
+                  <EditableNumber label="Stop" valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} />
+                  <EditableNumber label="Objetivo" valor={f.targetPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.objetivoSaltado} color="gain" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)} />
                 </div>
                 <div className="card-actions">
                   <button className="btn btn-ghost" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
@@ -276,7 +279,7 @@ export default function Cartera({ openLots, prices, positionSettings, onActualiz
   );
 }
 
-function EditableNumber({ valor, precioActual, currency, resaltado, color, onGuardar }) {
+function EditableNumber({ valor, precioActual, currency, resaltado, color, label, onGuardar }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(valor ?? '');
   const dist = valor != null && precioActual != null && precioActual ? (valor / precioActual - 1) * 100 : null;
@@ -305,6 +308,17 @@ function EditableNumber({ valor, precioActual, currency, resaltado, color, onGua
           textAlign: 'right',
         }}
       />
+    );
+  }
+
+  if (label) {
+    return (
+      <span onClick={() => { setTexto(valor ?? ''); setEditando(true); }} className="stat-block" style={{ cursor: 'pointer', display: 'block' }} title="Clic para editar">
+        <div className="stat-block-label">{label}</div>
+        <div className={`stat-block-value ${color}`} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5, display: 'inline-block' }}>
+          {valor != null ? `${fmtMoney(valor, currency)}${dist != null ? ` (${fmtPercent(dist)})` : ''}` : '—'}
+        </div>
+      </span>
     );
   }
 

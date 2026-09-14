@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { fmtMoney, fmtPercent } from '../lib/format';
+import ExchangeFilter from './ExchangeFilter';
 
 function distancia(precio, objetivo) {
   if (objetivo == null || precio == null || !precio) return null;
@@ -23,7 +24,7 @@ function RangoSemanas({ q }) {
   );
 }
 
-function EditableEntry({ valor, precio, currency, onGuardar }) {
+function EditableEntry({ valor, precio, currency, label, onGuardar }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(valor ?? '');
   const dist = distancia(precio, valor);
@@ -40,6 +41,17 @@ function EditableEntry({ valor, precio, currency, onGuardar }) {
         onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
         style={{ width: 90, background: 'var(--bg-inset)', border: '1px solid var(--line)', color: 'var(--ink)', padding: '4px 6px', fontSize: '12.5px', borderRadius: '3px' }}
       />
+    );
+  }
+
+  if (label) {
+    return (
+      <span onClick={() => { setTexto(valor ?? ''); setEditando(true); }} className="stat-block" style={{ cursor: 'pointer', display: 'block' }} title="Clic para editar">
+        <div className="stat-block-label">{label}</div>
+        <div className="stat-block-value" style={{ color: valor != null ? 'var(--accent)' : 'var(--ink-faint)', borderBottom: '1px dashed var(--line)', display: 'inline-block' }}>
+          {valor != null ? `${fmtMoney(valor, currency)}${dist != null ? ` (${fmtPercent(dist)})` : ''}` : '—'}
+        </div>
+      </span>
     );
   }
 
@@ -70,7 +82,7 @@ function filasCalculadas(watchlist, prices) {
   });
 }
 
-export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada }) {
+export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada }) {
   const filas = filasCalculadas(watchlist, prices);
 
   return (
@@ -84,6 +96,8 @@ export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorr
           + Añadir a seguimiento
         </button>
       </div>
+
+      <ExchangeFilter items={todaLaWatchlist} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
       {filas.length === 0 ? (
         <div className="empty-state">No estás siguiendo ningún activo todavía.</div>
@@ -161,9 +175,9 @@ export default function Watchlist({ watchlist, prices, onNuevo, onEditar, onBorr
                     </div>
                   </div>
                 </div>
-                <div className="card-sub">
-                  <span>Entrada: <EditableEntry valor={w.entryLow} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryLow', v)} /></span>
-                  <span>Ruptura: <EditableEntry valor={w.entryHigh} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryHigh', v)} /></span>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 10 }}>
+                  <EditableEntry label="Entrada" valor={w.entryLow} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryLow', v)} />
+                  <EditableEntry label="Ruptura" valor={w.entryHigh} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryHigh', v)} />
                 </div>
                 <RangoSemanas q={w.q} />
                 <div className="card-actions">
