@@ -150,6 +150,17 @@ export default function App() {
     cargarTodo();
   }
 
+  async function handleMoverWatch(id, direccion) {
+    const clave = (w) => w.sortOrder ?? w.createdAt?.seconds ?? 0;
+    const ordenados = [...watchlist].sort((a, b) => clave(a) - clave(b));
+    const idx = ordenados.findIndex((w) => w.id === id);
+    const nuevoIdx = idx + direccion;
+    if (idx === -1 || nuevoIdx < 0 || nuevoIdx >= ordenados.length) return;
+    [ordenados[idx], ordenados[nuevoIdx]] = [ordenados[nuevoIdx], ordenados[idx]];
+    await Promise.all(ordenados.map((w, i) => actualizarWatch(w.id, { sortOrder: i })));
+    cargarTodo();
+  }
+
   async function handleBorrarWatch(id) {
     await borrarWatch(id);
     setWatchlistAll((prev) => prev.filter((w) => w.id !== id));
@@ -305,6 +316,7 @@ export default function App() {
                 onNuevo={() => setShowWatchForm(true)}
                 onEditar={setEditWatch}
                 onActualizarEntrada={handleActualizarEntrada}
+                onMover={handleMoverWatch}
                 onAbrirNotas={abrirNotasWatch}
                 onBorrar={handleBorrarWatch}
               />

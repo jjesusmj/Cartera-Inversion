@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { fmtMoney, fmtPercent } from '../lib/format';
+import { useSort } from '../lib/useSort';
 import ExchangeFilter from './ExchangeFilter';
 
 function distancia(precio, objetivo) {
@@ -78,12 +79,27 @@ function filasCalculadas(watchlist, prices) {
     const rupturaSaltada = w.entryHigh != null && precio != null && precio >= w.entryHigh;
     const notas = w.notes || [];
     const ultimaNota = notas.length ? notas[notas.length - 1].text : w.comment;
-    return { ...w, q, precio, esManual, entradaSaltada, rupturaSaltada, conAlerta: entradaSaltada || rupturaSaltada, notas, ultimaNota };
+    const hoyPct = q?.changePercent ?? null;
+    const ordenManual = w.sortOrder ?? w.createdAt?.seconds ?? 0;
+    return { ...w, q, precio, esManual, entradaSaltada, rupturaSaltada, conAlerta: entradaSaltada || rupturaSaltada, notas, ultimaNota, hoyPct, ordenManual };
   });
 }
 
-export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada }) {
-  const filas = filasCalculadas(watchlist, prices);
+export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada, onMover }) {
+  const [manual, setManual] = useState(true);
+  const filasBase = filasCalculadas(watchlist, prices);
+
+  const { toggleSort, sortedRows, arrow } = useSort(filasBase, 'ordenManual');
+
+  const filasManual = useMemo(() => [...filasBase].sort((a, b) => a.ordenManual - b.ordenManual), [filasBase]);
+  const filas = manual ? filasManual : sortedRows;
+
+  function ordenarPor(key) {
+    setManual(false);
+    toggleSort(key);
+  }
+
+  const permiteMover = manual && exchangeFilter === 'todas';
 
   return (
     <div>
@@ -99,6 +115,12 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
 
       <ExchangeFilter items={todaLaWatchlist} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
+      {!manual && (
+        <button className="btn btn-ghost" style={{ marginBottom: 12 }} onClick={() => setManual(true)}>
+          Quitar orden — volver a mi orden
+        </button>
+      )}
+
       {filas.length === 0 ? (
         <div className="empty-state">No estás siguiendo ningún activo todavía.</div>
       ) : (
@@ -108,19 +130,28 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
             <table>
               <thead>
                 <tr>
-                  <th>Activo</th>
-                  <th className="num">Precio actual</th>
-                  <th className="num">Entrada</th>
-                  <th className="num">Ruptura</th>
-                  <th className="num">Hoy</th>
+                  {permiteMover && <th style={{ width: 40 }}></th>}
+                  <th className="sortable" onClick={() => ordenarPor('symbol')}>Activo{!manual && arrow('symbol')}</th>
+                  <th className="num sortable" onClick={() => ordenarPor('precio')}>Precio actual{!manual && arrow('precio')}</th>
+                  <th className="num sortable" onClick={() => ordenarPor('entryLow')}>Entrada{!manual && arrow('entryLow')}</th>
+                  <th className="num sortable" onClick={() => ordenarPor('entryHigh')}>Ruptura{!manual && arrow('entryHigh')}</th>
+                  <th className="num sortable" onClick={() => ordenarPor('hoyPct')}>Hoy{!manual && arrow('hoyPct')}</th>
                   <th>Rango 52 semanas</th>
                   <th>Cuaderno</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {filas.map((w) => (
+                {filas.map((w, i) => (
                   <tr key={w.id} className={w.conAlerta ? 'row-alert' : ''}>
+                    {permiteMover && (
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <button className="btn-ghost" style={{ border: 'none', background: 'none', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.3 : 1, padding: 0 }} disabled={i === 0} onClick={() => onMover(w.id, -1)} title="Subir">▲</button>
+                          <button className="btn-ghost" style={{ border: 'none', background: 'none', cursor: i === filas.length - 1 ? 'default' : 'pointer', opacity: i === filas.length - 1 ? 0.3 : 1, padding: 0 }} disabled={i === filas.length - 1} onClick={() => onMover(w.id, 1)} title="Bajar">▼</button>
+                        </div>
+                      </td>
+                    )}
                     <td>
                       <span className="symbol">{w.symbol}</span>
                       {w.conAlerta && <span className="tag" style={{ marginLeft: 8, borderColor: 'var(--accent)', color: 'var(--accent)' }}>alerta</span>}
@@ -160,7 +191,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
 
           {/* --- Tarjetas (móvil) --- */}
           <div className="card-list">
-            {filas.map((w) => (
+            {filas.map((w, i) => (
               <div className={`card ${w.conAlerta ? 'row-alert' : ''}`} key={w.id}>
                 <div className="card-top">
                   <div>
@@ -180,6 +211,12 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                   <EditableEntry label="Ruptura" valor={w.entryHigh} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryHigh', v)} />
                 </div>
                 <RangoSemanas q={w.q} />
+                {permiteMover && (
+                  <div className="btn-row" style={{ marginTop: 8 }}>
+                    <button className="btn btn-ghost" disabled={i === 0} style={{ opacity: i === 0 ? 0.3 : 1 }} onClick={() => onMover(w.id, -1)}>▲ Subir</button>
+                    <button className="btn btn-ghost" disabled={i === filas.length - 1} style={{ opacity: i === filas.length - 1 ? 0.3 : 1 }} onClick={() => onMover(w.id, 1)}>▼ Bajar</button>
+                  </div>
+                )}
                 <div className="card-actions">
                   <button className="btn btn-ghost" onClick={() => onAbrirNotas(w)}>Cuaderno{w.notas.length ? ` (${w.notas.length})` : ''}</button>
                   <button className="btn btn-ghost" onClick={() => onEditar(w)}>Editar</button>
