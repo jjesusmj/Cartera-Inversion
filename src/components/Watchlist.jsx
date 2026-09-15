@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { fmtMoney, fmtPercent } from '../lib/format';
 import { useSort } from '../lib/useSort';
+import { exchangeIdOf } from '../lib/exchanges';
 import ExchangeFilter from './ExchangeFilter';
 
 function distancia(precio, objetivo) {
@@ -99,7 +100,8 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
     toggleSort(key);
   }
 
-  const permiteMover = manual && exchangeFilter === 'todas';
+  const bolsasDistintas = new Set(todaLaWatchlist.map(exchangeIdOf)).size;
+  const permiteMover = manual && (bolsasDistintas <= 1 || exchangeFilter === 'todas');
 
   return (
     <div>
