@@ -11,18 +11,23 @@ resumen fiscal de ventas (FIFO + tipo de cambio BCE) exportable a Excel.
 3. En **Configuración del proyecto** (icono de engranaje) → **Tus apps** → añade una app **Web** → copia los valores que te da (`apiKey`, `authDomain`, etc.).
 4. Instala la CLI de Firebase (`npm install -g firebase-tools`), `firebase login`, `firebase init firestore` (elige tu proyecto), y despliega las reglas incluidas: `firebase deploy --only firestore:rules`.
 
-## 2. Twelve Data (cotizaciones, gratis)
+## 2. Datos de mercado (sin claves)
 
-1. Crea una cuenta en [twelvedata.com](https://twelvedata.com) → plan gratuito (800 peticiones/día, sin tarjeta).
-2. Copia tu API key desde el dashboard.
+- **Cotizaciones, gráfico del día, rangos, sector y buscador**: Yahoo Finance
+  (es.finance.yahoo.com), a través de las funciones `api/prices.js`,
+  `api/profile.js` y `api/search-symbol.js`. EE. UU. en tiempo real; bolsas
+  europeas con unos 15 minutos de retraso. Es una API no oficial: si un día
+  falla, la app usa el precio manual de cada valor.
+- **Tipo de cambio**: tipo de referencia del BCE vía Frankfurter.
 
-No hace falta nada para el tipo de cambio: **Frankfurter** (datos del BCE) es gratis y no pide clave.
+Para comprobar lo que devuelve Yahoo para un valor:
+`/api/prices?symbols=BKNG&currencies=USD&debug=1`
 
 ## 3. Desplegar en Vercel
 
 1. Sube esta carpeta a un repo de GitHub (por ejemplo `jjesusmj/cartera-app`).
 2. En [vercel.com](https://vercel.com) → **Add New Project** → importa el repo.
-3. En **Environment Variables**, añade las seis `VITE_FIREBASE_*` del paso 1 y `TWELVE_DATA_API_KEY` del paso 2 (usa `.env.example` como plantilla).
+3. En **Environment Variables**, añade las seis `VITE_FIREBASE_*` del paso 1 (usa `.env.example` como plantilla).
 4. Deploy. Vercel detecta Vite automáticamente.
 
 ## 4. Desarrollo local
@@ -33,7 +38,7 @@ cp .env.example .env.local   # rellena las variables
 npm run dev
 ```
 
-La API de cotizaciones (`/api/prices`) es una función serverless de Vercel:
+Las APIs de datos (`/api/prices`, `/api/profile`, `/api/search-symbol`) son funciones serverless de Vercel:
 para probarla en local usa `vercel dev` en lugar de `npm run dev` (necesita
 `npm install -g vercel` y `vercel link` una vez).
 
@@ -60,6 +65,6 @@ para probarla en local usa `vercel dev` en lugar de `npm run dev` (necesita
 - **Modelo 720/750**: si el valor en el extranjero supera 50.000 €, hay una
   obligación informativa aparte que esta app no cubre.
 - **Alertas de precio**: no hay notificaciones, solo lo que ves al entrar.
-- Los símbolos deben coincidir con el formato de Twelve Data (por ejemplo
-  `ITX.MC`, `SAN.MC`, `ENI.MI`, no solo `ITX`). Si un símbolo no aparece,
-  revisa el sufijo de bolsa en su web.
+- Los símbolos usan el formato de Yahoo Finance: sin sufijo en EE. UU. (`FN`)
+  y con sufijo en Europa (`ITX.MC`, `ENI.MI`, `TEP.PA`). El buscador ya los
+  devuelve así.
