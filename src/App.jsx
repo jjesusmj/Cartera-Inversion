@@ -10,11 +10,14 @@ import WatchForm from './components/WatchForm';
 import NotesModal from './components/NotesModal';
 import { OWNERS, ownerOf } from './lib/owners';
 import { exchangeIdOf } from './lib/exchanges';
+import { fmtHora } from './lib/format';
+import { usePullToRefresh } from './lib/usePullToRefresh';
 import {
   listarLotes,
   listarVentas,
   listarWatch,
   obtenerCotizaciones,
+  obtenerPerfiles,
   obtenerTipoCambio,
   crearLote,
   crearWatch,
@@ -49,6 +52,8 @@ export default function App() {
   const [watchlistAll, setWatchlistAll] = useState([]);
   const [positionSettingsAll, setPositionSettingsAll] = useState([]);
   const [prices, setPrices] = useState({});
+  const [perfiles, setPerfiles] = useState({});
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pricesLoading, setPricesLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -103,8 +108,8 @@ export default function App() {
 
   const allSymbols = useMemo(() => {
     const m = new Map();
-    openLots.forEach((l) => m.set(l.symbol, { symbol: l.symbol, micCode: l.micCode, currency: l.currency }));
-    watchlist.forEach((w) => m.set(w.symbol, { symbol: w.symbol, micCode: w.micCode, currency: w.currency }));
+    openLots.forEach((l) => m.set(l.symbol, { symbol: l.symbol, currency: l.currency }));
+    watchlist.forEach((w) => m.set(w.symbol, { symbol: w.symbol, currency: w.currency }));
     return [...m.values()];
   }, [openLots, watchlist]);
 
@@ -113,9 +118,13 @@ export default function App() {
     setPricesLoading(true);
     try {
       const data = await obtenerCotizaciones(allSymbols);
-      setPrices((prev) => ({ ...prev, ...data }));
+      // Los símbolos con error se quedan sin cotización y usan el precio manual
+      const validos = Object.fromEntries(Object.entries(data).filter(([, q]) => !q.error));
+      setPrices((prev) => ({ ...prev, ...validos }));
+      setUltimaActualizacion(new Date());
+      setError(null);
     } catch (e) {
-      setError('No se pudieron actualizar las cotizaciones (revisa TWELVE_DATA_API_KEY en Vercel).');
+      setError('No se pudieron actualizar las cotizaciones desde Yahoo Finance. Prueba otra vez en unos minutos.');
     } finally {
       setPricesLoading(false);
     }
@@ -125,6 +134,18 @@ export default function App() {
     if (allSymbols.length > 0) refreshPrices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allSymbols.length, owner]);
+
+  // Sector de cada valor: se pide una vez y se guarda en el navegador
+  const clavesSimbolos = allSymbols.map((s) => s.symbol).sort().join(',');
+  useEffect(() => {
+    if (!clavesSimbolos) return;
+    obtenerPerfiles(clavesSimbolos.split(',')).then(setPerfiles);
+  }, [clavesSimbolos]);
+
+  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen';
+  const pull = usePullToRefresh(() => {
+    if (!pricesLoading) refreshPrices();
+  }, vistaConPrecios);
 
   async function handleAddLote(data) {
     await crearLote({ ...data, owner });
@@ -281,6 +302,14 @@ export default function App() {
         ))}
       </select>
 
+      <div
+        className="pull-indicator"
+        style={{ height: pricesLoading && vistaConPrecios ? 36 : pull.distancia, opacity: pull.distancia || pricesLoading ? 1 : 0 }}
+        aria-live="polite"
+      >
+        {pricesLoading ? 'Actualizando…' : pull.listo ? 'Suelta para actualizar' : 'Desliza para actualizar'}
+      </div>
+
       <main className="main">
         {error && <div className="error-box">{error}</div>}
 
@@ -295,6 +324,7 @@ export default function App() {
                 exchangeFilter={exchangeFilter}
                 onCambiarExchangeFilter={setExchangeFilter}
                 prices={prices}
+                perfiles={perfiles}
                 positionSettings={positionSettings}
                 onActualizarPosSettings={handleActualizarPosSettings}
                 pricesLoading={pricesLoading}
@@ -313,6 +343,7 @@ export default function App() {
                 exchangeFilter={exchangeFilter}
                 onCambiarExchangeFilter={setExchangeFilter}
                 prices={prices}
+                perfiles={perfiles}
                 onNuevo={() => setShowWatchForm(true)}
                 onEditar={setEditWatch}
                 onActualizarEntrada={handleActualizarEntrada}
@@ -325,6 +356,12 @@ export default function App() {
             {view === 'renta' && <Renta sales={sales} />}
           </>
         )}
+
+        <footer className="data-note">
+          Cotizaciones de es.finance.yahoo.com: EE. UU. en tiempo real, bolsas europeas con unos 15 minutos de retraso.
+          Conversión a euros con el tipo de referencia del BCE.
+          {ultimaActualizacion && ` Actualizado a las ${fmtHora(ultimaActualizacion)}.`}
+        </footer>
       </main>
 
       {showBuyForm && <BuyForm onClose={() => setShowBuyForm(false)} onSubmit={handleAddLote} />}

@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { exchangeById, exchangeIdFromYahoo } from '../lib/exchanges';
 
-// Campo de texto que busca en /api/search-symbol mientras escribes y muestra
-// una lista de resultados (símbolo exacto, nombre, bolsa, divisa). Al elegir
-// uno, avisa al formulario padre con todos los datos para que rellene
-// símbolo + nombre + divisa automáticamente.
+// Campo de texto que busca en Yahoo (vía /api/search-symbol) mientras escribes.
+// Solo muestra valores de las bolsas que maneja la app. Al elegir uno, avisa
+// al formulario con el símbolo en formato Yahoo, el nombre y la bolsa.
 export default function SymbolSearch({ query, onQueryChange, onSelect, placeholder }) {
   const [resultados, setResultados] = useState([]);
   const [abierto, setAbierto] = useState(false);
@@ -22,7 +22,11 @@ export default function SymbolSearch({ query, onQueryChange, onSelect, placehold
       try {
         const res = await fetch(`/api/search-symbol?query=${encodeURIComponent(query)}`);
         const data = await res.json();
-        setResultados(Array.isArray(data) ? data : []);
+        const lista = (Array.isArray(data) ? data : [])
+          .map((r) => ({ ...r, exchangeId: exchangeIdFromYahoo(r.symbol, r.exchangeCode) }))
+          .filter((r) => r.exchangeId)
+          .slice(0, 8);
+        setResultados(lista);
         setAbierto(true);
       } catch {
         setResultados([]);
@@ -86,7 +90,7 @@ export default function SymbolSearch({ query, onQueryChange, onSelect, placehold
             >
               <strong>{r.symbol}</strong> — {r.name}
               <div style={{ color: 'var(--ink-faint)', fontSize: 11 }}>
-                {r.exchange} · {r.currency} · {r.country}
+                {r.exchange} ({exchangeById(r.exchangeId).currency}){r.type === 'ETF' ? ', ETF' : ''}
               </div>
             </div>
           ))}

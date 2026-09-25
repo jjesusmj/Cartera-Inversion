@@ -36,10 +36,6 @@ export default function Sidebar({ view, setView, owner, setOwner }) {
           </button>
         ))}
       </nav>
-      <div className="sidebar-foot">
-        Precios: Twelve Data (retraso ~15-20 min).<br />
-        Tipo de cambio: BCE vía Frankfurter.
-      </div>
     </aside>
   );
 }

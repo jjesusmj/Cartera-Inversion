@@ -11,7 +11,6 @@ export default function WatchForm({ onClose, onSubmit, initial }) {
   const [form, setForm] = useState({
     exchangeId: exchangeInicial,
     symbol: initial?.symbol || '',
-    micCode: initial?.micCode || '',
     name: initial?.name || '',
     comment: initial?.comment || '',
     manualPrice: initial?.manualPrice ?? '',
@@ -39,7 +38,6 @@ export default function WatchForm({ onClose, onSubmit, initial }) {
       await onSubmit({
         exchangeId: form.exchangeId,
         symbol: form.symbol.toUpperCase().trim(),
-        micCode: form.micCode,
         name: form.name.trim() || form.symbol.toUpperCase().trim(),
         currency: exchange.currency,
         comment: form.comment.trim(),
@@ -74,13 +72,8 @@ export default function WatchForm({ onClose, onSubmit, initial }) {
               query={form.name}
               onQueryChange={(v) => set('name', v)}
               onSelect={(r) => {
-                if (esUSD) {
-                  set('symbol', r.symbol);
-                  set('micCode', r.micCode || '');
-                } else {
-                  set('symbol', `${r.symbol}${exchange.yahooSuffix}`);
-                  set('micCode', '');
-                }
+                set('symbol', r.symbol);
+                set('exchangeId', r.exchangeId);
                 set('name', r.name);
               }}
               placeholder="Nvidia"
@@ -90,10 +83,7 @@ export default function WatchForm({ onClose, onSubmit, initial }) {
             <label>Símbolo elegido</label>
             <input
               value={form.symbol}
-              onChange={(e) => {
-                set('symbol', e.target.value);
-                set('micCode', '');
-              }}
+              onChange={(e) => set('symbol', e.target.value)}
               placeholder={esUSD ? 'NVDA' : `ITX${exchange.yahooSuffix}`}
             />
           </div>

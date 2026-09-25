@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { fmtMoney, fmtPercent, fmtNumber, fmtDate, fmtAntiguedad } from '../lib/format';
+import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtSigned, fmtPercent, fmtNumber, fmtDate, fmtAntiguedad } from '../lib/format';
 import { useFxToday } from '../lib/useFxToday';
 import { useSort } from '../lib/useSort';
+import { yahooUrl } from '../lib/exchanges';
+import { sectorES } from '../lib/sectors';
+import { Sparkline, RangeBar } from './Charts';
 import ExchangeFilter from './ExchangeFilter';
 
 function agruparPorSimbolo(openLots) {
@@ -16,8 +19,20 @@ function agruparPorSimbolo(openLots) {
   return Object.values(grupos);
 }
 
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, positionSettings, onActualizarPosSettings, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote }) {
-  const [abierto, setAbierto] = useState(null);
+function claseSigno(v) {
+  if (v == null) return '';
+  return v >= 0 ? 'gain' : 'loss';
+}
+
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote }) {
+  const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
+  const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
+  const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
+  function setModo(m) {
+    localStorage.setItem('cartera_modo', m);
+    setModoState(m);
+  }
+
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
   const fx = useFxToday(grupos.map((g) => g.currency));
 
@@ -25,10 +40,10 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
     const cantidad = g.lotes.reduce((s, l) => s + l.remainingQuantity, 0);
     const costeOriginal = g.lotes.reduce((s, l) => s + l.price * l.remainingQuantity, 0);
     const precioMedio = costeOriginal / cantidad;
-    const cotizacion = prices[g.symbol];
+    const q = prices[g.symbol];
     const manualPrice = g.lotes.find((l) => l.manualPrice != null)?.manualPrice ?? null;
-    const precioActual = cotizacion?.price ?? manualPrice ?? undefined;
-    const esManual = cotizacion?.price == null && manualPrice != null;
+    const precioActual = q?.price ?? manualPrice ?? undefined;
+    const esManual = q?.price == null && manualPrice != null;
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
 
     const plPct = precioActual != null && precioMedio ? (precioActual / precioMedio - 1) * 100 : null;
@@ -36,20 +51,30 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
     const costeEUR = rate != null ? costeOriginal * rate : null;
     const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
 
-    const hoyPct = cotizacion?.changePercent ?? null;
-    const hoyEUR = valorEUR != null && hoyPct != null ? valorEUR - valorEUR / (1 + hoyPct / 100) : 0;
+    // Hoy: cada lote contra el cierre de ayer, salvo los comprados en la
+    // sesión de hoy, que van contra su precio de compra.
+    let hoyEUR = null;
+    if (q?.price != null && q.previousClose != null && rate != null) {
+      hoyEUR = g.lotes.reduce((s, l) => {
+        const referencia = l.buyDate === q.sessionDate ? l.price : q.previousClose;
+        return s + l.remainingQuantity * (q.price - referencia) * rate;
+      }, 0);
+    }
+    const valorInicio = valorEUR != null && hoyEUR != null ? valorEUR - hoyEUR : null;
+    const hoyPct = valorInicio ? (hoyEUR / valorInicio) * 100 : null;
 
     const ajuste = positionSettings[g.symbol] || {};
     const stopSaltado = ajuste.stopPrice != null && precioActual != null && precioActual <= ajuste.stopPrice;
     const objetivoSaltado = ajuste.targetPrice != null && precioActual != null && precioActual >= ajuste.targetPrice;
-    const conAlerta = stopSaltado || objetivoSaltado;
 
     const notas = g.lotes[0].notes || [];
     const ultimaNota = notas.length ? notas[notas.length - 1].text : g.lotes[0].comment;
 
     return {
-      ...g, cantidad, precioMedio, precioActual, esManual, cotizacion, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
-      stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado, conAlerta,
+      ...g, q, cantidad, precioMedio, precioActual, esManual, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
+      sector: sectorES(perfiles[g.symbol]),
+      stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado,
+      conAlerta: stopSaltado || objetivoSaltado,
       notas, ultimaNota,
     };
   });
@@ -60,9 +85,19 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
   const totalCoste = filasSinOrdenar.reduce((s, f) => s + (f.costeEUR || 0), 0);
   const totalPL = totalValor - totalCoste;
   const totalPLPct = totalCoste ? (totalPL / totalCoste) * 100 : 0;
-  const totalHoyEUR = filasSinOrdenar.reduce((s, f) => s + (f.hoyEUR || 0), 0);
-  const valorInicioDia = totalValor - totalHoyEUR;
+  const conHoy = filasSinOrdenar.filter((f) => f.hoyEUR != null);
+  const totalHoyEUR = conHoy.reduce((s, f) => s + f.hoyEUR, 0);
+  const valorInicioDia = conHoy.reduce((s, f) => s + f.valorEUR - f.hoyEUR, 0);
   const totalHoyPct = valorInicioDia ? (totalHoyEUR / valorInicioDia) * 100 : 0;
+
+  const filaDetalle = detalle ? filasSinOrdenar.find((f) => f.symbol === detalle) : null;
+
+  function marcas(f) {
+    return [
+      { value: f.stopPrice, tipo: 'loss', titulo: 'Stop' },
+      { value: f.targetPrice, tipo: 'gain', titulo: 'Objetivo' },
+    ];
+  }
 
   return (
     <div>
@@ -72,7 +107,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           <div className="page-sub">{filas.length} posiciones abiertas</div>
         </div>
         <div className="btn-row">
-          <button className="btn" onClick={onRefreshPrices} disabled={pricesLoading}>
+          <button className="btn btn-refresh" onClick={onRefreshPrices} disabled={pricesLoading}>
             {pricesLoading ? 'Actualizando…' : 'Actualizar cotizaciones'}
           </button>
           <button className="btn btn-primary" onClick={onNuevaCompra}>
@@ -96,16 +131,16 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
         </div>
         <div className="kpi">
           <div className="kpi-label">Ganancia / pérdida</div>
-          <div className={`kpi-value ${totalPL >= 0 ? 'gain' : 'loss'}`}>{fmtMoney(totalPL)}</div>
+          <div className={`kpi-value ${claseSigno(totalPL)}`}>{fmtMoneySigned(totalPL)}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Rentabilidad</div>
-          <div className={`kpi-value ${totalPL >= 0 ? 'gain' : 'loss'}`}>{fmtPercent(totalPLPct)}</div>
+          <div className={`kpi-value ${claseSigno(totalPL)}`}>{fmtPercent(totalPLPct)}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Hoy</div>
-          <div className={`kpi-value ${totalHoyEUR >= 0 ? 'gain' : 'loss'}`}>
-            {fmtMoney(totalHoyEUR)} ({fmtPercent(totalHoyPct)})
+          <div className={`kpi-value ${claseSigno(totalHoyEUR)}`}>
+            {fmtMoneySigned(totalHoyEUR)} ({fmtPercent(totalHoyPct)})
           </div>
         </div>
       </div>
@@ -120,13 +155,14 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
               <thead>
                 <tr>
                   <th className="sortable" onClick={() => toggleSort('symbol')}>Activo{arrow('symbol')}</th>
-                  <th>Bróker</th>
                   <th className="num sortable" onClick={() => toggleSort('cantidad')}>Cantidad{arrow('cantidad')}</th>
                   <th className="num sortable" onClick={() => toggleSort('precioMedio')}>Precio medio{arrow('precioMedio')}</th>
                   <th className="num sortable" onClick={() => toggleSort('precioActual')}>Precio actual{arrow('precioActual')}</th>
+                  <th>Día</th>
+                  <th className="num sortable" onClick={() => toggleSort('hoyEUR')}>Hoy{arrow('hoyEUR')}</th>
+                  <th>Rango 52 semanas</th>
                   <th className="num">Stop</th>
                   <th className="num">Objetivo</th>
-                  <th className="num sortable" onClick={() => toggleSort('hoyPct')}>Hoy{arrow('hoyPct')}</th>
                   <th className="num sortable" onClick={() => toggleSort('plEUR')}>P/L €{arrow('plEUR')}</th>
                   <th className="num sortable" onClick={() => toggleSort('plPct')}>P/L %{arrow('plPct')}</th>
                   <th>Cuaderno</th>
@@ -142,45 +178,32 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                     >
                       <td>
                         <span className="symbol">{f.symbol}</span>
+                        {f.sector && <span className="sector">{f.sector}</span>}
                         {f.lotes.length > 1 && <span className="tag" style={{ marginLeft: 8 }}>{f.lotes.length} lotes</span>}
-                        <span className="symbol-name">{f.name}</span>
+                        <span className="symbol-name">{f.name}, {[...f.brokers].join(', ')}</span>
                       </td>
-                      <td>{[...f.brokers].join(', ')}</td>
                       <td className="num">{fmtNumber(f.cantidad, 2)}</td>
-                      <td className="num">{fmtMoney(f.precioMedio, f.currency)}</td>
+                      <td className="num">{fmtCotizacion(f.precioMedio, f.currency)}</td>
                       <td className="num">
-                        {f.precioActual != null ? fmtMoney(f.precioActual, f.currency) : '—'}
+                        {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}
                         {f.esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
                       </td>
-                      <td className="num" onClick={(e) => e.stopPropagation()}>
-                        <EditableNumber
-                          valor={f.stopPrice}
-                          precioActual={f.precioActual}
-                          currency={f.currency}
-                          resaltado={f.stopSaltado}
-                          color="loss"
-                          onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)}
-                        />
+                      <td><Sparkline spark={f.q?.spark} previousClose={f.q?.previousClose} width={64} height={28} /></td>
+                      <td className={`num ${claseSigno(f.hoyEUR)}`}>
+                        {f.hoyEUR != null ? fmtMoneySigned(f.hoyEUR) : '—'}
+                        {f.hoyPct != null && <span className={`cell-sub ${claseSigno(f.hoyPct)}`}>{fmtPercent(f.hoyPct)}</span>}
+                      </td>
+                      <td style={{ minWidth: 110 }}>
+                        <RangeBar low={f.q?.week52Low} high={f.q?.week52High} price={f.precioActual} marks={marcas(f)} />
                       </td>
                       <td className="num" onClick={(e) => e.stopPropagation()}>
-                        <EditableNumber
-                          valor={f.targetPrice}
-                          precioActual={f.precioActual}
-                          currency={f.currency}
-                          resaltado={f.objetivoSaltado}
-                          color="gain"
-                          onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)}
-                        />
+                        <EditableNumber valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} />
                       </td>
-                      <td className={`num ${f.hoyPct >= 0 ? 'gain' : 'loss'}`}>
-                        {f.hoyPct != null ? fmtPercent(f.hoyPct) : '—'}
+                      <td className="num" onClick={(e) => e.stopPropagation()}>
+                        <EditableNumber valor={f.targetPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.objetivoSaltado} color="gain" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)} />
                       </td>
-                      <td className={`num ${f.plEUR >= 0 ? 'gain' : 'loss'}`}>
-                        {f.plEUR != null ? fmtMoney(f.plEUR) : '—'}
-                      </td>
-                      <td className={`num ${f.plPct >= 0 ? 'gain' : 'loss'}`}>
-                        {f.plPct != null ? fmtPercent(f.plPct) : '—'}
-                      </td>
+                      <td className={`num ${claseSigno(f.plEUR)}`}>{f.plEUR != null ? fmtMoneySigned(f.plEUR) : '—'}</td>
+                      <td className={`num ${claseSigno(f.plPct)}`}>{f.plPct != null ? fmtPercent(f.plPct) : '—'}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <button className="btn btn-ghost" onClick={() => onAbrirNotas(f)}>
                           {f.ultimaNota ? `"${f.ultimaNota.slice(0, 20)}${f.ultimaNota.length > 20 ? '…' : ''}"` : 'Añadir nota'}
@@ -188,93 +211,208 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                         </button>
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <button className="btn btn-ghost" onClick={() => onVender(f.symbol)}>
-                          Vender
-                        </button>
+                        <button className="btn btn-ghost" onClick={() => onVender(f.symbol)}>Vender</button>
                       </td>
                     </tr>
-                    {abierto === f.symbol &&
-                      f.lotes
-                        .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
-                        .map((lote) => {
-                          const intacto = lote.remainingQuantity === lote.quantity;
-                          return (
+                    {abierto === f.symbol && (
+                      <>
+                        <tr className="lots-detail">
+                          <td colSpan={13}>
+                            <div className="detail-strip">
+                              <div className="detail-strip-range">
+                                <span className="detail-strip-label">Rango del día</span>
+                                <RangeBar low={f.q?.dayLow} high={f.q?.dayHigh} price={f.precioActual} />
+                              </div>
+                              <a className="btn btn-ghost" href={yahooUrl(f.symbol)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                Ver en Yahoo Finance
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                        {[...f.lotes]
+                          .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
+                          .map((lote) => (
                             <tr className="lots-detail" key={lote.id}>
-                              <td colSpan={12}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                                  <span>
-                                    Lote del {fmtDate(lote.buyDate)} ({fmtAntiguedad(lote.buyDate)}) · {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
-                                    {fmtMoney(lote.price, lote.currency)} · {lote.broker}
-                                    {!intacto &&
-                                      ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
-                                  </span>
-                                  {intacto ? (
-                                    <div className="btn-row">
-                                      <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); onEditarLote(lote); }}>
-                                        Editar
-                                      </button>
-                                      <button
-                                        className="btn btn-ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (window.confirm(`¿Borrar este lote de ${f.symbol} del ${fmtDate(lote.buyDate)}? No se puede deshacer.`)) {
-                                            onBorrarLote(lote.id);
-                                          }
-                                        }}
-                                      >
-                                        Borrar
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className="hint">No se puede editar ni borrar: ya tiene ventas asociadas</span>
-                                  )}
-                                </div>
+                              <td colSpan={13}>
+                                <FilaLote lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} />
                               </td>
                             </tr>
-                          );
-                        })}
+                          ))}
+                      </>
+                    )}
                   </React.Fragment>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* --- Tarjetas (móvil) --- */}
-          <div className="card-list">
-            {filas.map((f) => (
-              <div className={`card ${f.conAlerta ? 'row-alert' : ''}`} key={f.symbol}>
-                <div className="card-top">
-                  <div>
-                    <span className="symbol">{f.symbol}</span>
-                    {f.lotes.length > 1 && <span className="tag" style={{ marginLeft: 6 }}>{f.lotes.length} lotes</span>}
-                    <span className="symbol-name">{f.name}</span>
-                  </div>
-                  <div className="card-price">
-                    {f.precioActual != null ? fmtMoney(f.precioActual, f.currency) : '—'}
-                    <div className={f.hoyPct >= 0 ? 'gain' : 'loss'} style={{ fontSize: 12 }}>
-                      {f.hoyPct != null ? fmtPercent(f.hoyPct) : '—'}
+          {/* --- Lista compacta (móvil) --- */}
+          <div className="mobile-only">
+            <div className="segmented" role="tablist" aria-label="Qué mostrar a la derecha">
+              <button role="tab" aria-selected={modo === 'hoy'} className={modo === 'hoy' ? 'active' : ''} onClick={() => setModo('hoy')}>Hoy</button>
+              <button role="tab" aria-selected={modo === 'total'} className={modo === 'total' ? 'active' : ''} onClick={() => setModo('total')}>Total</button>
+            </div>
+            <div className="qlist">
+              {filas.map((f) => (
+                <button key={f.symbol} className={`qrow ${f.conAlerta ? 'row-alert' : ''}`} onClick={() => setDetalle(f.symbol)}>
+                  <div className="qrow-left">
+                    <div className="qrow-title">
+                      <span className="symbol">{f.symbol}</span>
+                      {f.sector && <span className="sector">{f.sector}</span>}
                     </div>
+                    <div className="qrow-name">{f.name}</div>
+                    <RangeBar compact low={f.q?.week52Low} high={f.q?.week52High} price={f.precioActual} marks={marcas(f)} />
                   </div>
-                </div>
-                <div className="card-sub">
-                  <span>{[...f.brokers].join(', ')} · {fmtNumber(f.cantidad, 2)} ud.</span>
-                  <span className={f.plEUR >= 0 ? 'gain' : 'loss'}>
-                    {f.plEUR != null ? `${fmtMoney(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 10 }}>
-                  <EditableNumber label="Stop" valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} />
-                  <EditableNumber label="Objetivo" valor={f.targetPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.objetivoSaltado} color="gain" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)} />
-                </div>
-                <div className="card-actions">
-                  <button className="btn btn-ghost" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
-                  <button className="btn btn-ghost" onClick={() => onVender(f.symbol)}>Vender</button>
-                </div>
-              </div>
-            ))}
+                  <Sparkline spark={f.q?.spark} previousClose={f.q?.previousClose} />
+                  <div className="qrow-right">
+                    {modo === 'hoy' ? (
+                      <>
+                        <div className="qrow-main">
+                          {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}
+                          {f.esManual && <span className="tag tag-mini">manual</span>}
+                        </div>
+                        <div className={`qrow-change ${claseSigno(f.hoyEUR)}`}>
+                          {f.hoyEUR != null ? `${fmtMoneySigned(f.hoyEUR)} (${fmtPercent(f.hoyPct)})` : '—'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="qrow-main">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</div>
+                        <div className={`qrow-change ${claseSigno(f.plEUR)}`}>
+                          {f.plEUR != null ? `${fmtMoneySigned(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </>
       )}
+
+      {filaDetalle && (
+        <HojaPosicion
+          f={filaDetalle}
+          marcas={marcas(filaDetalle)}
+          onClose={() => setDetalle(null)}
+          onActualizarPosSettings={onActualizarPosSettings}
+          onAbrirNotas={(f) => { setDetalle(null); onAbrirNotas(f); }}
+          onVender={(s) => { setDetalle(null); onVender(s); }}
+          onEditarLote={(l) => { setDetalle(null); onEditarLote(l); }}
+          onBorrarLote={onBorrarLote}
+        />
+      )}
+    </div>
+  );
+}
+
+function FilaLote({ lote, symbol, onEditarLote, onBorrarLote }) {
+  const intacto = lote.remainingQuantity === lote.quantity;
+  return (
+    <div className="lot-line">
+      <span>
+        Lote del {fmtDate(lote.buyDate)} ({fmtAntiguedad(lote.buyDate)}): {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
+        {fmtCotizacion(lote.price, lote.currency)}, {lote.broker}
+        {!intacto && ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
+      </span>
+      {intacto ? (
+        <div className="btn-row">
+          <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); onEditarLote(lote); }}>Editar</button>
+          <button
+            className="btn btn-ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`¿Borrar este lote de ${symbol} del ${fmtDate(lote.buyDate)}? No se puede deshacer.`)) {
+                onBorrarLote(lote.id);
+              }
+            }}
+          >
+            Borrar
+          </button>
+        </div>
+      ) : (
+        <span className="hint">No se puede editar ni borrar: ya tiene ventas asociadas</span>
+      )}
+    </div>
+  );
+}
+
+// Hoja de detalle de una posición (se abre al tocar una fila en el iPhone)
+function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onAbrirNotas, onVender, onEditarLote, onBorrarLote }) {
+  return (
+    <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
+      <div className="modal sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Detalle de ${f.symbol}`}>
+        <div className="sheet-grip" aria-hidden="true" />
+        <div className="sheet-head">
+          <div>
+            <div className="qrow-title">
+              <span className="symbol sheet-symbol">{f.symbol}</span>
+              {f.sector && <span className="sector">{f.sector}</span>}
+            </div>
+            <div className="qrow-name">{f.name}</div>
+          </div>
+          <div className="qrow-right">
+            <div className="sheet-price">{f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}</div>
+            <div className={`qrow-change ${claseSigno(f.q?.changePercent)}`}>
+              {f.q?.price != null && f.q.previousClose != null
+                ? `${fmtSigned(f.q.price - f.q.previousClose)} (${fmtPercent(f.q.changePercent)})`
+                : '—'}
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-grid">
+          <Stat label="Cantidad" value={fmtNumber(f.cantidad, 2)} />
+          <Stat label="Precio medio" value={fmtCotizacion(f.precioMedio, f.currency)} />
+          <Stat label="Invertido" value={fmtMoney(f.costeEUR)} />
+          <Stat label="Valor de mercado" value={fmtMoney(f.valorEUR)} />
+          <Stat label="Hoy" value={f.hoyEUR != null ? `${fmtMoneySigned(f.hoyEUR)} (${fmtPercent(f.hoyPct)})` : '—'} clase={claseSigno(f.hoyEUR)} />
+          <Stat label="Total" value={f.plEUR != null ? `${fmtMoneySigned(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'} clase={claseSigno(f.plEUR)} />
+        </div>
+
+        <div className="sheet-edit-row">
+          <EditableNumber label="Stop" valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} />
+          <EditableNumber label="Objetivo" valor={f.targetPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.objetivoSaltado} color="gain" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)} />
+        </div>
+
+        <div className="sheet-section">
+          <div className="sheet-label">Rango del día</div>
+          <RangeBar low={f.q?.dayLow} high={f.q?.dayHigh} price={f.precioActual} />
+          {f.q?.dayLow == null && <div className="hint">Sin datos del día.</div>}
+        </div>
+        <div className="sheet-section">
+          <div className="sheet-label">Rango 52 semanas, con stop (rojo) y objetivo (verde)</div>
+          <RangeBar low={f.q?.week52Low} high={f.q?.week52High} price={f.precioActual} marks={marcas} />
+        </div>
+
+        <div className="sheet-section">
+          <div className="sheet-label">Lotes ({[...f.brokers].join(', ')})</div>
+          {[...f.lotes]
+            .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
+            .map((lote) => (
+              <FilaLote key={lote.id} lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} />
+            ))}
+        </div>
+
+        <div className="card-actions">
+          <button className="btn" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
+          <button className="btn" onClick={() => onVender(f.symbol)}>Vender</button>
+        </div>
+        <a className="btn btn-ghost sheet-link" href={yahooUrl(f.symbol)} target="_blank" rel="noopener noreferrer">
+          Ver en Yahoo Finance
+        </a>
+        <button className="btn btn-ghost sheet-close" onClick={onClose}>Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, clase = '' }) {
+  return (
+    <div className="stat">
+      <div className="stat-label">{label}</div>
+      <div className={`stat-value ${clase}`}>{value}</div>
     </div>
   );
 }
@@ -289,6 +427,7 @@ function EditableNumber({ valor, precioActual, currency, resaltado, color, label
       <input
         autoFocus
         type="number"
+        inputMode="decimal"
         step="any"
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
@@ -297,39 +436,26 @@ function EditableNumber({ valor, precioActual, currency, resaltado, color, label
           onGuardar(texto);
         }}
         onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
-        style={{
-          width: 80,
-          background: 'var(--bg-inset)',
-          border: '1px solid var(--line)',
-          color: 'var(--ink)',
-          padding: '4px 6px',
-          fontSize: '12.5px',
-          borderRadius: '3px',
-          textAlign: 'right',
-        }}
+        className="inline-input"
       />
     );
   }
 
   if (label) {
     return (
-      <span onClick={() => { setTexto(valor ?? ''); setEditando(true); }} className="stat-block" style={{ cursor: 'pointer', display: 'block' }} title="Clic para editar">
+      <span onClick={() => { setTexto(valor ?? ''); setEditando(true); }} className="stat-block" style={{ cursor: 'pointer', display: 'block' }} title="Toca para editar">
         <div className="stat-block-label">{label}</div>
         <div className={`stat-block-value ${color}`} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5, display: 'inline-block' }}>
-          {valor != null ? `${fmtMoney(valor, currency)}${dist != null ? ` (${fmtPercent(dist)})` : ''}` : '—'}
+          {valor != null ? `${fmtCotizacion(valor, currency)}${dist != null ? ` (${fmtPercent(dist)})` : ''}` : 'Añadir'}
         </div>
       </span>
     );
   }
 
   return (
-    <span
-      onClick={() => { setTexto(valor ?? ''); setEditando(true); }}
-      style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'center' }}
-      title="Clic para editar"
-    >
+    <span onClick={() => { setTexto(valor ?? ''); setEditando(true); }} style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'center' }} title="Clic para editar">
       <span className={color} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5 }}>
-        {valor != null ? fmtMoney(valor, currency) : '—'}
+        {valor != null ? fmtCotizacion(valor, currency) : '—'}
       </span>
       {dist != null && <span className="cell-sub">{fmtPercent(dist)}</span>}
     </span>

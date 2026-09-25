@@ -633,3 +633,304 @@ tr.row-clickable:hover { background: var(--bg-inset); }
   border-color: var(--ink);
   color: #ffffff;
 }
+
+/* =====================================================================
+   Mejoras: gráfico del día, barras de rango, sector, lista compacta
+   para iPhone, hoja de detalle, deslizar para actualizar y nota de fuentes
+   ===================================================================== */
+
+.sector {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.tag-accent { border-color: var(--accent); color: var(--accent); }
+.tag-mini { font-size: 9.5px; padding: 1px 5px; margin-left: 5px; vertical-align: middle; }
+
+.spark { display: block; flex: none; }
+
+/* Barra de rango (52 semanas / día) */
+.rbar { width: 120px; }
+.rbar-track {
+  position: relative;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  margin-top: 7px;
+}
+.rbar-dot {
+  position: absolute;
+  top: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--bg);
+  transform: translateX(-50%);
+}
+.rbar-mark {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+.rbar-mark.loss { background: var(--loss); }
+.rbar-mark.gain { background: var(--gain); }
+.rbar-mark.accent { background: var(--accent); }
+.rbar-mark.accent-2 { background: var(--accent); opacity: 0.55; }
+.rbar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--ink-faint);
+  margin-top: 3px;
+}
+.rbar-compact { width: 100%; max-width: 150px; }
+.rbar-compact .rbar-track { height: 3px; margin-top: 8px; }
+.rbar-compact .rbar-dot { top: -3px; width: 9px; height: 9px; }
+.rbar-compact .rbar-mark { top: -3px; height: 9px; }
+.rbar-compact .rbar-labels { font-size: 9.5px; margin-top: 2px; }
+
+/* Franja de detalle en la tabla de escritorio */
+.detail-strip { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.detail-strip-range { display: flex; align-items: center; gap: 12px; }
+.detail-strip-label { font-size: 11.5px; color: var(--ink-faint); }
+.detail-strip a { text-decoration: none; }
+.lot-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+td.cell-link { cursor: pointer; }
+td.cell-link:hover .symbol { text-decoration: underline; }
+
+.btn-arrow {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  color: var(--ink-dim);
+}
+.btn-arrow:disabled { opacity: 0.3; cursor: default; }
+
+.inline-input {
+  width: 90px;
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 4px 6px;
+  font-size: 16px; /* 16px evita el zoom automático de Safari en iPhone */
+  border-radius: 3px;
+  text-align: right;
+}
+
+/* Nota de fuentes al pie */
+.data-note {
+  margin-top: 36px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink-faint);
+  max-width: 640px;
+}
+
+/* Indicador de deslizar para actualizar (solo iPhone) */
+.pull-indicator {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--ink-dim);
+  background: var(--bg);
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.mobile-only { display: none; }
+
+/* --- Lista compacta y hoja de detalle (iPhone) --- */
+@media (max-width: 720px) {
+  .mobile-only { display: block; }
+  .btn-refresh { display: none; } /* en el iPhone se actualiza deslizando hacia abajo */
+
+  .segmented {
+    display: flex;
+    background: var(--bg-inset);
+    border-radius: 8px;
+    padding: 2px;
+    margin-bottom: 10px;
+  }
+  .segmented button {
+    all: unset;
+    flex: 1;
+    text-align: center;
+    font-size: 13px;
+    padding: 7px 0;
+    border-radius: 6px;
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+  .segmented button.active {
+    background: var(--bg);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+
+  .qlist { border-top: 1px solid var(--line-soft); }
+
+  .qrow {
+    all: unset;
+    box-sizing: border-box;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 2px;
+    border-bottom: 1px solid var(--line-soft);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .qrow:active { background: var(--bg-inset); }
+  .qrow.row-alert { background: rgba(168, 112, 61, 0.12); padding-left: 8px; padding-right: 8px; }
+
+  .qrow-left { min-width: 0; }
+  .qrow-title { display: flex; align-items: baseline; min-width: 0; }
+  .qrow-title .symbol { font-size: 15px; color: var(--ink); }
+  .qrow-title .sector { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qrow-name {
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+
+  .qrow-right { text-align: right; min-width: 0; }
+  .qrow-main {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .qrow-change {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-top: 3px;
+  }
+
+  /* Hoja de detalle: sube desde abajo */
+  .sheet-backdrop { align-items: flex-end; }
+  .modal.sheet {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    border: none;
+    border-radius: 14px 14px 0 0;
+    padding: 8px 18px calc(18px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    animation: sheet-up 0.22s ease-out;
+  }
+  .sheet-grip {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    margin: 0 auto 12px;
+  }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal.sheet { animation: none; }
+}
+
+@media (min-width: 721px) {
+  .pull-indicator { display: none; }
+  .modal.sheet { width: 480px; }
+  .sheet-grip { display: none; }
+}
+
+/* Contenido de la hoja (móvil y escritorio) */
+/* también en escritorio, dentro de la hoja */
+.qrow-title { display: flex; align-items: baseline; }
+
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.sheet-head .qrow-name { font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
+.sheet-head .qrow-right { text-align: right; }
+.sheet-symbol { font-family: var(--font-display); font-size: 22px; }
+.sheet-price { font-family: var(--font-mono); font-size: 20px; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line-soft);
+  border: 1px solid var(--line-soft);
+  margin-bottom: 14px;
+}
+.stat { background: var(--bg-raised); padding: 10px 12px; }
+.stat-label { font-size: 11px; color: var(--ink-faint); }
+.stat-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13.5px; margin-top: 3px; }
+
+.sheet-edit-row { display: flex; justify-content: space-around; margin: 6px 0 14px; }
+
+.sheet-section { margin-bottom: 14px; }
+.sheet-section .rbar { width: 100%; }
+.sheet-section .lot-line {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.sheet-label { font-size: 11.5px; color: var(--ink-faint); margin-bottom: 2px; }
+
+.sheet-link, .sheet-close {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 8px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+/* % bajo el importe en la columna Hoy: con color */
+.cell-sub.gain { color: var(--gain); }
+.cell-sub.loss { color: var(--loss); }
+
+/* Tabla de escritorio más compacta para que quepan gráfico y rango */
+@media (min-width: 721px) {
+  .main { max-width: 1320px; }
+  .table-scroll th, .table-scroll td { padding-left: 10px; padding-right: 10px; }
+  .table-scroll td .sector { white-space: nowrap; }
+  .table-scroll .rbar { width: 104px; }
+}
+@media (max-width: 720px) {
+  .kpi-row .kpi:last-child:nth-child(odd) { grid-column: span 2; }
+}

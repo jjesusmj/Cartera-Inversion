@@ -13,7 +13,6 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
   const [form, setForm] = useState({
     exchangeId: exchangeInicial,
     symbol: initial?.symbol || '',
-    micCode: initial?.micCode || '',
     name: initial?.name || '',
     broker: initial?.broker || BROKERS[0],
     buyDate: initial?.buyDate || new Date().toISOString().slice(0, 10),
@@ -44,7 +43,6 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
       await onSubmit({
         exchangeId: form.exchangeId,
         symbol: form.symbol.toUpperCase().trim(),
-        micCode: form.micCode,
         name: form.name.trim() || form.symbol.toUpperCase().trim(),
         broker: form.broker.trim() || 'Sin especificar',
         buyDate: form.buyDate,
@@ -75,7 +73,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
                 <option key={ex.id} value={ex.id}>{ex.label}</option>
               ))}
             </select>
-            <div className="hint">Fija la divisa ({exchange.currency}) y el sufijo del símbolo automáticamente.</div>
+            <div className="hint">Fija la divisa ({exchange.currency}). Se ajusta sola al elegir una empresa de la lista.</div>
           </div>
 
           <div className="field-row">
@@ -85,13 +83,8 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
                 query={form.name}
                 onQueryChange={(v) => set('name', v)}
                 onSelect={(r) => {
-                  if (esUSD) {
-                    set('symbol', r.symbol);
-                    set('micCode', r.micCode || '');
-                  } else {
-                    set('symbol', `${r.symbol}${exchange.yahooSuffix}`);
-                    set('micCode', '');
-                  }
+                  set('symbol', r.symbol);
+                  set('exchangeId', r.exchangeId);
                   set('name', r.name);
                 }}
                 placeholder="Inditex"
@@ -101,14 +94,11 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
               <label>Símbolo elegido</label>
               <input
                 value={form.symbol}
-                onChange={(e) => {
-                  set('symbol', e.target.value);
-                  set('micCode', '');
-                }}
+                onChange={(e) => set('symbol', e.target.value)}
                 placeholder={esUSD ? 'FN' : `ITX${exchange.yahooSuffix}`}
               />
               <div className="hint">
-                Se rellena solo al elegir de la lista, con el sufijo de "{exchange.label}" si no es EE. UU.
+                Formato Yahoo Finance: sin sufijo en EE. UU. (FN), con sufijo en Europa (ITX.MC, ENI.MI, TEP.PA).
               </div>
             </div>
           </div>

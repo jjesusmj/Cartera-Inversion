@@ -114,19 +114,52 @@ export async function borrarWatch(id) {
   return deleteDoc(doc(db, 'watchlist', id));
 }
 
-// ---------- Cotizaciones (vía nuestra función serverless, oculta la API key) ----------
+// ---------- Cotizaciones (Yahoo Finance, vía nuestra función serverless) ----------
 
 export async function obtenerCotizaciones(items) {
-  // items: [{ symbol, micCode, currency }]
+  // items: [{ symbol, currency }]
   if (items.length === 0) return {};
   const symbols = items.map((i) => i.symbol).join(',');
-  const micCodes = items.map((i) => i.micCode || '').join(',');
   const currencies = items.map((i) => i.currency || '').join(',');
   const res = await fetch(
-    `/api/prices?symbols=${encodeURIComponent(symbols)}&micCodes=${encodeURIComponent(micCodes)}&currencies=${encodeURIComponent(currencies)}`
+    `/api/prices?symbols=${encodeURIComponent(symbols)}&currencies=${encodeURIComponent(currencies)}`
   );
   if (!res.ok) throw new Error('No se pudieron obtener las cotizaciones.');
-  return res.json(); // { SYMBOL: { price, changePercent, currency } }
+  return res.json(); // { SYMBOL: { price, previousClose, changePercent, spark, ... } }
+}
+
+// ---------- Sector (Yahoo, cacheado en el navegador 30 días) ----------
+
+const PERFIL_KEY = 'cartera_perfiles_v1';
+const PERFIL_TTL = 30 * 24 * 3600 * 1000;
+
+function leerPerfilesGuardados() {
+  try {
+    return JSON.parse(localStorage.getItem(PERFIL_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+export async function obtenerPerfiles(symbols) {
+  const guardados = leerPerfilesGuardados();
+  const ahora = Date.now();
+  const faltan = symbols.filter((s) => !guardados[s] || ahora - guardados[s].at > PERFIL_TTL);
+  if (faltan.length > 0) {
+    try {
+      const res = await fetch(`/api/profile?symbols=${encodeURIComponent(faltan.join(','))}`);
+      if (res.ok) {
+        const data = await res.json();
+        for (const [s, p] of Object.entries(data)) {
+          if (!p.error) guardados[s] = { ...p, at: ahora };
+        }
+        localStorage.setItem(PERFIL_KEY, JSON.stringify(guardados));
+      }
+    } catch {
+      // sin sector no pasa nada: la fila se muestra igual
+    }
+  }
+  return Object.fromEntries(symbols.filter((s) => guardados[s]).map((s) => [s, guardados[s]]));
 }
 
 // ---------- Tipo de cambio (Frankfurter, datos del BCE, llamada directa: no requiere clave) ----------
