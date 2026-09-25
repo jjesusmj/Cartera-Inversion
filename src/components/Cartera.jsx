@@ -3,7 +3,10 @@ import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtSigned, fmtPercent, fmtNumb
 import { useFxToday } from '../lib/useFxToday';
 import { useSort } from '../lib/useSort';
 import { yahooUrl } from '../lib/exchanges';
-import { sectorES } from '../lib/sectors';
+import { sectorDe } from '../lib/sectors';
+import { nivelMasCercano, numNotas } from '../lib/niveles';
+import PeriodChart from './PeriodChart';
+import { NotaBadge, NivelCercano, UltimaNota, SectorEditor } from './DetailParts';
 import { Sparkline, RangeBar } from './Charts';
 import ExchangeFilter from './ExchangeFilter';
 
@@ -24,7 +27,7 @@ function claseSigno(v) {
   return v >= 0 ? 'gain' : 'loss';
 }
 
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote }) {
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
   const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
@@ -68,14 +71,20 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
     const objetivoSaltado = ajuste.targetPrice != null && precioActual != null && precioActual >= ajuste.targetPrice;
 
     const notas = g.lotes[0].notes || [];
-    const ultimaNota = notas.length ? notas[notas.length - 1].text : g.lotes[0].comment;
+    const comentario = g.lotes[0].comment || '';
+    const ultimaNota = notas.length ? notas[notas.length - 1].text : comentario;
+    const sector = sectorDe(g.symbol, perfiles, positionSettings);
+    const nivel = nivelMasCercano(precioActual, [
+      { value: ajuste.stopPrice, label: 'Stop', tipo: 'loss', cruza: 'debajo', textoCruzado: 'Stop superado' },
+      { value: ajuste.targetPrice, label: 'Objetivo', tipo: 'gain', cruza: 'encima', textoCruzado: 'Objetivo alcanzado' },
+    ]);
 
     return {
       ...g, q, cantidad, precioMedio, precioActual, esManual, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
-      sector: sectorES(perfiles[g.symbol]),
+      sector: sector.nombre, sectorInfo: sector, nivel,
       stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado,
       conAlerta: stopSaltado || objetivoSaltado,
-      notas, ultimaNota,
+      notas, comentario, ultimaNota, nNotas: numNotas(notas, comentario),
     };
   });
 
@@ -90,6 +99,8 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
   const valorInicioDia = conHoy.reduce((s, f) => s + f.valorEUR - f.hoyEUR, 0);
   const totalHoyPct = valorInicioDia ? (totalHoyEUR / valorInicioDia) * 100 : 0;
 
+  // En el iPhone la lista va siempre por orden alfabético del ticker
+  const filasAlfa = [...filasSinOrdenar].sort((a, b) => a.symbol.localeCompare(b.symbol));
   const filaDetalle = detalle ? filasSinOrdenar.find((f) => f.symbol === detalle) : null;
 
   function marcas(f) {
@@ -177,7 +188,14 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                       onClick={() => setAbierto(abierto === f.symbol ? null : f.symbol)}
                     >
                       <td>
-                        <span className="symbol">{f.symbol}</span>
+                        <button
+                          className="symbol-btn"
+                          onClick={(e) => { e.stopPropagation(); setDetalle(f.symbol); }}
+                          title="Ver gráfico y detalle"
+                        >
+                          {f.symbol}
+                        </button>
+                        <NotaBadge n={f.nNotas} />
                         {f.sector && <span className="sector">{f.sector}</span>}
                         {f.lotes.length > 1 && <span className="tag" style={{ marginLeft: 8 }}>{f.lotes.length} lotes</span>}
                         <span className="symbol-name">{f.name}, {[...f.brokers].join(', ')}</span>
@@ -253,14 +271,16 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
               <button role="tab" aria-selected={modo === 'total'} className={modo === 'total' ? 'active' : ''} onClick={() => setModo('total')}>Total</button>
             </div>
             <div className="qlist">
-              {filas.map((f) => (
+              {filasAlfa.map((f) => (
                 <button key={f.symbol} className={`qrow ${f.conAlerta ? 'row-alert' : ''}`} onClick={() => setDetalle(f.symbol)}>
                   <div className="qrow-left">
                     <div className="qrow-title">
                       <span className="symbol">{f.symbol}</span>
+                      <NotaBadge n={f.nNotas} />
                       {f.sector && <span className="sector">{f.sector}</span>}
                     </div>
                     <div className="qrow-name">{f.name}</div>
+                    <NivelCercano nivel={f.nivel} />
                     <RangeBar compact low={f.q?.week52Low} high={f.q?.week52High} price={f.precioActual} marks={marcas(f)} />
                   </div>
                   <Sparkline spark={f.q?.spark} previousClose={f.q?.previousClose} />
@@ -297,6 +317,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           marcas={marcas(filaDetalle)}
           onClose={() => setDetalle(null)}
           onActualizarPosSettings={onActualizarPosSettings}
+          onSectorManual={onSectorManual}
           onAbrirNotas={(f) => { setDetalle(null); onAbrirNotas(f); }}
           onVender={(s) => { setDetalle(null); onVender(s); }}
           onEditarLote={(l) => { setDetalle(null); onEditarLote(l); }}
@@ -339,7 +360,7 @@ function FilaLote({ lote, symbol, onEditarLote, onBorrarLote }) {
 }
 
 // Hoja de detalle de una posición (se abre al tocar una fila en el iPhone)
-function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onAbrirNotas, onVender, onEditarLote, onBorrarLote }) {
+function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote }) {
   return (
     <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
       <div className="modal sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Detalle de ${f.symbol}`}>
@@ -361,6 +382,20 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onAbrirNota
             </div>
           </div>
         </div>
+
+        <UltimaNota notas={f.notas} comentario={f.comentario} onAbrir={() => onAbrirNotas(f)} />
+
+        <PeriodChart
+          symbol={f.symbol}
+          currency={f.currency}
+          dia={f.q}
+          levels={[
+            { value: f.precioMedio, label: 'Precio medio', tipo: 'neutral' },
+            { value: f.stopPrice, label: 'Stop', tipo: 'loss' },
+            { value: f.targetPrice, label: 'Objetivo', tipo: 'gain' },
+          ]}
+          compras={f.lotes.map((l) => ({ date: l.buyDate, price: l.price }))}
+        />
 
         <div className="stat-grid">
           <Stat label="Cantidad" value={fmtNumber(f.cantidad, 2)} />
@@ -385,6 +420,8 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onAbrirNota
           <div className="sheet-label">Rango 52 semanas, con stop (rojo) y objetivo (verde)</div>
           <RangeBar low={f.q?.week52Low} high={f.q?.week52High} price={f.precioActual} marks={marcas} />
         </div>
+
+        <SectorEditor sector={f.sectorInfo} onCambiar={(v) => onSectorManual(f.symbol, v)} />
 
         <div className="sheet-section">
           <div className="sheet-label">Lotes ({[...f.brokers].join(', ')})</div>

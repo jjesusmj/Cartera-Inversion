@@ -178,3 +178,23 @@ export async function obtenerTipoCambio(fecha, desde, hasta = 'EUR') {
   fxCache.set(key, rate);
   return rate;
 }
+
+// ---------- Gráfico por periodos (hoja de detalle) ----------
+
+const chartCache = new Map();
+const CHART_TTL = { '1d': 30e3, '5d': 60e3, '1mo': 10 * 60e3 };
+
+export async function obtenerGrafico(symbol, currency, range) {
+  const key = `${symbol}_${range}`;
+  const guardado = chartCache.get(key);
+  const ttl = CHART_TTL[range] ?? 60 * 60e3;
+  if (guardado && Date.now() - guardado.at < ttl) return guardado.data;
+
+  const res = await fetch(
+    `/api/chart?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency || '')}&range=${range}`
+  );
+  if (!res.ok) throw new Error('No se pudo cargar el gráfico.');
+  const data = await res.json();
+  chartCache.set(key, { at: Date.now(), data });
+  return data;
+}

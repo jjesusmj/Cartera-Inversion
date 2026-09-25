@@ -15,7 +15,8 @@ resumen fiscal de ventas (FIFO + tipo de cambio BCE) exportable a Excel.
 
 - **Cotizaciones, gráfico del día, rangos, sector y buscador**: Yahoo Finance
   (es.finance.yahoo.com), a través de las funciones `api/prices.js`,
-  `api/profile.js` y `api/search-symbol.js`. EE. UU. en tiempo real; bolsas
+  `api/chart.js` (gráfico por periodos), `api/profile.js` (sector) y
+  `api/search-symbol.js`. EE. UU. en tiempo real; bolsas
   europeas con unos 15 minutos de retraso. Es una API no oficial: si un día
   falla, la app usa el precio manual de cada valor.
 - **Tipo de cambio**: tipo de referencia del BCE vía Frankfurter.
@@ -38,7 +39,7 @@ cp .env.example .env.local   # rellena las variables
 npm run dev
 ```
 
-Las APIs de datos (`/api/prices`, `/api/profile`, `/api/search-symbol`) son funciones serverless de Vercel:
+Las APIs de datos (`/api/prices`, `/api/chart`, `/api/profile`, `/api/search-symbol`) son funciones serverless de Vercel:
 para probarla en local usa `vercel dev` en lugar de `npm run dev` (necesita
 `npm install -g vercel` y `vercel link` una vez).
 

@@ -934,3 +934,206 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 @media (max-width: 720px) {
   .kpi-row .kpi:last-child:nth-child(odd) { grid-column: span 2; }
 }
+
+/* =====================================================================
+   Tanda 2: gráfico por periodos, notas, niveles, sector y diversificación
+   ===================================================================== */
+
+/* Icono de notas junto al ticker */
+.note-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.note-badge svg { display: block; }
+
+/* Distancia al nivel más cercano, bajo el nombre (iPhone) */
+.qrow-level {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.qrow-level.loss { color: var(--loss); }
+.qrow-level.gain { color: var(--gain); }
+.qrow-level.accent { color: var(--accent); }
+
+/* Ticker pulsable en la tabla de Cartera (abre la hoja) */
+.symbol-btn {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+}
+.symbol-btn:hover, .symbol-btn:focus-visible { text-decoration: underline; }
+.symbol-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Última nota en la hoja de detalle */
+.last-note {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  border-left: 2px solid var(--accent);
+  background: var(--bg-raised);
+  padding: 8px 12px;
+  margin-bottom: 14px;
+}
+.last-note-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.last-note-meta { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 4px; }
+
+/* Sector editable en la hoja */
+.sector-editor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.sector-editor label { font-size: 11.5px; color: var(--ink-faint); }
+.sector-editor select {
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 6px 8px;
+  border-radius: 3px;
+  font-size: 16px; /* evita el zoom de Safari en iPhone */
+  font-family: inherit;
+  max-width: 65%;
+}
+
+/* Gráfico por periodos */
+.pchart { margin-bottom: 16px; }
+.pchart-tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin-bottom: 10px;
+}
+.pchart-tabs::-webkit-scrollbar { display: none; }
+.pchart-tabs button {
+  all: unset;
+  flex: 1 0 auto;
+  text-align: center;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.pchart-tabs button.active { background: var(--bg-inset); color: var(--ink); font-weight: 600; }
+.pchart-tabs button:focus-visible { outline: 2px solid var(--accent); }
+
+.pchart-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  min-height: 22px;
+  margin-bottom: 6px;
+}
+.pchart-head-empty { color: var(--ink-faint); font-family: var(--font-body); }
+.pchart-price { font-size: 15px; font-weight: 500; }
+.pchart-when { color: var(--ink-faint); font-family: var(--font-body); font-size: 12px; }
+
+.pchart-box { position: relative; width: 100%; }
+.pchart-svg { display: block; touch-action: pan-y; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+.pchart-svg.is-loading { opacity: 0.45; }
+.pchart-level { stroke-width: 1; stroke-dasharray: 4 3; }
+.pchart-level.loss { stroke: var(--loss); }
+.pchart-level.gain { stroke: var(--gain); }
+.pchart-level.accent { stroke: var(--accent); }
+.pchart-level.neutral { stroke: var(--ink-dim); }
+.pchart-level-text { font-family: var(--font-mono); font-size: 10px; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+.pchart-level-text.loss { fill: var(--loss); }
+.pchart-level-text.gain { fill: var(--gain); }
+.pchart-level-text.accent { fill: var(--accent); }
+.pchart-level-text.neutral { fill: var(--ink-dim); }
+.pchart-buy { fill: var(--bg); stroke: var(--ink); stroke-width: 2; }
+
+.pchart-edge { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); white-space: pre; }
+.pchart-edge-top { margin-bottom: 2px; }
+.pchart-edge-bottom { margin-top: 2px; }
+.pchart-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  margin-top: 4px;
+}
+.pchart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  background: var(--bg-raised);
+}
+.pchart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+.pchart-legend-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  vertical-align: -1px;
+}
+
+/* Diversificación en Resumen */
+.reparto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 28px;
+  margin-bottom: 32px;
+}
+.reparto-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0 0 10px; }
+.reparto-list { border-top: 1px solid var(--line-soft); }
+.reparto-item { border-bottom: 1px solid var(--line-soft); }
+.reparto-row {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 10px 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.reparto-row:hover, .reparto-item.open .reparto-row { background: var(--bg-raised); }
+.reparto-row:focus-visible { outline: 2px solid var(--accent); }
+.reparto-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.reparto-name { font-size: 13.5px; font-weight: 500; }
+.reparto-name .tag { margin-left: 6px; }
+.reparto-pct { font-size: 14px; font-weight: 500; }
+.reparto-bar { height: 6px; background: var(--line-soft); border-radius: 3px; margin: 6px 0; overflow: hidden; }
+.reparto-bar span { display: block; height: 100%; background: var(--ink-dim); border-radius: 3px; }
+.reparto-bar span.is-alert { background: var(--accent); }
+.reparto-sub { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 11.5px; color: var(--ink-dim); }
+.reparto-detail { list-style: none; margin: 0; padding: 4px 2px 10px 12px; }
+.reparto-detail li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  padding: 4px 0;
+}
+.reparto-detail-name { color: var(--ink-faint); font-size: 11.5px; }
+
+.qrow-level.is-crossed { font-family: var(--font-body); font-weight: 600; }

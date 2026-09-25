@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { fmtMoney, fmtCotizacion, fmtPercent, fmtSigned } from '../lib/format';
 import { useSort } from '../lib/useSort';
-import { exchangeIdOf, yahooUrl } from '../lib/exchanges';
-import { sectorES } from '../lib/sectors';
+import { yahooUrl } from '../lib/exchanges';
+import { sectorDe } from '../lib/sectors';
+import { nivelMasCercano, numNotas } from '../lib/niveles';
+import PeriodChart from './PeriodChart';
+import { NotaBadge, NivelCercano, UltimaNota, SectorEditor } from './DetailParts';
 import { Sparkline, RangeBar } from './Charts';
 import ExchangeFilter from './ExchangeFilter';
 
@@ -64,7 +67,7 @@ function EditableEntry({ valor, precio, currency, label, onGuardar }) {
   );
 }
 
-function filasCalculadas(watchlist, prices, perfiles) {
+function filasCalculadas(watchlist, prices, perfiles, positionSettings) {
   return watchlist.map((w) => {
     const q = prices[w.symbol];
     const precio = q?.price ?? w.manualPrice ?? null;
@@ -72,13 +75,19 @@ function filasCalculadas(watchlist, prices, perfiles) {
     const entradaSaltada = w.entryLow != null && precio != null && precio <= w.entryLow;
     const rupturaSaltada = w.entryHigh != null && precio != null && precio >= w.entryHigh;
     const notas = w.notes || [];
-    const ultimaNota = notas.length ? notas[notas.length - 1].text : w.comment;
+    const comentario = w.comment || '';
+    const ultimaNota = notas.length ? notas[notas.length - 1].text : comentario;
+    const sector = sectorDe(w.symbol, perfiles, positionSettings);
+    const nivel = nivelMasCercano(precio, [
+      { value: w.entryLow, label: 'Entrada', tipo: 'accent', cruza: 'debajo', textoCruzado: 'En zona de entrada' },
+      { value: w.entryHigh, label: 'Ruptura', tipo: 'accent', cruza: 'encima', textoCruzado: 'Ruptura superada' },
+    ]);
     const cambio = q?.price != null && q.previousClose != null ? q.price - q.previousClose : null;
     const hoyPct = q?.changePercent ?? null;
-    const ordenManual = w.sortOrder ?? w.createdAt?.seconds ?? 0;
     return {
       ...w, q, precio, esManual, entradaSaltada, rupturaSaltada, conAlerta: entradaSaltada || rupturaSaltada,
-      notas, ultimaNota, cambio, hoyPct, ordenManual, sector: sectorES(perfiles[w.symbol]),
+      notas, comentario, ultimaNota, nNotas: numNotas(notas, comentario), cambio, hoyPct,
+      sector: sector.nombre, sectorInfo: sector, nivel,
     };
   });
 }
@@ -90,25 +99,14 @@ function marcas(w) {
   ];
 }
 
-export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada, onMover }) {
-  const [manual, setManual] = useState(true);
+export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onSectorManual, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada }) {
   const [detalle, setDetalle] = useState(null);
-  const filasBase = filasCalculadas(watchlist, prices, perfiles);
+  const filasBase = filasCalculadas(watchlist, prices, perfiles, positionSettings);
 
-  const { toggleSort, sortedRows, arrow } = useSort(filasBase, 'ordenManual');
-  const filasManual = useMemo(() => [...filasBase].sort((a, b) => a.ordenManual - b.ordenManual), [filasBase]);
-  const filas = manual ? filasManual : sortedRows;
-
-  function ordenarPor(key) {
-    setManual(false);
-    toggleSort(key);
-  }
-
-  const bolsasDistintas = new Set(todaLaWatchlist.map(exchangeIdOf)).size;
-  const permiteMover = manual && (bolsasDistintas <= 1 || exchangeFilter === 'todas');
-
-  const idxDetalle = detalle ? filas.findIndex((w) => w.id === detalle) : -1;
-  const filaDetalle = idxDetalle >= 0 ? filas[idxDetalle] : null;
+  // Escritorio: orden por columnas, por defecto alfabético. iPhone: siempre alfabético.
+  const { toggleSort, sortedRows: filas, arrow } = useSort(filasBase, 'symbol');
+  const filasAlfa = [...filasBase].sort((a, b) => a.symbol.localeCompare(b.symbol));
+  const filaDetalle = detalle ? filasBase.find((w) => w.id === detalle) : null;
 
   return (
     <div>
@@ -122,12 +120,6 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
 
       <ExchangeFilter items={todaLaWatchlist} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
-      {!manual && (
-        <button className="btn btn-ghost" style={{ marginBottom: 12 }} onClick={() => setManual(true)}>
-          Volver a mi orden
-        </button>
-      )}
-
       {filas.length === 0 ? (
         <div className="empty-state">No estás siguiendo ningún activo todavía.</div>
       ) : (
@@ -137,31 +129,23 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
             <table>
               <thead>
                 <tr>
-                  {permiteMover && <th style={{ width: 40 }}></th>}
-                  <th className="sortable" onClick={() => ordenarPor('symbol')}>Activo{!manual && arrow('symbol')}</th>
-                  <th className="num sortable" onClick={() => ordenarPor('precio')}>Precio actual{!manual && arrow('precio')}</th>
+                  <th className="sortable" onClick={() => toggleSort('symbol')}>Activo{arrow('symbol')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('precio')}>Precio actual{arrow('precio')}</th>
                   <th>Día</th>
-                  <th className="num sortable" onClick={() => ordenarPor('hoyPct')}>Hoy{!manual && arrow('hoyPct')}</th>
-                  <th className="num sortable" onClick={() => ordenarPor('entryLow')}>Entrada{!manual && arrow('entryLow')}</th>
-                  <th className="num sortable" onClick={() => ordenarPor('entryHigh')}>Ruptura{!manual && arrow('entryHigh')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('hoyPct')}>Hoy{arrow('hoyPct')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('entryLow')}>Entrada{arrow('entryLow')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('entryHigh')}>Ruptura{arrow('entryHigh')}</th>
                   <th>Rango 52 semanas</th>
                   <th>Cuaderno</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {filas.map((w, i) => (
+                {filas.map((w) => (
                   <tr key={w.id} className={w.conAlerta ? 'row-alert' : ''}>
-                    {permiteMover && (
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <button className="btn-arrow" disabled={i === 0} onClick={() => onMover(w.id, -1)} title="Subir">▲</button>
-                          <button className="btn-arrow" disabled={i === filas.length - 1} onClick={() => onMover(w.id, 1)} title="Bajar">▼</button>
-                        </div>
-                      </td>
-                    )}
                     <td className="cell-link" onClick={() => setDetalle(w.id)} title="Ver detalle">
                       <span className="symbol">{w.symbol}</span>
+                      <NotaBadge n={w.nNotas} />
                       {w.sector && <span className="sector">{w.sector}</span>}
                       {w.conAlerta && <span className="tag tag-accent" style={{ marginLeft: 8 }}>alerta</span>}
                       <span className="symbol-name">{w.name}</span>
@@ -204,14 +188,16 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
 
           {/* --- Lista compacta (móvil) --- */}
           <div className="mobile-only qlist">
-            {filas.map((w) => (
+            {filasAlfa.map((w) => (
               <button key={w.id} className={`qrow ${w.conAlerta ? 'row-alert' : ''}`} onClick={() => setDetalle(w.id)}>
                 <div className="qrow-left">
                   <div className="qrow-title">
                     <span className="symbol">{w.symbol}</span>
+                    <NotaBadge n={w.nNotas} />
                     {w.sector && <span className="sector">{w.sector}</span>}
                   </div>
                   <div className="qrow-name">{w.name}</div>
+                  <NivelCercano nivel={w.nivel} />
                   <RangeBar compact low={w.q?.week52Low} high={w.q?.week52High} price={w.precio} marks={marcas(w)} />
                 </div>
                 <Sparkline spark={w.q?.spark} previousClose={w.q?.previousClose} />
@@ -248,6 +234,22 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
               </div>
             </div>
 
+            <UltimaNota
+              notas={filaDetalle.notas}
+              comentario={filaDetalle.comentario}
+              onAbrir={() => { setDetalle(null); onAbrirNotas(filaDetalle); }}
+            />
+
+            <PeriodChart
+              symbol={filaDetalle.symbol}
+              currency={filaDetalle.currency}
+              dia={filaDetalle.q}
+              levels={[
+                { value: filaDetalle.entryLow, label: 'Entrada', tipo: 'accent' },
+                { value: filaDetalle.entryHigh, label: 'Ruptura', tipo: 'accent' },
+              ]}
+            />
+
             <div className="sheet-edit-row">
               <EditableEntry label="Entrada" valor={filaDetalle.entryLow} precio={filaDetalle.precio} currency={filaDetalle.currency} onGuardar={(v) => onActualizarEntrada(filaDetalle.id, 'entryLow', v)} />
               <EditableEntry label="Ruptura" valor={filaDetalle.entryHigh} precio={filaDetalle.precio} currency={filaDetalle.currency} onGuardar={(v) => onActualizarEntrada(filaDetalle.id, 'entryHigh', v)} />
@@ -263,12 +265,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
               <RangeBar low={filaDetalle.q?.week52Low} high={filaDetalle.q?.week52High} price={filaDetalle.precio} marks={marcas(filaDetalle)} />
             </div>
 
-            {permiteMover && (
-              <div className="btn-row sheet-section">
-                <button className="btn btn-ghost" disabled={idxDetalle === 0} onClick={() => onMover(filaDetalle.id, -1)}>▲ Subir</button>
-                <button className="btn btn-ghost" disabled={idxDetalle === filas.length - 1} onClick={() => onMover(filaDetalle.id, 1)}>▼ Bajar</button>
-              </div>
-            )}
+            <SectorEditor sector={filaDetalle.sectorInfo} onCambiar={(v) => onSectorManual(filaDetalle.symbol, v)} />
 
             <div className="card-actions">
               <button className="btn" onClick={() => { setDetalle(null); onAbrirNotas(filaDetalle); }}>

@@ -41,11 +41,26 @@ export default function App() {
     setOwnerState(o);
   }
 
-  const [exchangeFilter, setExchangeFilterState] = useState(() => localStorage.getItem('cartera_exchange_filter') || 'todas');
-  function setExchangeFilter(id) {
-    localStorage.setItem('cartera_exchange_filter', id);
-    setExchangeFilterState(id);
+  // Filtro de bolsas: lista de ids marcados; vacía = todas.
+  // Convierte el valor guardado por la versión anterior ('todas' o un id).
+  const [exchangeFilter, setExchangeFilterState] = useState(() => {
+    try {
+      const v2 = localStorage.getItem('cartera_exchange_filter_v2');
+      if (v2) return JSON.parse(v2);
+    } catch {
+      // valor corrupto: se ignora
+    }
+    const v1 = localStorage.getItem('cartera_exchange_filter');
+    return v1 && v1 !== 'todas' ? [v1] : [];
+  });
+  function setExchangeFilter(ids) {
+    localStorage.setItem('cartera_exchange_filter_v2', JSON.stringify(ids));
+    setExchangeFilterState(ids);
   }
+  const pasaFiltro = useCallback(
+    (item) => exchangeFilter.length === 0 || exchangeFilter.includes(exchangeIdOf(item)),
+    [exchangeFilter]
+  );
 
   const [lotsAll, setLotsAll] = useState([]);
   const [salesAll, setSalesAll] = useState([]);
@@ -95,16 +110,19 @@ export default function App() {
 
   const openLots = useMemo(() => lots.filter((l) => l.remainingQuantity > 1e-9), [lots]);
 
-  // Filtro por bolsa: solo afecta a lo que se ve en Cartera y Seguimiento.
-  // Resumen y Declaración siguen usando la cartera completa, sin filtrar.
-  const openLotsFiltrados = useMemo(
-    () => (exchangeFilter === 'todas' ? openLots : openLots.filter((l) => exchangeIdOf(l) === exchangeFilter)),
-    [openLots, exchangeFilter]
-  );
-  const watchlistFiltrada = useMemo(
-    () => (exchangeFilter === 'todas' ? watchlist : watchlist.filter((w) => exchangeIdOf(w) === exchangeFilter)),
-    [watchlist, exchangeFilter]
-  );
+  // Filtro por bolsa: se aplica a Cartera, Seguimiento y Resumen.
+  // Declaración usa siempre la cartera completa: el resultado fiscal es el total.
+  const openLotsFiltrados = useMemo(() => openLots.filter(pasaFiltro), [openLots, pasaFiltro]);
+  const lotsFiltrados = useMemo(() => lots.filter(pasaFiltro), [lots, pasaFiltro]);
+  const watchlistFiltrada = useMemo(() => watchlist.filter(pasaFiltro), [watchlist, pasaFiltro]);
+  const salesFiltradas = useMemo(() => {
+    // Las ventas no guardan la bolsa: se toma la del lote del mismo símbolo
+    const bolsaDe = new Map(lots.map((l) => [l.symbol, l]));
+    return sales.filter((v) => {
+      const lote = bolsaDe.get(v.symbol);
+      return lote ? pasaFiltro(lote) : exchangeFilter.length === 0;
+    });
+  }, [sales, lots, pasaFiltro, exchangeFilter]);
 
   const allSymbols = useMemo(() => {
     const m = new Map();
@@ -171,17 +189,6 @@ export default function App() {
     cargarTodo();
   }
 
-  async function handleMoverWatch(id, direccion) {
-    const clave = (w) => w.sortOrder ?? w.createdAt?.seconds ?? 0;
-    const ordenados = [...watchlist].sort((a, b) => clave(a) - clave(b));
-    const idx = ordenados.findIndex((w) => w.id === id);
-    const nuevoIdx = idx + direccion;
-    if (idx === -1 || nuevoIdx < 0 || nuevoIdx >= ordenados.length) return;
-    [ordenados[idx], ordenados[nuevoIdx]] = [ordenados[nuevoIdx], ordenados[idx]];
-    await Promise.all(ordenados.map((w, i) => actualizarWatch(w.id, { sortOrder: i })));
-    cargarTodo();
-  }
-
   async function handleBorrarWatch(id) {
     await borrarWatch(id);
     setWatchlistAll((prev) => prev.filter((w) => w.id !== id));
@@ -201,6 +208,12 @@ export default function App() {
   async function handleActualizarPosSettings(symbol, campo, valor) {
     const datos = { [campo]: valor === '' || valor == null ? null : parseFloat(valor) };
     await actualizarPositionSettings(owner, symbol, datos);
+    cargarTodo();
+  }
+
+  // Sector elegido a mano (texto). Vacío = volver al de Yahoo.
+  async function handleSectorManual(symbol, sector) {
+    await actualizarPositionSettings(owner, symbol, { sector: sector || null });
     cargarTodo();
   }
 
@@ -327,6 +340,7 @@ export default function App() {
                 perfiles={perfiles}
                 positionSettings={positionSettings}
                 onActualizarPosSettings={handleActualizarPosSettings}
+                onSectorManual={handleSectorManual}
                 pricesLoading={pricesLoading}
                 onRefreshPrices={refreshPrices}
                 onNuevaCompra={() => setShowBuyForm(true)}
@@ -344,15 +358,29 @@ export default function App() {
                 onCambiarExchangeFilter={setExchangeFilter}
                 prices={prices}
                 perfiles={perfiles}
+                positionSettings={positionSettings}
+                onSectorManual={handleSectorManual}
                 onNuevo={() => setShowWatchForm(true)}
                 onEditar={setEditWatch}
                 onActualizarEntrada={handleActualizarEntrada}
-                onMover={handleMoverWatch}
                 onAbrirNotas={abrirNotasWatch}
                 onBorrar={handleBorrarWatch}
               />
             )}
-            {view === 'resumen' && <Resumen lots={lots} openLots={openLots} prices={prices} sales={sales} />}
+            {view === 'resumen' && (
+              <Resumen
+                lots={lotsFiltrados}
+                openLots={openLotsFiltrados}
+                todosLosLotes={openLots}
+                exchangeFilter={exchangeFilter}
+                onCambiarExchangeFilter={setExchangeFilter}
+                prices={prices}
+                perfiles={perfiles}
+                positionSettings={positionSettings}
+                sales={salesFiltradas}
+                filtrado={exchangeFilter.length > 0}
+              />
+            )}
             {view === 'renta' && <Renta sales={sales} />}
           </>
         )}
