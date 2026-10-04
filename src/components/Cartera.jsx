@@ -52,6 +52,8 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
 
     const valorEUR = precioActual != null && rate != null ? precioActual * cantidad * rate : null;
+    // Precio actual en € (orientativo): Yahoo × EUR/USD en tiempo real
+    const precioActualEUR = g.currency !== 'EUR' && precioActual != null && rate != null ? precioActual * rate : null;
     // Coste real en €: lo pagado (justificante) o, si falta, tipo BCE de la fecha de compra
     const costesLote = g.lotes.map((l) => costeLoteEUR(l));
     const costeEUR = costesLote.every((c) => c != null) ? costesLote.reduce((s, c) => s + c, 0) : null;
@@ -92,7 +94,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
     return {
       ...g, q, cantidad, precioMedio, precioActual, esManual, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
-      precioMedioEUR, costeAproximado, efectoAccion, efectoDivisa,
+      precioMedioEUR, precioActualEUR, costeAproximado, efectoAccion, efectoDivisa,
       sector: sector.nombre, sectorInfo: sector, nivel,
       stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado,
       conAlerta: stopSaltado || objetivoSaltado,
@@ -224,6 +226,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                       <td className="num">
                         {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}
                         {f.esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
+                        {f.precioActualEUR != null && <span className="cell-sub">≈ {fmtCotizacion(f.precioActualEUR)}</span>}
                       </td>
                       <td><Sparkline spark={f.q?.spark} previousClose={f.q?.previousClose} width={64} height={28} /></td>
                       <td className={`num ${claseSigno(f.hoyEUR)}`}>
@@ -310,6 +313,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                           {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}
                           {f.esManual && <span className="tag tag-mini">manual</span>}
                         </div>
+                        {f.precioActualEUR != null && <div className="qrow-eur">≈ {fmtCotizacion(f.precioActualEUR)}</div>}
                         <div className={`qrow-change ${claseSigno(f.hoyEUR)}`}>
                           {f.hoyEUR != null ? `${fmtMoneySigned(f.hoyEUR)} (${fmtPercent(f.hoyPct)})` : '—'}
                         </div>
@@ -397,6 +401,7 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
           </div>
           <div className="qrow-right">
             <div className="sheet-price">{f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}</div>
+            {f.precioActualEUR != null && <div className="qrow-eur">≈ {fmtCotizacion(f.precioActualEUR)}</div>}
             <div className={`qrow-change ${claseSigno(f.q?.changePercent)}`}>
               {f.q?.price != null && f.q.previousClose != null
                 ? `${fmtSigned(f.q.price - f.q.previousClose)} (${fmtPercent(f.q.changePercent)})`

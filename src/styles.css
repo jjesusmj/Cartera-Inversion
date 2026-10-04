@@ -1151,3 +1151,49 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 /* € pagado de un lote en divisa */
 .lot-eur { color: var(--ink-faint); }
 .lot-eur .inline-input { width: 110px; }
+
+/* Selector Favoritos / Todos de Seguimiento: visible también en escritorio */
+.segmented.segmented-global {
+  display: flex;
+  background: var(--bg-inset);
+  border-radius: 8px;
+  padding: 2px;
+  margin-bottom: 10px;
+  max-width: 280px;
+}
+.segmented.segmented-global button {
+  all: unset;
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  padding: 7px 0;
+  border-radius: 6px;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.segmented.segmented-global button.active {
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+@media (max-width: 720px) {
+  .segmented.segmented-global { max-width: none; }
+}
+
+/* Estrella de favorito */
+.fav-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  margin-right: 2px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--ink-faint);
+  cursor: pointer;
+  vertical-align: middle;
+  -webkit-tap-highlight-color: transparent;
+}
+.fav-star.is-on { color: #e0a800; }

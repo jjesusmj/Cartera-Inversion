@@ -97,6 +97,31 @@ function filasCalculadas(watchlist, prices, perfiles, positionSettings, fx) {
   });
 }
 
+// Estrella de favorito. Es un span (no un botón) porque va dentro de filas que ya son botones.
+function Estrella({ activa, onToggle }) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-pressed={activa}
+      aria-label={activa ? 'Quitar de favoritos' : 'Marcar como favorito'}
+      title={activa ? 'Quitar de favoritos' : 'Marcar como favorito'}
+      className={`fav-star ${activa ? 'is-on' : ''}`}
+      onClick={(e) => { e.stopPropagation(); onToggle(!activa); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggle(!activa); }
+      }}
+    >
+      {activa ? '★' : '☆'}
+    </span>
+  );
+}
+
+// Favoritos primero, sin alterar el orden que ya traen las filas
+function favoritosPrimero(filas) {
+  return [...filas.filter((w) => w.favorite), ...filas.filter((w) => !w.favorite)];
+}
+
 function marcas(w) {
   return [
     { value: w.entryLow, tipo: 'accent', titulo: 'Entrada' },
@@ -104,15 +129,26 @@ function marcas(w) {
   ];
 }
 
-export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onSectorManual, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada, margenTR = 0, onCambiarMargenTR }) {
+export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onSectorManual, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada, margenTR = 0, onCambiarMargenTR, onToggleFavorito }) {
   const [detalle, setDetalle] = useState(null);
+  const [vista, setVistaState] = useState(() => {
+    try { return localStorage.getItem('seguimiento_vista') || 'todos'; } catch { return 'todos'; }
+  });
+  function setVista(v) {
+    try { localStorage.setItem('seguimiento_vista', v); } catch { /* sin almacenamiento: solo en memoria */ }
+    setVistaState(v);
+  }
   const fxBce = useFxToday(watchlist.map((w) => w.currency));
   const fx = tiposValoracion(fxBce, prices);
-  const filasBase = filasCalculadas(watchlist, prices, perfiles, positionSettings, fx);
+  const filasTodas = filasCalculadas(watchlist, prices, perfiles, positionSettings, fx);
+  const nFavoritos = filasTodas.filter((w) => w.favorite).length;
+  const filasBase = vista === 'favoritos' ? filasTodas.filter((w) => w.favorite) : filasTodas;
 
   // Escritorio: orden por columnas, por defecto alfabético. iPhone: siempre alfabético.
-  const { toggleSort, sortedRows: filas, arrow } = useSort(filasBase, 'symbol');
-  const filasAlfa = [...filasBase].sort((a, b) => a.symbol.localeCompare(b.symbol));
+  // En los dos, los favoritos van primero.
+  const { toggleSort, sortedRows, arrow } = useSort(filasBase, 'symbol');
+  const filas = favoritosPrimero(sortedRows);
+  const filasAlfa = favoritosPrimero([...filasBase].sort((a, b) => a.symbol.localeCompare(b.symbol)));
   const filaDetalle = detalle ? filasBase.find((w) => w.id === detalle) : null;
 
   return (
@@ -127,8 +163,23 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
 
       <ExchangeFilter items={todaLaWatchlist} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
+      {filasTodas.length > 0 && (
+        <div className="segmented segmented-global" role="tablist" aria-label="Qué valores mostrar">
+          <button role="tab" aria-selected={vista === 'favoritos'} className={vista === 'favoritos' ? 'active' : ''} onClick={() => setVista('favoritos')}>
+            Favoritos{nFavoritos ? ` (${nFavoritos})` : ''}
+          </button>
+          <button role="tab" aria-selected={vista === 'todos'} className={vista === 'todos' ? 'active' : ''} onClick={() => setVista('todos')}>
+            Todos ({filasTodas.length})
+          </button>
+        </div>
+      )}
+
       {filas.length === 0 ? (
-        <div className="empty-state">No estás siguiendo ningún activo todavía.</div>
+        <div className="empty-state">
+          {filasTodas.length > 0 && vista === 'favoritos'
+            ? 'No tienes favoritos. Toca la estrella ☆ de un valor en "Todos" para añadirlo.'
+            : 'No estás siguiendo ningún activo todavía.'}
+        </div>
       ) : (
         <>
           {/* --- Tabla (escritorio) --- */}
@@ -151,6 +202,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                 {filas.map((w) => (
                   <tr key={w.id} className={w.conAlerta ? 'row-alert' : ''}>
                     <td className="cell-link" onClick={() => setDetalle(w.id)} title="Ver detalle">
+                      <Estrella activa={!!w.favorite} onToggle={(v) => onToggleFavorito(w.id, v)} />
                       <span className="symbol">{w.symbol}</span>
                       <NotaBadge n={w.nNotas} />
                       {w.sector && <span className="sector">{w.sector}</span>}
@@ -200,6 +252,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
               <button key={w.id} className={`qrow ${w.conAlerta ? 'row-alert' : ''}`} onClick={() => setDetalle(w.id)}>
                 <div className="qrow-left">
                   <div className="qrow-title">
+                    <Estrella activa={!!w.favorite} onToggle={(v) => onToggleFavorito(w.id, v)} />
                     <span className="symbol">{w.symbol}</span>
                     <NotaBadge n={w.nNotas} />
                     {w.sector && <span className="sector">{w.sector}</span>}
@@ -230,6 +283,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
             <div className="sheet-head">
               <div>
                 <div className="qrow-title">
+                  <Estrella activa={!!filaDetalle.favorite} onToggle={(v) => onToggleFavorito(filaDetalle.id, v)} />
                   <span className="symbol sheet-symbol">{filaDetalle.symbol}</span>
                   {filaDetalle.sector && <span className="sector">{filaDetalle.sector}</span>}
                 </div>

@@ -246,6 +246,16 @@ export default function App() {
     cargarTodo();
   }
 
+  async function handleToggleFavorito(id, favorite) {
+    setWatchlistAll((prev) => prev.map((w) => (w.id === id ? { ...w, favorite } : w)));
+    try {
+      await actualizarWatch(id, { favorite });
+    } catch (e) {
+      setWatchlistAll((prev) => prev.map((w) => (w.id === id ? { ...w, favorite: !favorite } : w)));
+      setError('No se pudo guardar el favorito. Prueba otra vez.');
+    }
+  }
+
   async function handleBorrarWatch(id) {
     await borrarWatch(id);
     setWatchlistAll((prev) => prev.filter((w) => w.id !== id));
@@ -438,6 +448,7 @@ export default function App() {
                 onActualizarEntrada={handleActualizarEntrada}
                 margenTR={ajustes.margenTR ?? 0}
                 onCambiarMargenTR={handleCambiarMargenTR}
+                onToggleFavorito={handleToggleFavorito}
                 onAbrirNotas={abrirNotasWatch}
                 onBorrar={handleBorrarWatch}
               />
