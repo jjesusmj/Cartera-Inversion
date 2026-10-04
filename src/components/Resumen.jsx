@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { fmtMoney, fmtPercent, fmtNumber } from '../lib/format';
 import { useFxToday } from '../lib/useFxToday';
 import { useFxHistorico } from '../lib/useFxHistorico';
+import { costeLoteEUR, tiposValoracion } from '../lib/costes';
 import { useSort } from '../lib/useSort';
 import { calcularXIRR } from '../lib/xirr';
 import AllocationDonut from './AllocationDonut';
@@ -25,16 +26,18 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
     return Object.values(g);
   }, [openLots]);
 
-  const fx = useFxToday(grupos.map((g) => g.currency));
+  const fxBce = useFxToday(grupos.map((g) => g.currency));
+  const fx = tiposValoracion(fxBce, prices);
 
   const filasSinOrdenar = grupos.map((g) => {
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
     const precioActual = prices[g.symbol]?.price ?? g.manualPrice ?? undefined;
-    const precioMedio = g.coste / g.cantidad;
-    const plPct = precioActual != null && precioMedio ? (precioActual / precioMedio - 1) * 100 : null;
     const valorEUR = precioActual != null && rate != null ? precioActual * g.cantidad * rate : null;
-    const costeEUR = rate != null ? g.coste * rate : null;
+    // Mismo coste que Cartera: € pagado o, si falta, tipo BCE de la fecha de compra
+    const costesLote = g.lotes.map((l) => costeLoteEUR(l));
+    const costeEUR = costesLote.every((c) => c != null) ? costesLote.reduce((s, c) => s + c, 0) : null;
     const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
+    const plPct = plEUR != null && costeEUR ? (plEUR / costeEUR) * 100 : null;
     const q = prices[g.symbol];
     const hoyPct = q?.changePercent ?? null;
     // Mismo cálculo que Cartera: lotes de hoy contra su precio de compra
@@ -104,9 +107,12 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
   const xirr = useMemo(() => {
     const cashflows = [];
     for (const lot of lots) {
-      const rate = rateFor(lot.buyDate, lot.currency);
-      if (rate == null) continue;
-      const costeTotal = (lot.price * lot.quantity + (lot.commission || 0)) * rate;
+      let costeTotal = costeLoteEUR(lot, lot.quantity);
+      if (costeTotal == null) {
+        const rate = rateFor(lot.buyDate, lot.currency);
+        if (rate == null) continue;
+        costeTotal = (lot.price * lot.quantity + (lot.commission || 0)) * rate;
+      }
       cashflows.push({ date: new Date(lot.buyDate), amount: -costeTotal });
     }
     for (const venta of sales) {

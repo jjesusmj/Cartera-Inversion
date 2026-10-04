@@ -8,7 +8,9 @@ export default function SaleForm({ target, onClose, onSubmit }) {
     quantity: disponible,
     salePricePerShare: '',
     commission: '0',
+    proceedsEUR: '',
   });
+  const esEUR = target.currency === 'EUR';
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -31,6 +33,7 @@ export default function SaleForm({ target, onClose, onSubmit }) {
         quantity: qty,
         salePricePerShare: parseFloat(form.salePricePerShare),
         commission: parseFloat(form.commission || 0),
+        proceedsEUR: !esEUR && form.proceedsEUR !== '' ? parseFloat(form.proceedsEUR) : null,
       });
     } catch (err) {
       setError(err.message);
@@ -75,6 +78,20 @@ export default function SaleForm({ target, onClose, onSubmit }) {
               <input type="number" step="any" value={form.commission} onChange={(e) => set('commission', e.target.value)} />
             </div>
           </div>
+          {!esEUR && (
+            <div className="field">
+              <label>Total cobrado en € (justificante del bróker, ya descontada la comisión)</label>
+              <input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                value={form.proceedsEUR}
+                onChange={(e) => set('proceedsEUR', e.target.value)}
+                placeholder="Por ejemplo, el abono total de Trade Republic"
+              />
+              <div className="hint">Es el valor de venta real para la renta. Si lo dejas vacío, se usa el tipo del BCE del día de venta.</div>
+            </div>
+          )}
           <div className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={enviando}>

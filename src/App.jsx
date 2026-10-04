@@ -30,8 +30,13 @@ import {
   borrarWatch,
   borrarLote,
   registrarVentaEnFirestore,
+  actualizarCosteEURLote,
+  guardarFxCompraLote,
+  leerAjustes,
+  guardarAjustes,
 } from './lib/api';
 import { venderFIFO } from './lib/fifo';
+import { SIMBOLO_FX } from './lib/costes';
 
 export default function App() {
   const [view, setView] = useState('cartera');
@@ -66,6 +71,7 @@ export default function App() {
   const [salesAll, setSalesAll] = useState([]);
   const [watchlistAll, setWatchlistAll] = useState([]);
   const [positionSettingsAll, setPositionSettingsAll] = useState([]);
+  const [ajustes, setAjustes] = useState({ margenTR: 0 });
   const [prices, setPrices] = useState({});
   const [perfiles, setPerfiles] = useState({});
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
@@ -83,7 +89,14 @@ export default function App() {
   const cargarTodo = useCallback(async () => {
     setLoading(true);
     try {
-      const [l, s, w, ps] = await Promise.all([listarLotes(), listarVentas(), listarWatch(), listarPositionSettings()]);
+      const [l, s, w, ps, aj] = await Promise.all([
+        listarLotes(),
+        listarVentas(),
+        listarWatch(),
+        listarPositionSettings(),
+        leerAjustes().catch(() => ({})),
+      ]);
+      setAjustes((prev) => ({ ...prev, ...aj }));
       setLotsAll(l);
       setSalesAll(s);
       setWatchlistAll(w);
@@ -98,6 +111,31 @@ export default function App() {
   useEffect(() => {
     cargarTodo();
   }, [cargarTodo]);
+
+  // Migración única: los lotes en divisa creados antes de guardar el tipo de
+  // compra lo reciben ahora (tipo BCE de su fecha). Solo se hace una vez por
+  // lote, porque después ya lo tienen guardado.
+  useEffect(() => {
+    const sinTipo = lotsAll.filter((l) => l.currency && l.currency !== 'EUR' && l.fxRateBuy == null);
+    if (sinTipo.length === 0) return;
+    let cancelado = false;
+    (async () => {
+      const resueltos = {};
+      for (const lot of sinTipo) {
+        try {
+          const rate = await obtenerTipoCambio(lot.buyDate, lot.currency);
+          await guardarFxCompraLote(lot.id, rate);
+          resueltos[lot.id] = rate;
+        } catch (e) {
+          console.error(`No se pudo guardar el tipo de compra del lote ${lot.id}:`, e);
+        }
+      }
+      if (!cancelado && Object.keys(resueltos).length) {
+        setLotsAll((prev) => prev.map((l) => (resueltos[l.id] != null ? { ...l, fxRateBuy: resueltos[l.id] } : l)));
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [lotsAll]);
 
   // --- Todo lo que sigue está filtrado por el titular activo ---
   const lots = useMemo(() => lotsAll.filter((l) => ownerOf(l) === owner), [lotsAll, owner]);
@@ -128,6 +166,11 @@ export default function App() {
     const m = new Map();
     openLots.forEach((l) => m.set(l.symbol, { symbol: l.symbol, currency: l.currency }));
     watchlist.forEach((w) => m.set(w.symbol, { symbol: w.symbol, currency: w.currency }));
+    // EUR/USD en tiempo real, para valorar en euros más cerca del precio de Trade Republic
+    const divisas = new Set([...m.values()].map((x) => x.currency));
+    for (const [divisa, simbolo] of Object.entries(SIMBOLO_FX)) {
+      if (divisas.has(divisa)) m.set(simbolo, { symbol: simbolo, currency: '' });
+    }
     return [...m.values()];
   }, [openLots, watchlist]);
 
@@ -154,7 +197,11 @@ export default function App() {
   }, [allSymbols.length, owner]);
 
   // Sector de cada valor: se pide una vez y se guarda en el navegador
-  const clavesSimbolos = allSymbols.map((s) => s.symbol).sort().join(',');
+  const clavesSimbolos = allSymbols
+    .map((s) => s.symbol)
+    .filter((s) => !Object.values(SIMBOLO_FX).includes(s))
+    .sort()
+    .join(',');
   useEffect(() => {
     if (!clavesSimbolos) return;
     obtenerPerfiles(clavesSimbolos.split(',')).then(setPerfiles);
@@ -165,8 +212,18 @@ export default function App() {
     if (!pricesLoading) refreshPrices();
   }, vistaConPrecios);
 
+  // Tipo BCE de la fecha de compra: se guarda en el lote al registrarlo.
+  async function conFxCompra(data) {
+    if (data.currency === 'EUR') return { ...data, fxRateBuy: 1 };
+    try {
+      return { ...data, fxRateBuy: await obtenerTipoCambio(data.buyDate, data.currency) };
+    } catch {
+      return { ...data, fxRateBuy: null }; // la migración lo completará más tarde
+    }
+  }
+
   async function handleAddLote(data) {
-    await crearLote({ ...data, owner });
+    await crearLote({ ...(await conFxCompra(data)), owner });
     setShowBuyForm(false);
     cargarTodo();
   }
@@ -200,9 +257,21 @@ export default function App() {
   }
 
   async function handleEditarLote(datos) {
-    await actualizarLote(editLote.id, datos);
+    await actualizarLote(editLote.id, await conFxCompra(datos));
     setEditLote(null);
     cargarTodo();
+  }
+
+  async function handleGuardarCosteEUR(id, valor) {
+    const costEUR = valor === '' || valor == null ? null : parseFloat(valor);
+    await actualizarCosteEURLote(id, costEUR);
+    setLotsAll((prev) => prev.map((l) => (l.id === id ? { ...l, costEUR } : l)));
+  }
+
+  async function handleCambiarMargenTR(valor) {
+    const margenTR = Math.max(0, parseFloat(valor) || 0);
+    setAjustes((a) => ({ ...a, margenTR }));
+    await guardarAjustes({ margenTR });
   }
 
   async function handleActualizarPosSettings(symbol, campo, valor) {
@@ -253,7 +322,7 @@ export default function App() {
 
   async function handleConfirmarVenta(form) {
     const { symbol, currency, openLots: lotesDelSimbolo } = sellTarget;
-    const { saleDate, quantity, salePricePerShare, commission } = form;
+    const { saleDate, quantity, salePricePerShare, commission, proceedsEUR } = form;
 
     // 1) tipo de cambio del día de venta (si la divisa no es EUR)
     const fxRateSale = await obtenerTipoCambio(saleDate, currency);
@@ -263,7 +332,8 @@ export default function App() {
     async function getFxRateForLot(lot) {
       const key = `${lot.buyDate}_${lot.currency}`;
       if (fxRateCache[key] == null) {
-        fxRateCache[key] = await obtenerTipoCambio(lot.buyDate, lot.currency);
+        // Primero el tipo guardado en el lote; si no lo tiene, se pide al BCE
+        fxRateCache[key] = lot.fxRateBuy ?? (await obtenerTipoCambio(lot.buyDate, lot.currency));
       }
       return fxRateCache[key];
     }
@@ -282,6 +352,7 @@ export default function App() {
       saleCurrency: currency,
       fxRateSale,
       getFxRateForLot: (lot) => fxRateCache[`${lot.buyDate}_${lot.currency}`],
+      saleProceedsEURTotal: proceedsEUR ?? null,
     });
 
     const ventaData = {
@@ -293,6 +364,7 @@ export default function App() {
       currency,
       commission: parseFloat(commission || 0),
       fxRateSale,
+      proceedsEURFromBroker: proceedsEUR ?? null,
       lotsConsumed,
       totalCostEUR,
       totalProceedsEUR,
@@ -348,6 +420,7 @@ export default function App() {
                 onAbrirNotas={abrirNotasLote}
                 onBorrarLote={handleBorrarLote}
                 onEditarLote={setEditLote}
+                onGuardarCosteEUR={handleGuardarCosteEUR}
               />
             )}
             {view === 'watchlist' && (
@@ -363,6 +436,8 @@ export default function App() {
                 onNuevo={() => setShowWatchForm(true)}
                 onEditar={setEditWatch}
                 onActualizarEntrada={handleActualizarEntrada}
+                margenTR={ajustes.margenTR ?? 0}
+                onCambiarMargenTR={handleCambiarMargenTR}
                 onAbrirNotas={abrirNotasWatch}
                 onBorrar={handleBorrarWatch}
               />
@@ -387,7 +462,8 @@ export default function App() {
 
         <footer className="data-note">
           Cotizaciones de es.finance.yahoo.com: EE. UU. en tiempo real, bolsas europeas con unos 15 minutos de retraso.
-          Conversión a euros con el tipo de referencia del BCE.
+          Valoración en euros con el EUR/USD en tiempo real de Yahoo (si falla, tipo del BCE). Coste de compra: lo pagado
+          en € según el justificante; si no está, tipo BCE de la fecha de compra.
           {ultimaActualizacion && ` Actualizado a las ${fmtHora(ultimaActualizacion)}.`}
         </footer>
       </main>

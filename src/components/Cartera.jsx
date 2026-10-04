@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtSigned, fmtPercent, fmtNumber, fmtDate, fmtAntiguedad } from '../lib/format';
 import { useFxToday } from '../lib/useFxToday';
+import { costeLoteEUR, costeEsAproximado, tipoImplicito, tiposValoracion } from '../lib/costes';
 import { useSort } from '../lib/useSort';
 import { yahooUrl } from '../lib/exchanges';
 import { sectorDe } from '../lib/sectors';
@@ -27,7 +28,7 @@ function claseSigno(v) {
   return v >= 0 ? 'gain' : 'loss';
 }
 
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR }) {
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
   const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
@@ -37,7 +38,8 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
   }
 
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
-  const fx = useFxToday(grupos.map((g) => g.currency));
+  const fxBce = useFxToday(grupos.map((g) => g.currency));
+  const fx = tiposValoracion(fxBce, prices);
 
   const filasSinOrdenar = grupos.map((g) => {
     const cantidad = g.lotes.reduce((s, l) => s + l.remainingQuantity, 0);
@@ -49,10 +51,19 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
     const esManual = q?.price == null && manualPrice != null;
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
 
-    const plPct = precioActual != null && precioMedio ? (precioActual / precioMedio - 1) * 100 : null;
     const valorEUR = precioActual != null && rate != null ? precioActual * cantidad * rate : null;
-    const costeEUR = rate != null ? costeOriginal * rate : null;
+    // Coste real en €: lo pagado (justificante) o, si falta, tipo BCE de la fecha de compra
+    const costesLote = g.lotes.map((l) => costeLoteEUR(l));
+    const costeEUR = costesLote.every((c) => c != null) ? costesLote.reduce((s, c) => s + c, 0) : null;
+    const costeAproximado = g.lotes.some(costeEsAproximado);
+    const precioMedioEUR = costeEUR != null ? costeEUR / cantidad : null;
     const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
+    const plPct = plEUR != null && costeEUR ? (plEUR / costeEUR) * 100 : null;
+    // Desglose (solo divisa extranjera): lo que ha hecho la acción, al tipo de hoy,
+    // y lo que ha hecho el tipo de cambio (incluye comisiones). Suman plEUR.
+    const efectoAccion = g.currency !== 'EUR' && precioActual != null && rate != null
+      ? (precioActual * cantidad - costeOriginal) * rate : null;
+    const efectoDivisa = efectoAccion != null && plEUR != null ? plEUR - efectoAccion : null;
 
     // Hoy: cada lote contra el cierre de ayer, salvo los comprados en la
     // sesión de hoy, que van contra su precio de compra.
@@ -81,6 +92,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
     return {
       ...g, q, cantidad, precioMedio, precioActual, esManual, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
+      precioMedioEUR, costeAproximado, efectoAccion, efectoDivisa,
       sector: sector.nombre, sectorInfo: sector, nivel,
       stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado,
       conAlerta: stopSaltado || objetivoSaltado,
@@ -201,7 +213,14 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                         <span className="symbol-name">{f.name}, {[...f.brokers].join(', ')}</span>
                       </td>
                       <td className="num">{fmtNumber(f.cantidad, 2)}</td>
-                      <td className="num">{fmtCotizacion(f.precioMedio, f.currency)}</td>
+                      <td className="num">
+                        {fmtCotizacion(f.precioMedio, f.currency)}
+                        {f.currency !== 'EUR' && f.precioMedioEUR != null && (
+                          <span className="cell-sub" title={f.costeAproximado ? 'Aproximado: falta el € pagado en algún lote' : 'Pagado en €'}>
+                            {f.costeAproximado ? '≈ ' : ''}{fmtCotizacion(f.precioMedioEUR)}
+                          </span>
+                        )}
+                      </td>
                       <td className="num">
                         {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}
                         {f.esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
@@ -252,7 +271,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                           .map((lote) => (
                             <tr className="lots-detail" key={lote.id}>
                               <td colSpan={13}>
-                                <FilaLote lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} />
+                                <FilaLote lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} onGuardarCosteEUR={onGuardarCosteEUR} />
                               </td>
                             </tr>
                           ))}
@@ -322,20 +341,23 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           onVender={(s) => { setDetalle(null); onVender(s); }}
           onEditarLote={(l) => { setDetalle(null); onEditarLote(l); }}
           onBorrarLote={onBorrarLote}
+          onGuardarCosteEUR={onGuardarCosteEUR}
         />
       )}
     </div>
   );
 }
 
-function FilaLote({ lote, symbol, onEditarLote, onBorrarLote }) {
+function FilaLote({ lote, symbol, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
   const intacto = lote.remainingQuantity === lote.quantity;
+  const enDivisa = lote.currency !== 'EUR';
   return (
     <div className="lot-line">
       <span>
         Lote del {fmtDate(lote.buyDate)} ({fmtAntiguedad(lote.buyDate)}): {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
         {fmtCotizacion(lote.price, lote.currency)}, {lote.broker}
         {!intacto && ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
+        {enDivisa && <CosteEURLote lote={lote} onGuardar={(v) => onGuardarCosteEUR(lote.id, v)} />}
       </span>
       {intacto ? (
         <div className="btn-row">
@@ -360,7 +382,7 @@ function FilaLote({ lote, symbol, onEditarLote, onBorrarLote }) {
 }
 
 // Hoja de detalle de una posición (se abre al tocar una fila en el iPhone)
-function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote }) {
+function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
   return (
     <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
       <div className="modal sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Detalle de ${f.symbol}`}>
@@ -399,12 +421,27 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
 
         <div className="stat-grid">
           <Stat label="Cantidad" value={fmtNumber(f.cantidad, 2)} />
-          <Stat label="Precio medio" value={fmtCotizacion(f.precioMedio, f.currency)} />
-          <Stat label="Invertido" value={fmtMoney(f.costeEUR)} />
+          <Stat
+            label="Precio medio"
+            value={fmtCotizacion(f.precioMedio, f.currency)}
+            sub={f.currency !== 'EUR' && f.precioMedioEUR != null ? `${f.costeAproximado ? '≈ ' : ''}${fmtCotizacion(f.precioMedioEUR)} pagado` : null}
+          />
+          <Stat label="Invertido" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} />
           <Stat label="Valor de mercado" value={fmtMoney(f.valorEUR)} />
           <Stat label="Hoy" value={f.hoyEUR != null ? `${fmtMoneySigned(f.hoyEUR)} (${fmtPercent(f.hoyPct)})` : '—'} clase={claseSigno(f.hoyEUR)} />
           <Stat label="Total" value={f.plEUR != null ? `${fmtMoneySigned(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'} clase={claseSigno(f.plEUR)} />
+          {f.efectoAccion != null && (
+            <>
+              <Stat label="Efecto acción" value={fmtMoneySigned(f.efectoAccion)} clase={claseSigno(f.efectoAccion)} />
+              <Stat label="Efecto divisa y comisiones" value={fmtMoneySigned(f.efectoDivisa)} clase={claseSigno(f.efectoDivisa)} />
+            </>
+          )}
         </div>
+        {f.costeAproximado && (
+          <div className="hint" style={{ marginTop: 6 }}>
+            Algún lote no tiene el € pagado: su coste usa el tipo del BCE de la fecha de compra. Añádelo en la lista de lotes.
+          </div>
+        )}
 
         <div className="sheet-edit-row">
           <EditableNumber label="Stop" valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} />
@@ -428,7 +465,7 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
           {[...f.lotes]
             .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
             .map((lote) => (
-              <FilaLote key={lote.id} lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} />
+              <FilaLote key={lote.id} lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} onGuardarCosteEUR={onGuardarCosteEUR} />
             ))}
         </div>
 
@@ -445,12 +482,61 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
   );
 }
 
-function Stat({ label, value, clase = '' }) {
+function Stat({ label, value, clase = '', sub = null }) {
   return (
     <div className="stat">
       <div className="stat-label">{label}</div>
       <div className={`stat-value ${clase}`}>{value}</div>
+      {sub && <div className="cell-sub">{sub}</div>}
     </div>
+  );
+}
+
+// € pagado de un lote en divisa: se ve y se edita en línea. Vacío = usar el tipo BCE.
+function CosteEURLote({ lote, onGuardar }) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(lote.costEUR ?? '');
+  const tipo = tipoImplicito(lote);
+
+  if (editando) {
+    return (
+      <span className="lot-eur" onClick={(e) => e.stopPropagation()}>
+        {' · € pagado: '}
+        <input
+          autoFocus
+          type="number"
+          inputMode="decimal"
+          step="any"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onBlur={() => { setEditando(false); onGuardar(texto); }}
+          onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+          className="inline-input"
+          placeholder="Total del justificante"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="lot-eur"
+      onClick={(e) => { e.stopPropagation(); setTexto(lote.costEUR ?? ''); setEditando(true); }}
+      title="Toca para poner el total pagado en € del justificante"
+      style={{ cursor: 'pointer' }}
+    >
+      {' · '}
+      {lote.costEUR != null ? (
+        <span style={{ borderBottom: '1px dashed var(--line)' }}>
+          pagado {fmtMoney(lote.costEUR)} ({fmtCotizacion(lote.costEUR / lote.quantity)}/ud.
+          {tipo != null && `, tipo ${fmtNumber(tipo, 4)}`})
+        </span>
+      ) : (
+        <span style={{ borderBottom: '1px dashed var(--line)', color: 'var(--accent)' }}>
+          ≈ {fmtMoney(costeLoteEUR(lote, lote.quantity))} (BCE) · añadir € pagado
+        </span>
+      )}
+    </span>
   );
 }
 

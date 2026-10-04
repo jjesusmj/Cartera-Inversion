@@ -19,6 +19,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
     quantity: initial?.quantity ?? '',
     price: initial?.price ?? '',
     commission: initial?.commission ?? '0',
+    costEUR: initial?.costEUR ?? '',
     comment: initial?.comment || '',
     manualPrice: initial?.manualPrice ?? '',
   });
@@ -31,6 +32,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
 
   const exchange = exchangeById(form.exchangeId);
   const esUSD = exchange.id === 'us';
+  const esEUR = exchange.currency === 'EUR';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -50,6 +52,7 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
         price: parseFloat(form.price),
         currency: exchange.currency,
         commission: parseFloat(form.commission || 0),
+        costEUR: !esEUR && form.costEUR !== '' ? parseFloat(form.costEUR) : null,
         comment: form.comment.trim(),
         manualPrice: form.manualPrice === '' ? null : parseFloat(form.manualPrice),
       });
@@ -142,9 +145,28 @@ export default function BuyForm({ onClose, onSubmit, initial }) {
           </div>
 
           <div className="field">
-            <label>Comisión</label>
+            <label>Comisión{esEUR ? '' : ` (en ${exchange.currency})`}</label>
             <input type="number" step="any" value={form.commission} onChange={(e) => set('commission', e.target.value)} />
+            {!esEUR && <div className="hint">Si rellenas el total pagado en € de abajo, este campo no se usa para el coste.</div>}
           </div>
+
+          {!esEUR && (
+            <div className="field">
+              <label>Total pagado en € (justificante del bróker, comisión incluida)</label>
+              <input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                value={form.costEUR}
+                onChange={(e) => set('costEUR', e.target.value)}
+                placeholder="Por ejemplo, el cargo total de Trade Republic"
+              />
+              <div className="hint">
+                Es el coste real para la cartera y la renta. Si lo dejas vacío, se usa el tipo del BCE de la fecha de compra
+                como aproximación.
+              </div>
+            </div>
+          )}
 
           <div className="field">
             <label>Precio manual (red de seguridad, opcional)</label>

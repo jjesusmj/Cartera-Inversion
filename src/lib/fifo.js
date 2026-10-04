@@ -20,6 +20,11 @@
  * @param {string} params.saleCurrency
  * @param {number} params.fxRateSale - EUR por 1 unidad de saleCurrency en la fecha de venta (1 si ya es EUR)
  * @param {Function} params.getFxRateForLot - (lot) => number, EUR por 1 unidad de lot.currency en lot.buyDate (1 si ya es EUR)
+ * @param {number} [params.saleProceedsEURTotal] - total cobrado en € según el justificante del bróker,
+ *   ya descontada la comisión. Si se indica, sustituye a la conversión con fxRateSale.
+ *
+ * Si un lote tiene costEUR (total pagado en € según el justificante), su coste
+ * sale de ahí, prorrateado por la cantidad consumida, sin tipo de cambio.
  * @returns {{ lotsConsumed: Array, totalCostEUR: number, totalProceedsEUR: number, totalGainEUR: number, updatedLots: Array }}
  */
 export function venderFIFO({
@@ -30,6 +35,7 @@ export function venderFIFO({
   saleCurrency,
   fxRateSale,
   getFxRateForLot,
+  saleProceedsEURTotal = null,
 }) {
   if (quantityToSell <= 0) {
     throw new Error('La cantidad a vender debe ser mayor que 0.');
@@ -61,7 +67,8 @@ export function venderFIFO({
       continue;
     }
 
-    const fxRateBuy = getFxRateForLot(lot);
+    const pagadoEnEUR = lot.currency !== 'EUR' && lot.costEUR != null;
+    const fxRateBuy = pagadoEnEUR ? lot.costEUR / (lot.price * lot.quantity) : getFxRateForLot(lot);
 
     // Comisión de compra prorrateada por la parte de ese lote que se consume
     // (si el lote ya estaba parcialmente vendido, remainingQuantity es lo que queda,
@@ -70,8 +77,12 @@ export function venderFIFO({
     // Comisión de venta prorrateada por el peso de este lote en la venta total
     const saleCommissionAllocated = (saleCommission / quantityToSell) * qtyFromLot;
 
-    const costEUR = (lot.price * qtyFromLot + buyCommissionAllocated) * fxRateBuy;
-    const proceedsEUR = (salePricePerShare * qtyFromLot - saleCommissionAllocated) * fxRateSale;
+    const costEUR = pagadoEnEUR
+      ? lot.costEUR * (qtyFromLot / lot.quantity)
+      : (lot.price * qtyFromLot + buyCommissionAllocated) * fxRateBuy;
+    const proceedsEUR = saleProceedsEURTotal != null
+      ? saleProceedsEURTotal * (qtyFromLot / quantityToSell)
+      : (salePricePerShare * qtyFromLot - saleCommissionAllocated) * fxRateSale;
     const gainEUR = proceedsEUR - costEUR;
 
     lotsConsumed.push({
@@ -81,6 +92,7 @@ export function venderFIFO({
       buyPricePerShare: lot.price,
       buyCurrency: lot.currency,
       fxRateBuy,
+      costFromBroker: pagadoEnEUR,
       buyCommissionAllocated,
       saleCommissionAllocated,
       costEUR,

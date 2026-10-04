@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { fmtMoney, fmtCotizacion, fmtPercent, fmtSigned } from '../lib/format';
+import { fmtMoney, fmtCotizacion, fmtPercent, fmtSigned, fmtNumber } from '../lib/format';
+import { useFxToday } from '../lib/useFxToday';
+import { tiposValoracion, tipoEsEnVivo } from '../lib/costes';
 import { useSort } from '../lib/useSort';
 import { yahooUrl } from '../lib/exchanges';
 import { sectorDe } from '../lib/sectors';
@@ -67,10 +69,13 @@ function EditableEntry({ valor, precio, currency, label, onGuardar }) {
   );
 }
 
-function filasCalculadas(watchlist, prices, perfiles, positionSettings) {
+function filasCalculadas(watchlist, prices, perfiles, positionSettings, fx) {
   return watchlist.map((w) => {
     const q = prices[w.symbol];
     const precio = q?.price ?? w.manualPrice ?? null;
+    // Equivalente en € (orientativo): precio en divisa × EUR/USD en tiempo real
+    const tipo = w.currency && w.currency !== 'EUR' ? fx[w.currency] ?? null : null;
+    const precioEUR = tipo != null && precio != null ? precio * tipo : null;
     const esManual = q?.price == null && w.manualPrice != null;
     const entradaSaltada = w.entryLow != null && precio != null && precio <= w.entryLow;
     const rupturaSaltada = w.entryHigh != null && precio != null && precio >= w.entryHigh;
@@ -85,7 +90,7 @@ function filasCalculadas(watchlist, prices, perfiles, positionSettings) {
     const cambio = q?.price != null && q.previousClose != null ? q.price - q.previousClose : null;
     const hoyPct = q?.changePercent ?? null;
     return {
-      ...w, q, precio, esManual, entradaSaltada, rupturaSaltada, conAlerta: entradaSaltada || rupturaSaltada,
+      ...w, q, precio, precioEUR, tipo, esManual, entradaSaltada, rupturaSaltada, conAlerta: entradaSaltada || rupturaSaltada,
       notas, comentario, ultimaNota, nNotas: numNotas(notas, comentario), cambio, hoyPct,
       sector: sector.nombre, sectorInfo: sector, nivel,
     };
@@ -99,9 +104,11 @@ function marcas(w) {
   ];
 }
 
-export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onSectorManual, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada }) {
+export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onSectorManual, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada, margenTR = 0, onCambiarMargenTR }) {
   const [detalle, setDetalle] = useState(null);
-  const filasBase = filasCalculadas(watchlist, prices, perfiles, positionSettings);
+  const fxBce = useFxToday(watchlist.map((w) => w.currency));
+  const fx = tiposValoracion(fxBce, prices);
+  const filasBase = filasCalculadas(watchlist, prices, perfiles, positionSettings, fx);
 
   // Escritorio: orden por columnas, por defecto alfabético. iPhone: siempre alfabético.
   const { toggleSort, sortedRows: filas, arrow } = useSort(filasBase, 'symbol');
@@ -153,6 +160,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                     <td className="num">
                       {w.precio != null ? fmtCotizacion(w.precio, w.q?.currency || w.currency) : '—'}
                       {w.esManual && <span className="tag" style={{ marginLeft: 6 }}>manual</span>}
+                      {w.precioEUR != null && <span className="cell-sub">≈ {fmtCotizacion(w.precioEUR)}</span>}
                     </td>
                     <td><Sparkline spark={w.q?.spark} previousClose={w.q?.previousClose} width={64} height={28} /></td>
                     <td className={`num ${claseSigno(w.cambio)}`}>
@@ -206,6 +214,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                     {w.precio != null ? fmtCotizacion(w.precio, w.q?.currency || w.currency) : '—'}
                     {w.esManual && <span className="tag tag-mini">manual</span>}
                   </div>
+                  {w.precioEUR != null && <div className="qrow-eur">≈ {fmtCotizacion(w.precioEUR)}</div>}
                   <div className={`qrow-change ${claseSigno(w.cambio)}`}>{textoCambio(w)}</div>
                 </div>
               </button>
@@ -230,6 +239,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                 <div className="sheet-price">
                   {filaDetalle.precio != null ? fmtCotizacion(filaDetalle.precio, filaDetalle.q?.currency || filaDetalle.currency) : '—'}
                 </div>
+                {filaDetalle.precioEUR != null && <div className="qrow-eur">≈ {fmtCotizacion(filaDetalle.precioEUR)}</div>}
                 <div className={`qrow-change ${claseSigno(filaDetalle.cambio)}`}>{textoCambio(filaDetalle)}</div>
               </div>
             </div>
@@ -254,6 +264,15 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
               <EditableEntry label="Entrada" valor={filaDetalle.entryLow} precio={filaDetalle.precio} currency={filaDetalle.currency} onGuardar={(v) => onActualizarEntrada(filaDetalle.id, 'entryLow', v)} />
               <EditableEntry label="Ruptura" valor={filaDetalle.entryHigh} precio={filaDetalle.precio} currency={filaDetalle.currency} onGuardar={(v) => onActualizarEntrada(filaDetalle.id, 'entryHigh', v)} />
             </div>
+
+            {filaDetalle.tipo != null && (
+              <OrdenTR
+                w={filaDetalle}
+                margen={margenTR}
+                enVivo={tipoEsEnVivo(filaDetalle.currency, prices)}
+                onCambiarMargen={onCambiarMargenTR}
+              />
+            )}
 
             <div className="sheet-section">
               <div className="sheet-label">Rango del día</div>
@@ -291,6 +310,64 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Equivalente en € de entrada y ruptura para poner la orden en Trade Republic.
+// Orden = nivel en divisa × tipo actual × (1 + margen). Con margen 0 es la
+// conversión exacta; el margen sirve para que la orden entre aunque el precio
+// de compra de LS Exchange esté un poco por encima de la conversión.
+function OrdenTR({ w, margen, enVivo, onCambiarMargen }) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(margen);
+  const orden = (nivel) => (nivel != null ? nivel * w.tipo * (1 + margen / 100) : null);
+  const filas = [
+    { label: 'Entrada', nivel: w.entryLow },
+    { label: 'Ruptura', nivel: w.entryHigh },
+  ].filter((f) => f.nivel != null);
+
+  return (
+    <div className="sheet-section">
+      <div className="sheet-label">Orden en Trade Republic (€)</div>
+      {filas.length === 0 ? (
+        <div className="hint">Pon una entrada o una ruptura para ver su precio en euros.</div>
+      ) : (
+        filas.map((f) => (
+          <div key={f.label} className="lot-line">
+            <span>
+              {f.label}: {fmtCotizacion(f.nivel, w.currency)} → <strong>{fmtCotizacion(orden(f.nivel))}</strong>
+            </span>
+          </div>
+        ))
+      )}
+      <div className="hint" style={{ marginTop: 6 }}>
+        Tipo {fmtNumber(1 / w.tipo, 4)} $/€ {enVivo ? 'en tiempo real (Yahoo)' : 'del BCE (sin dato en tiempo real)'}. Margen:{' '}
+        {editando ? (
+          <input
+            autoFocus
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            onBlur={() => { setEditando(false); onCambiarMargen?.(texto); }}
+            onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+            className="inline-input"
+            style={{ width: 70 }}
+          />
+        ) : (
+          <span
+            onClick={() => { setTexto(margen); setEditando(true); }}
+            style={{ cursor: 'pointer', borderBottom: '1px dashed var(--line)' }}
+            title="Toca para cambiar el margen (vale para todas las acciones)"
+          >
+            {fmtNumber(margen, 2)} %
+          </span>
+        )}
+        . Precio aproximado: el de LS Exchange lo ves al lanzar la orden.
+      </div>
     </div>
   );
 }

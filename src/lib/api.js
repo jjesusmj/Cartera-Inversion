@@ -6,6 +6,7 @@ import {
   doc,
   setDoc,
   getDocs,
+  getDoc,
   writeBatch,
   serverTimestamp,
   arrayUnion,
@@ -58,8 +59,30 @@ export async function actualizarLote(id, datos) {
   return updateDoc(doc(db, 'lots', id), { ...datos, remainingQuantity: datos.quantity });
 }
 
+// Total pagado en € (justificante del bróker). Se puede poner en cualquier lote,
+// también en los parcialmente vendidos: no toca cantidades.
+export async function actualizarCosteEURLote(id, costEUR) {
+  return updateDoc(doc(db, 'lots', id), { costEUR });
+}
+
+// Tipo BCE de la fecha de compra, guardado una vez en el lote.
+export async function guardarFxCompraLote(id, fxRateBuy) {
+  return updateDoc(doc(db, 'lots', id), { fxRateBuy });
+}
+
 export async function borrarLote(id) {
   return deleteDoc(doc(db, 'lots', id));
+}
+
+// ---------- Ajustes generales (un único documento) ----------
+
+export async function leerAjustes() {
+  const snap = await getDoc(doc(db, 'settings', 'general'));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function guardarAjustes(datos) {
+  return setDoc(doc(db, 'settings', 'general'), datos, { merge: true });
 }
 
 // ---------- Ventas (aplica el resultado ya calculado por fifo.js) ----------

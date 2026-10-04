@@ -1137,3 +1137,17 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 .reparto-detail-name { color: var(--ink-faint); font-size: 11.5px; }
 
 .qrow-level.is-crossed { font-family: var(--font-body); font-weight: 600; }
+
+/* Equivalente en euros bajo un precio en dólares (Seguimiento) */
+.qrow-eur {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  margin-top: 1px;
+}
+
+/* € pagado de un lote en divisa */
+.lot-eur { color: var(--ink-faint); }
+.lot-eur .inline-input { width: 110px; }
