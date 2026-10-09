@@ -24,6 +24,26 @@ resumen fiscal de ventas (FIFO + tipo de cambio BCE) exportable a Excel.
 Para comprobar lo que devuelve Yahoo para un valor:
 `/api/prices?symbols=BKNG&currencies=USD&debug=1`
 
+## Valoración por FCF (pestaña Valoración)
+
+Niveles de compra y venta a 5 años por flujo de caja libre, con las acciones de
+Cartera y de Seguimiento (filtro Todas / Cartera / Seguimiento / Favoritos).
+Fórmulas: `src/lib/valoracionFCF.js`. Datos: `api/fundamentals.js`.
+
+- **EE. UU.**: SEC EDGAR (companyfacts). La SEC exige identificarse: añade en
+  Vercel la variable `SEC_USER_AGENT` con tu nombre y email (por ejemplo
+  `Cartera Juan tu@email.com`). Sin ella se usa Yahoo.
+- **Resto de bolsas**: Yahoo Finance (fundamentals-timeseries, no oficial).
+- **Crecimiento de analistas**: estimación del BPA del año siguiente (Yahoo).
+- **Mediana P/FCF**: 10 años de trimestres con EDGAR; con Yahoo, los años que dé (unos 4).
+- Bancos y aseguradoras salen como "No valorable por FCF".
+- Fundamentales guardados en Firestore (`fundamentals`), se renuevan cada 7 días
+  o con "Actualizar datos". Ajustes manuales en `valuationAdjustments` y
+  parámetros en `settings/valoracion_<titular>`, por titular.
+
+Comprobar una acción: `/api/fundamentals?symbol=NFLX&currency=USD&market=us&debug=1`.
+Pruebas del cálculo (casos de la especificación): `npm test`.
+
 ## 3. Desplegar en Vercel
 
 1. Sube esta carpeta a un repo de GitHub (por ejemplo `jjesusmj/cartera-app`).

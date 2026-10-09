@@ -221,3 +221,48 @@ export async function obtenerGrafico(symbol, currency, range) {
   chartCache.set(key, { at: Date.now(), data });
   return data;
 }
+
+// ---------- Valoración por FCF ----------
+// Fundamentales: compartidos por titulares (son datos de la empresa), uno por símbolo.
+// Ajustes manuales y parámetros globales: por titular.
+
+// Firestore no admite `undefined`: se limpia antes de guardar.
+const limpio = (x) => JSON.parse(JSON.stringify(x));
+
+export async function listarFundamentales() {
+  const snap = await getDocs(collection(db, 'fundamentals'));
+  return Object.fromEntries(snap.docs.map((d) => [d.data().symbol || d.id, d.data()]));
+}
+
+export async function guardarFundamentales(symbol, datos) {
+  return setDoc(doc(db, 'fundamentals', symbol.replace(/\//g, '_')), limpio({ ...datos, symbol }));
+}
+
+// Pide los fundamentales a la función de Vercel (EDGAR o Yahoo)
+export async function descargarFundamentales(symbol, currency, market, forzar = false) {
+  const res = await fetch(
+    `/api/fundamentals?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency || '')}&market=${market}${forzar ? `&t=${Date.now()}` : ''}`
+  );
+  if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function listarAjustesValoracion() {
+  const snap = await getDocs(collection(db, 'valuationAdjustments'));
+  return snap.docs.map((d) => d.data());
+}
+
+export async function guardarAjusteValoracion(owner, symbol, datos) {
+  return setDoc(doc(db, 'valuationAdjustments', `${owner}_${symbol}`), limpio({ owner, symbol, ...datos }), { merge: true });
+}
+
+export async function leerParamsValoracion(owner) {
+  const snap = await getDoc(doc(db, 'settings', `valoracion_${owner}`));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function guardarParamsValoracion(owner, params) {
+  return setDoc(doc(db, 'settings', `valoracion_${owner}`), limpio(params));
+}

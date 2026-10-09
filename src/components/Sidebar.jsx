@@ -5,6 +5,7 @@ const ITEMS = [
   { id: 'cartera', label: 'Cartera' },
   { id: 'watchlist', label: 'Seguimiento' },
   { id: 'resumen', label: 'Resumen' },
+  { id: 'valoracion', label: 'Valoración' },
   { id: 'renta', label: 'Declaración' },
 ];
 

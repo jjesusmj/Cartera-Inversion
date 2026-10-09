@@ -4,6 +4,7 @@ import Cartera from './components/Cartera';
 import Watchlist from './components/Watchlist';
 import Resumen from './components/Resumen';
 import Renta from './components/Renta';
+import Valoracion from './components/Valoracion';
 import BuyForm from './components/BuyForm';
 import SaleForm from './components/SaleForm';
 import WatchForm from './components/WatchForm';
@@ -148,11 +149,12 @@ export default function App() {
 
   const openLots = useMemo(() => lots.filter((l) => l.remainingQuantity > 1e-9), [lots]);
 
-  // Filtro por bolsa: se aplica a Cartera, Seguimiento y Resumen.
+  // Filtro por bolsa: se aplica a Cartera, Seguimiento, Resumen y Valoración.
   // Declaración usa siempre la cartera completa: el resultado fiscal es el total.
   const openLotsFiltrados = useMemo(() => openLots.filter(pasaFiltro), [openLots, pasaFiltro]);
   const lotsFiltrados = useMemo(() => lots.filter(pasaFiltro), [lots, pasaFiltro]);
   const watchlistFiltrada = useMemo(() => watchlist.filter(pasaFiltro), [watchlist, pasaFiltro]);
+  const todosLosItems = useMemo(() => [...openLots, ...watchlist], [openLots, watchlist]);
   const salesFiltradas = useMemo(() => {
     // Las ventas no guardan la bolsa: se toma la del lote del mismo símbolo
     const bolsaDe = new Map(lots.map((l) => [l.symbol, l]));
@@ -207,7 +209,7 @@ export default function App() {
     obtenerPerfiles(clavesSimbolos.split(',')).then(setPerfiles);
   }, [clavesSimbolos]);
 
-  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen';
+  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen' || view === 'valoracion';
   const pull = usePullToRefresh(() => {
     if (!pricesLoading) refreshPrices();
   }, vistaConPrecios);
@@ -465,6 +467,19 @@ export default function App() {
                 positionSettings={positionSettings}
                 sales={salesFiltradas}
                 filtrado={exchangeFilter.length > 0}
+              />
+            )}
+            {view === 'valoracion' && (
+              <Valoracion
+                openLots={openLotsFiltrados}
+                watchlist={watchlistFiltrada}
+                todosLosItems={todosLosItems}
+                exchangeFilter={exchangeFilter}
+                onCambiarExchangeFilter={setExchangeFilter}
+                prices={prices}
+                perfiles={perfiles}
+                owner={owner}
+                onToggleFavorito={handleToggleFavorito}
               />
             )}
             {view === 'renta' && <Renta sales={sales} />}
