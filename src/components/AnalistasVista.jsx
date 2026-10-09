@@ -35,9 +35,11 @@ export default function AnalistasVista({ filas, onActualizarPosSettings, onAbrir
     const valido = a && a.mean != null && !a.error;
     return { f, a: valido ? a : null, c: compararAnalistas({ precioMedio: f.precioMedio, precioActual: f.precioActual, objetivo: f.targetPrice, analistas: valido ? a : null }) };
   });
-  const conAmbos = tarjetas.filter((t) => t.a && t.f.targetPrice != null);
-  const soloAnalistas = tarjetas.filter((t) => t.a && t.f.targetPrice == null);
-  const sinDatos = tarjetas.filter((t) => !t.a);
+  // Sin cotización todavía (o sin datos de Yahoo) no se puede comparar: se omite
+  const listas = tarjetas.filter((t) => t.a && t.c.analistas);
+  const conAmbos = listas.filter((t) => t.f.targetPrice != null);
+  const soloAnalistas = listas.filter((t) => t.f.targetPrice == null);
+  const sinDatos = tarjetas.filter((t) => datos[t.f.symbol] && !t.a);
 
   return (
     <div className="obj-vista">
@@ -76,7 +78,7 @@ export default function AnalistasVista({ filas, onActualizarPosSettings, onAbrir
         </>
       )}
 
-      {!cargando && sinDatos.length > 0 && Object.keys(datos).length > 0 && (
+      {!cargando && sinDatos.length > 0 && (
         <div className="obj-nota">Yahoo no da objetivo de analistas para: {sinDatos.map((t) => t.f.symbol).join(', ')}.</div>
       )}
     </div>
