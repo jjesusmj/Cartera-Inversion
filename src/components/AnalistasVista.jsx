@@ -115,7 +115,7 @@ function TarjetaAnalistas({ f, a, c, onAbrir, onUsar }) {
         <span className="ana-quien ana-color">Analistas</span>
         <span className="obj-num-s">{fmtCotizacion(c.analistas.precio, f.currency)}</span>
         <span className="obj-num-s">{fmtPercent(c.analistas.potencial)}</span>
-        <span className="obj-num-s">{fmtRecorrido(c.analistas.recorrido)}</span>
+        <span className="obj-num-s ana-sin">—</span>
       </div>
 
       {c.aviso === 'debajo' && <div className="ana-aviso">Tu objetivo está por debajo del más bajo de los analistas ({fmtCotizacion(a.low, f.currency)}).</div>}

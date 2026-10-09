@@ -1463,3 +1463,68 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 .ana-color { color: var(--accent); }
 .ana-aviso { font-size: 12px; color: #8a4208; background: #fcebd6; border-radius: 8px; padding: 6px 10px; }
 .ana-usar { all: unset; cursor: pointer; color: var(--accent); font-weight: 600; text-decoration: underline; }
+
+/* Resumen › Evolución */
+.evo { display: flex; flex-direction: column; gap: 12px; }
+.evo-controles { display: flex; gap: 8px; flex-wrap: wrap; }
+.evo-seg { margin-bottom: 0; flex: 1; min-width: 110px; max-width: 160px; }
+.evo-seg-per { max-width: 280px; flex: 2; }
+.evo-card { cursor: default; gap: 8px; }
+.evo-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.evo-kpis > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.evo-kv { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; white-space: nowrap; }
+.evo-fecha { font-size: 12px; color: var(--ink-dim); min-height: 17px; }
+.evo-fecha b { font-family: var(--font-mono); }
+.evo-tit { font-size: 15px; font-weight: 600; }
+.evo-graf { display: grid; grid-template-columns: 40px minmax(0, 1fr) 70px; margin-top: 26px; }
+.evo-graf-barras { margin-top: 4px; }
+.evo-ticks, .evo-finales { position: relative; }
+.evo-ticks span { position: absolute; right: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); white-space: nowrap; }
+.evo-finales span, .evo-fin-sym { position: absolute; left: 6px; font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; color: var(--ink-faint); }
+.evo-fin-val { color: var(--ink) !important; font-weight: 600; }
+.evo-fin-gan { color: var(--gain) !important; font-weight: 600; }
+.evo-fin-inv { color: var(--ink-dim) !important; }
+.evo-fin-sym { all: unset; position: absolute; left: 4px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; cursor: pointer; padding: 0 3px; border-radius: 3px; line-height: 13px; }
+.evo-fin-sym.on { background: var(--bg-inset); }
+.evo-plot { position: relative; }
+.evo-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.evo-grid { stroke: var(--line-soft); stroke-width: 1; vector-effect: non-scaling-stroke; fill: none; }
+.evo-cero { stroke: #9a9a9a; stroke-width: 1; vector-effect: non-scaling-stroke; fill: none; }
+.evo-compra { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; fill: none; }
+.evo-compra-txt { position: absolute; transform: translateX(-50%); font-size: 9.5px; color: var(--ink-dim); white-space: nowrap; pointer-events: none; }
+.evo-cursor { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink); pointer-events: none; }
+.evo-tapa { position: absolute; inset: 0; cursor: crosshair; touch-action: pan-y; }
+.evo-tip {
+  position: absolute; top: 4px; right: 8px; background: var(--ink); color: #fff;
+  border-radius: 8px; padding: 6px 8px; font-size: 11px; line-height: 1.5; pointer-events: none; z-index: 2; min-width: 120px;
+}
+.evo-tip.izq { right: auto; left: 8px; }
+.evo-tip-cab { font-weight: 600; margin-bottom: 2px; }
+.evo-tip-fila { display: grid; grid-template-columns: 10px 1fr auto; gap: 6px; align-items: center; font-family: var(--font-mono); }
+.evo-tip-fila i { width: 8px; height: 8px; border-radius: 50%; }
+.evo-ejex { display: grid; grid-template-columns: 40px minmax(0, 1fr) 70px; height: 16px; }
+.evo-ejex-in { position: relative; }
+.evo-ejex-in span { position: absolute; top: 2px; transform: translateX(-50%); font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); white-space: nowrap; }
+.evo-leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: var(--ink-dim); }
+.evo-leyenda i { display: inline-block; width: 12px; height: 10px; vertical-align: -1px; margin-right: 4px; }
+.evo-leyenda i.evo-ley-linea { height: 0; border-top: 2px solid var(--ink); vertical-align: 3px; }
+.evo-leyenda i.evo-ley-compra { width: 0; border-left: 1px dashed var(--ink-faint); }
+.evo-barras-tit { font-size: 11px; color: var(--ink-dim); margin-top: 8px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.evo-det-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.evo-switch { all: unset; display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; min-height: 36px; }
+.evo-switch i { width: 34px; height: 20px; border-radius: 10px; background: var(--line); position: relative; display: inline-block; }
+.evo-switch i b { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); transition: left 0.15s; }
+.evo-switch.on i { background: var(--ink); }
+.evo-switch.on i b { left: 16px; }
+.evo-lista-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; }
+.evo-lista { display: flex; flex-direction: column; }
+.evo-fila {
+  all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid var(--line-soft); font-size: 13px;
+}
+.evo-fila.off { color: var(--ink-faint); }
+.evo-caja { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; }
+.evo-fila-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evo-fila-nom span { color: var(--ink-faint); }
+.evo-fila-v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ana-sin { color: var(--ink-faint); }

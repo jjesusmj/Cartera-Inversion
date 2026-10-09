@@ -186,6 +186,25 @@ export async function obtenerAnalistas(items, forzar = false) {
   return Object.fromEntries(items.map((i) => [i.symbol, guardados[i.symbol] || null]));
 }
 
+// ---------- Histórico diario (Yahoo) para la pestaña Evolución ----------
+// En memoria 15 minutos: los cierres pasados no cambian y el último sí.
+
+const historicoCache = new Map();
+
+export async function obtenerHistorico(items, desde) {
+  // items: [{ symbol, currency }], desde: 'AAAA-MM-DD'
+  const clave = `${desde}|${items.map((i) => `${i.symbol}:${i.currency}`).sort().join(',')}`;
+  const guardado = historicoCache.get(clave);
+  if (guardado && Date.now() - guardado.at < 15 * 60 * 1000) return guardado.datos;
+  const symbols = items.map((i) => i.symbol).join(',');
+  const currencies = items.map((i) => i.currency || '').join(',');
+  const res = await fetch(`/api/history?symbols=${encodeURIComponent(symbols)}&currencies=${encodeURIComponent(currencies)}&from=${desde}`);
+  if (!res.ok) throw new Error('No se pudo obtener el histórico de cotizaciones.');
+  const datos = await res.json();
+  historicoCache.set(clave, { at: Date.now(), datos });
+  return datos;
+}
+
 // ---------- Sector (Yahoo, cacheado en el navegador 30 días) ----------
 
 const PERFIL_KEY = 'cartera_perfiles_v1';
