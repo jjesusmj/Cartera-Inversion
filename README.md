@@ -34,7 +34,7 @@ Fórmulas: `src/lib/valoracionFCF.js`. Datos: `api/fundamentals.js`.
   Vercel la variable `SEC_USER_AGENT` con tu nombre y email (por ejemplo
   `Cartera Juan tu@email.com`). Sin ella se usa Yahoo.
 - **Resto de bolsas**: Yahoo Finance (fundamentals-timeseries, no oficial).
-- **Crecimiento de analistas**: estimación del BPA del año siguiente (Yahoo).
+- **Crecimiento**: solo el histórico del FCF por acción (× 0,7, tope 15 %). No se usan estimaciones de analistas.
 - **Mediana P/FCF**: 10 años de trimestres con EDGAR; con Yahoo, los años que dé (unos 4).
 - Bancos y aseguradoras salen como "No valorable por FCF".
 - Fundamentales guardados en Firestore (`fundamentals`), se renuevan cada 7 días

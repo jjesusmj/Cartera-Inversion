@@ -86,7 +86,9 @@ function fcfBase(d, avisos) {
 // --- 4.3 Crecimiento (en tanto por uno) ---
 function crecimiento(d, P) {
   const fy = d.fcfFY || [];
-  const pasos = { cagrHist: null, histAccion: null, consenso: esNum(d.growthEstimate) ? d.growthEstimate : null, bruto: null };
+  // Decisión (9-oct-2026): no se usa la estimación de analistas. La de Yahoo es solo
+  // del año siguiente y hace muy volátil el objetivo. Solo crecimiento histórico.
+  const pasos = { cagrHist: null, histAccion: null, bruto: null };
   if (fy.length < 3) return { valor: null, ...pasos };
   const [a, , c] = fy.map((x) => x.value);
   if (!(a > 0) || !(c > 0) || fy.some((x) => !(x.value > 0))) {
@@ -96,7 +98,7 @@ function crecimiento(d, P) {
   pasos.cagrHist = Math.pow(c / a, 1 / 2) - 1;
   const varAcc = esNum(d.shareChange) ? d.shareChange : 0;
   pasos.histAccion = (1 + pasos.cagrHist) / (1 + varAcc) - 1;
-  pasos.bruto = pasos.consenso != null ? Math.min(pasos.histAccion, pasos.consenso) : pasos.histAccion;
+  pasos.bruto = pasos.histAccion;
   const valor = Math.min(Math.max(pasos.bruto * P.factor, 0), P.tope / 100);
   return { valor, ...pasos };
 }
@@ -196,7 +198,6 @@ export function valorar(d, precio, params = PARAMS_DEF, ajustes = {}, opciones =
   const fcfAccionCalc = base.total != null && d.shares > 0 ? base.total / d.shares : null;
   const crec = crecimiento(d, P);
   if (crec.ceroPorFcfNegativo) avisos.push('Algún FCF de los 3 años ≤ 0: crecimiento 0.');
-  if (crec.consenso == null && crec.histAccion != null) avisos.push('Sin estimación de crecimiento de analistas: se usa solo el histórico.');
 
   const pfcf = esNum(precio) && d.shares > 0 && d.fcfTTM > 0 ? (precio * d.shares) / d.fcfTTM : null;
 

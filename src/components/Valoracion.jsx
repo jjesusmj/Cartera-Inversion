@@ -364,8 +364,8 @@ export default function Valoracion({ openLots, watchlist, todosLosItems, exchang
       )}
 
       <p className="val-nota">
-        Fundamentales: SEC EDGAR (EE. UU.) y Yahoo Finance (resto de bolsas). Crecimiento de analistas: estimación del BPA del
-        año siguiente en Yahoo. Precio: cotización actual. Manual vacío = se usa el calculado; un manual sin motivo no se aplica.
+        Fundamentales: SEC EDGAR (EE. UU.) y Yahoo Finance (resto de bolsas). Crecimiento: histórico del FCF por acción
+        (sin estimaciones de analistas). Precio: cotización actual. Manual vacío = se usa el calculado; un manual sin motivo no se aplica.
         {fechasDatos.length > 0 && ` Datos descargados entre el ${fmtDate(fechasDatos[0])} y el ${fmtDate(fechasDatos[fechasDatos.length - 1])}.`}
       </p>
 
@@ -537,7 +537,6 @@ function Detalle({ f, P, onClose, onToggleFavorito }) {
         ['FCF últimos 12 meses', millones(d.fcfTTM)],
         ['Acciones', millones(d.shares)],
         ['Variación anual acciones', pct(d.shareChange)],
-        ['Crecimiento BPA (analistas, año sig.)', pct(d.growthEstimate)],
         ['Mediana P/FCF', esNum(d.medianPFCF) ? `${fmtNumber(d.medianPFCF, 1)} (${d.source === 'edgar' ? `${d.medianPoints} trim.` : `${d.medianPoints} años`})` : '—'],
         ['P/FCF actual', esNum(r.pfcf) ? fmtNumber(r.pfcf, 1) : '—'],
         ['ROIC', d.roicAlto ? 'muy alto' : pct(d.roic)],

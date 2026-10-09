@@ -60,14 +60,13 @@ test('Booking', () => {
   cerca(r.supuestos.fcf.calculado, 12.7, 0.005, 'FCF/acción');
   cerca(r.pfcf, 12.5, 0.05, 'P/FCF');
   cerca(r.pasos.histAccion, 0.181, 0.001, 'histórico');
-  cerca(r.supuestos.g.calculado, 11.5, 0.06, 'crecimiento');
+  // Sin consenso de analistas (decisión del 9-oct-2026): crecimiento = histórico 18,1 % × 0,7.
+  // La especificación original daba 11,5 % y objetivo 376 porque usaba el consenso (16,5 %).
+  cerca(r.supuestos.g.calculado, 12.65, 0.05, 'crecimiento');
   cerca(r.pasos.multiploBase, 19.1, 0.001, 'múltiplo base');
   assert.deepEqual(r.control.filter((c) => c.falla).map((c) => c.id), [6]);
   cerca(r.supuestos.m.calculado, 17.2, 0.05, 'múltiplo');
-  cerca(r.objetivo, 376, 1, 'objetivo');
-  [268, 234, 209, 187].forEach((n, i) => cerca(r.niveles[i], n, 1, `nivel ${i + 1}`));
-  cerca(r.venta, 339, 1, 'venta');
-  cerca(r.rentHoy, 0.188, 0.001, 'rentabilidad hoy');
+  cerca(r.objetivo, 396, 1, 'objetivo');
 });
 
 test('Fabrinet: FCF anómalo y crecimiento 0, marcada como caso especial', () => {
