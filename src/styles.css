@@ -1528,3 +1528,4 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 .evo-fila-nom span { color: var(--ink-faint); }
 .evo-fila-v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .ana-sin { color: var(--ink-faint); }
+.evo-lista-cab .ana-usar { white-space: nowrap; }
