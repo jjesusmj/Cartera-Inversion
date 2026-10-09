@@ -10,6 +10,8 @@ import PeriodChart from './PeriodChart';
 import { NotaBadge, NivelCercano, UltimaNota, SectorEditor } from './DetailParts';
 import { Sparkline, RangeBar } from './Charts';
 import ExchangeFilter from './ExchangeFilter';
+import ObjetivoVista from './ObjetivoVista';
+import { calcularObjetivo } from '../lib/objetivo';
 
 function agruparPorSimbolo(openLots) {
   const grupos = {};
@@ -28,7 +30,7 @@ function claseSigno(v) {
   return v >= 0 ? 'gain' : 'loss';
 }
 
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, irpfObjetivo = 0.19, comisionVentaObjetivo = 0, onCambiarIrpfObjetivo, onCambiarComisionObjetivo }) {
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
   const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
@@ -91,11 +93,16 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
       { value: ajuste.stopPrice, label: 'Stop', tipo: 'loss', cruza: 'debajo', textoCruzado: 'Stop superado' },
       { value: ajuste.targetPrice, label: 'Objetivo', tipo: 'gain', cruza: 'encima', textoCruzado: 'Objetivo alcanzado' },
     ]);
+    const obj = calcularObjetivo({
+      cantidad, precioMedio, precioActual, rate, costeEUR,
+      targetPrice: ajuste.targetPrice ?? null, stopPrice: ajuste.stopPrice ?? null,
+      comision: comisionVentaObjetivo, irpf: irpfObjetivo,
+    });
 
     return {
       ...g, q, cantidad, precioMedio, precioActual, esManual, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
       precioMedioEUR, precioActualEUR, costeAproximado, efectoAccion, efectoDivisa,
-      sector: sector.nombre, sectorInfo: sector, nivel,
+      sector: sector.nombre, sectorInfo: sector, nivel, obj,
       stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado,
       conAlerta: stopSaltado || objetivoSaltado,
       notas, comentario, ultimaNota, nNotas: numNotas(notas, comentario),
@@ -170,8 +177,30 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
         </div>
       </div>
 
+      {filas.length > 0 && (
+        <div className="obj-toggle table-only-desktop" role="tablist" aria-label="Vista">
+          <button role="tab" aria-selected={modo !== 'objetivo'} className={modo !== 'objetivo' ? 'active' : ''} onClick={() => setModo('hoy')}>Tabla</button>
+          <button role="tab" aria-selected={modo === 'objetivo'} className={modo === 'objetivo' ? 'active' : ''} onClick={() => setModo('objetivo')}>Vs objetivo</button>
+        </div>
+      )}
+
+      {filas.length > 0 && modo === 'objetivo' && (
+        <div className="mobile-only">
+          <SelectorModo modo={modo} setModo={setModo} />
+        </div>
+      )}
+
       {filas.length === 0 ? (
         <div className="empty-state">Todavía no tienes ninguna compra registrada.</div>
+      ) : modo === 'objetivo' ? (
+        <ObjetivoVista
+          filas={filasAlfa}
+          irpf={irpfObjetivo}
+          comision={comisionVentaObjetivo}
+          onCambiarIrpf={onCambiarIrpfObjetivo}
+          onCambiarComision={onCambiarComisionObjetivo}
+          onAbrir={setDetalle}
+        />
       ) : (
         <>
           {/* --- Tabla (escritorio) --- */}
@@ -288,10 +317,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
           {/* --- Lista compacta (móvil) --- */}
           <div className="mobile-only">
-            <div className="segmented" role="tablist" aria-label="Qué mostrar a la derecha">
-              <button role="tab" aria-selected={modo === 'hoy'} className={modo === 'hoy' ? 'active' : ''} onClick={() => setModo('hoy')}>Hoy</button>
-              <button role="tab" aria-selected={modo === 'total'} className={modo === 'total' ? 'active' : ''} onClick={() => setModo('total')}>Total</button>
-            </div>
+            <SelectorModo modo={modo} setModo={setModo} />
             <div className="qlist">
               {filasAlfa.map((f) => (
                 <button key={f.symbol} className={`qrow ${f.conAlerta ? 'row-alert' : ''}`} onClick={() => setDetalle(f.symbol)}>
@@ -348,6 +374,16 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           onGuardarCosteEUR={onGuardarCosteEUR}
         />
       )}
+    </div>
+  );
+}
+
+function SelectorModo({ modo, setModo }) {
+  return (
+    <div className="segmented" role="tablist" aria-label="Qué mostrar">
+      <button role="tab" aria-selected={modo === 'hoy'} className={modo === 'hoy' ? 'active' : ''} onClick={() => setModo('hoy')}>Hoy</button>
+      <button role="tab" aria-selected={modo === 'total'} className={modo === 'total' ? 'active' : ''} onClick={() => setModo('total')}>Total</button>
+      <button role="tab" aria-selected={modo === 'objetivo'} className={modo === 'objetivo' ? 'active' : ''} onClick={() => setModo('objetivo')}>Objetivo</button>
     </div>
   );
 }
@@ -442,6 +478,14 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
             </>
           )}
         </div>
+        {f.obj?.brutoEUR != null && (
+          <div className="stat-grid" style={{ marginTop: 8 }}>
+            <Stat label="En objetivo" value={fmtMoneySigned(f.obj.brutoEUR)} clase={claseSigno(f.obj.brutoEUR)} sub={f.obj.impuesto > 0 ? `neto ${fmtMoneySigned(f.obj.netoEUR)}` : 'sin IRPF'} />
+            <Stat label={f.obj.faltaEUR < 0 ? 'Por encima del objetivo' : 'Falta para el objetivo'} value={`${fmtMoneySigned(Math.abs(f.obj.faltaEUR))} (${fmtPercent(Math.abs(f.obj.faltaPct))})`} />
+            {f.obj.stopEUR != null && <Stat label="Si salta el stop" value={fmtMoneySigned(f.obj.stopEUR)} clase={claseSigno(f.obj.stopEUR)} />}
+            {f.obj.ratioRB != null && <Stat label="Riesgo/beneficio" value={`1 : ${fmtNumber(f.obj.ratioRB, 1)}`} />}
+          </div>
+        )}
         {f.costeAproximado && (
           <div className="hint" style={{ marginTop: 6 }}>
             Algún lote no tiene el € pagado: su coste usa el tipo del BCE de la fecha de compra. Añádelo en la lista de lotes.

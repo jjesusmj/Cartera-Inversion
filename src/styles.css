@@ -1300,3 +1300,114 @@ td.cell-link:hover .symbol { text-decoration: underline; }
   .val-input.val-num { width: 80px; }
   .page-head .btn-row { flex-wrap: wrap; }
 }
+
+/* --- Vista "Vs objetivo" (Cartera) --- */
+@media (min-width: 721px) {
+  .obj-toggle {
+    display: inline-flex;
+    background: var(--bg-inset);
+    border-radius: 8px;
+    padding: 2px;
+    margin-bottom: 14px;
+  }
+  .obj-toggle button {
+    all: unset;
+    font-size: 13px;
+    padding: 7px 16px;
+    border-radius: 6px;
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+  .obj-toggle button.active {
+    background: var(--bg);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.obj-vista { display: flex; flex-direction: column; gap: 12px; }
+.obj-num, .obj-num-s, .obj-ends, .obj-sub, .obj-ajuste-valor { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.obj-resumen {
+  background: var(--ink);
+  color: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.obj-resumen .gain { color: #7fd6a3; }
+.obj-resumen .loss { color: #ff9b94; }
+.obj-resumen-label { font-size: 11px; color: #b9bbc2; text-transform: uppercase; letter-spacing: 0.04em; }
+.obj-resumen-main { display: flex; align-items: baseline; gap: 8px; }
+.obj-num { font-size: 28px; font-weight: 600; }
+.obj-resumen-sub { font-size: 13px; color: #b9bbc2; }
+.obj-resumen-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.obj-resumen-grid > div, .obj-cells > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.obj-resumen .obj-mini-label { color: #b9bbc2; }
+.obj-aviso { color: #f5b971; }
+.obj-ajustes { display: flex; gap: 16px; flex-wrap: wrap; }
+.obj-ajuste { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #b9bbc2; }
+.obj-ajuste-valor {
+  all: unset;
+  cursor: pointer;
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 10px;
+  min-height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  border: 1px dashed #5e6068;
+  border-radius: 8px;
+}
+.obj-ajuste .inline-input { width: 80px; }
+.obj-resumen .obj-nota { color: #9ea0a8; }
+
+.obj-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+
+.obj-card {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.obj-card:active { background: var(--bg-raised); }
+.obj-card-alerta { border-color: rgba(194, 43, 43, 0.45); }
+.obj-card-vacia { border-style: dashed; }
+.obj-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.obj-card-symbol { font-size: 15px; font-weight: 600; }
+.obj-card-name { font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
+.obj-poner { font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+
+.obj-chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.obj-chip-ok { background: var(--gain-bg); color: var(--gain); }
+.obj-chip-cerca { background: #fcebd6; color: #8a4208; }
+.obj-chip-alerta { background: var(--loss-bg); color: #9b1f1f; }
+.obj-chip-neutro { background: var(--bg-inset); color: var(--ink-dim); }
+
+.obj-track { position: relative; height: 8px; background: var(--bg-inset); border-radius: 4px; margin: 4px 0; }
+.obj-fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+.obj-fill.gain { background: var(--gain); }
+.obj-fill.loss { background: var(--loss); }
+.obj-mark { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; }
+.obj-mark-objetivo { background: var(--gain); box-shadow: 0 0 0 2px var(--bg); }
+.obj-mark-actual { background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
+.obj-ends { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--ink-dim); }
+.obj-ends-actual { color: var(--ink); font-weight: 600; }
+
+.obj-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.obj-mini-label { font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.obj-num-s { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obj-sub { font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
+.obj-stop { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--ink-dim); border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.obj-nota { font-size: 11px; color: var(--ink-dim); }
