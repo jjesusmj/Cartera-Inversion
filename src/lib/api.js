@@ -151,6 +151,41 @@ export async function obtenerCotizaciones(items) {
   return res.json(); // { SYMBOL: { price, previousClose, changePercent, spark, ... } }
 }
 
+// ---------- Precio objetivo de los analistas (Yahoo, 12 meses) ----------
+// Cacheado en el navegador 12 horas: cambia poco y así la pestaña abre al momento.
+
+const ANALISTAS_KEY = 'cartera_analistas_v1';
+const ANALISTAS_TTL = 12 * 3600 * 1000;
+
+function leerAnalistasGuardados() {
+  try {
+    return JSON.parse(localStorage.getItem(ANALISTAS_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+export async function obtenerAnalistas(items, forzar = false) {
+  // items: [{ symbol, currency }]
+  const guardados = leerAnalistasGuardados();
+  const ahora = Date.now();
+  const faltan = items.filter((i) => forzar || !guardados[i.symbol] || ahora - guardados[i.symbol].at > ANALISTAS_TTL);
+  if (faltan.length) {
+    const symbols = faltan.map((i) => i.symbol).join(',');
+    const currencies = faltan.map((i) => i.currency || '').join(',');
+    const res = await fetch(`/api/analysts?symbols=${encodeURIComponent(symbols)}&currencies=${encodeURIComponent(currencies)}`);
+    if (!res.ok) throw new Error('No se pudieron obtener los objetivos de los analistas.');
+    const datos = await res.json();
+    for (const [sym, d] of Object.entries(datos)) guardados[sym] = { ...d, at: ahora };
+    try {
+      localStorage.setItem(ANALISTAS_KEY, JSON.stringify(guardados));
+    } catch {
+      // sin almacenamiento: se pedirán otra vez la próxima vez
+    }
+  }
+  return Object.fromEntries(items.map((i) => [i.symbol, guardados[i.symbol] || null]));
+}
+
 // ---------- Sector (Yahoo, cacheado en el navegador 30 días) ----------
 
 const PERFIL_KEY = 'cartera_perfiles_v1';

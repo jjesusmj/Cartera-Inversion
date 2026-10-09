@@ -59,3 +59,27 @@ test('el total compensa pérdidas con ganancias', () => {
   cerca(t.impuesto, 600 * 0.19, 'impuesto');
   cerca(t.netoEUR, 600 * 0.81, 'neto');
 });
+
+test('stop superado tiene prioridad y cuenta como aviso', () => {
+  // ORCL: compra 149,69, cotiza 142,04, stop 145, objetivo 200
+  const r = calcularObjetivo({ cantidad: 25, precioMedio: 149.69, precioActual: 142.04, rate: 0.89, costeEUR: 3254, targetPrice: 200, stopPrice: 145 });
+  assert.equal(r.estado, 'stop');
+  assert.equal(resumirObjetivos([r]).avisos, 1);
+  assert.equal(r.barra.actual, 0);
+  assert.ok(r.barra.stop > 0 && r.barra.stop < r.barra.compra);
+});
+
+test('tu objetivo frente a los analistas', async () => {
+  const { compararAnalistas, recorrido } = await import('../src/lib/objetivo.js');
+  // FN: compra 446,58, cotiza 489,63, tu objetivo 500; analistas media 734,11 (598–850)
+  const c = compararAnalistas({ precioMedio: 446.58, precioActual: 489.63, objetivo: 500, analistas: { mean: 734.11, low: 598, high: 850 } });
+  cerca(c.tu.potencial, 2.117, 'potencial tuyo');
+  cerca(c.analistas.potencial, 49.93, 'potencial analistas');
+  cerca(c.tu.recorrido, 80.59, 'recorrido tuyo');
+  assert.equal(c.aviso, 'debajo');
+  assert.equal(recorrido(149.69, 142.04, 200), 'bajo');
+  assert.equal(recorrido(116, 71.8, 90), null);
+  const sin = compararAnalistas({ precioMedio: 45, precioActual: 53.86, objetivo: null, analistas: { mean: 60.39, low: 41.5, high: 67 } });
+  assert.equal(sin.tu, null);
+  assert.equal(sin.aviso, null);
+});

@@ -25,9 +25,11 @@ export function calcularObjetivo({ cantidad, precioMedio, precioActual, rate, co
   const recuperacion = targetPrice <= precioMedio;
   const progreso = !recuperacion ? ((precioActual - precioMedio) / (targetPrice - precioMedio)) * 100 : null;
   const alcanzado = precioActual >= targetPrice;
+  const stopSaltado = stopPrice != null && precioActual <= stopPrice;
 
   let estado = 'normal';
-  if (alcanzado) estado = 'alcanzado';
+  if (stopSaltado) estado = 'stop';
+  else if (alcanzado) estado = 'alcanzado';
   else if (recuperacion) estado = 'recuperacion';
   else if (progreso >= UMBRAL_CERCA) estado = 'cerca';
 
@@ -41,13 +43,14 @@ export function calcularObjetivo({ cantidad, precioMedio, precioActual, rate, co
     }
   }
 
-  // Barra: escala entre el menor y el mayor de compra, actual y objetivo
-  const lo = Math.min(precioMedio, precioActual, targetPrice);
-  const hi = Math.max(precioMedio, precioActual, targetPrice);
-  const pos = (v) => (hi > lo ? ((v - lo) / (hi - lo)) * 100 : 0);
-  const barra = { compra: pos(precioMedio), actual: pos(precioActual), objetivo: pos(targetPrice) };
+  // Barra: escala entre el menor y el mayor de compra, actual, objetivo y stop (0–100)
+  const niveles = [precioMedio, precioActual, targetPrice, stopPrice].filter((v) => v != null);
+  const lo = Math.min(...niveles);
+  const hi = Math.max(...niveles);
+  const pos = (v) => (v == null ? null : hi > lo ? ((v - lo) / (hi - lo)) * 100 : 0);
+  const barra = { compra: pos(precioMedio), actual: pos(precioActual), objetivo: pos(targetPrice), stop: pos(stopPrice) };
 
-  return { estado, brutoEUR, comision, impuesto, netoEUR, faltaEUR, faltaPct, progreso, stopEUR, ratioRB, barra };
+  return { estado, stopSaltado, brutoEUR, comision, impuesto, netoEUR, faltaEUR, faltaPct, progreso, stopEUR, ratioRB, barra };
 }
 
 // Total de las posiciones con objetivo. El IRPF se aplica sobre la suma,
@@ -64,6 +67,45 @@ export function resumirObjetivos(resultados, irpf = 0.19) {
     comisiones,
     impuesto,
     netoEUR: base - impuesto,
-    avisos: validos.filter((r) => r.estado === 'cerca' || r.estado === 'alcanzado').length,
+    avisos: validos.filter(esAviso).length,
+  };
+}
+
+export function esAviso(r) {
+  return r?.estado === 'cerca' || r?.estado === 'alcanzado' || r?.estado === 'stop';
+}
+
+// Recorrido desde la compra hasta un precio objetivo, en %.
+// null si el objetivo no está por encima de la compra; 'bajo' si el precio
+// actual está por debajo de la compra.
+export function recorrido(precioMedio, precioActual, objetivo) {
+  if (objetivo == null || precioActual == null || objetivo <= precioMedio) return null;
+  if (precioActual < precioMedio) return 'bajo';
+  return ((precioActual - precioMedio) / (objetivo - precioMedio)) * 100;
+}
+
+// Tu objetivo frente al de los analistas (Yahoo, 12 meses)
+export function compararAnalistas({ precioMedio, precioActual, objetivo, analistas }) {
+  const a = analistas && analistas.mean != null ? analistas : null;
+  const linea = (t) => (t == null || precioActual == null ? null : {
+    precio: t,
+    potencial: (t / precioActual - 1) * 100,
+    recorrido: recorrido(precioMedio, precioActual, t),
+  });
+
+  let aviso = null;
+  if (objetivo != null && a?.low != null && objetivo < a.low) aviso = 'debajo';
+  else if (objetivo != null && a?.high != null && objetivo > a.high) aviso = 'encima';
+
+  const niveles = [precioMedio, precioActual, objetivo, a?.mean, a?.low, a?.high].filter((v) => v != null);
+  const lo = Math.min(...niveles);
+  const hi = Math.max(...niveles);
+  const pos = (v) => (v == null ? null : hi > lo ? ((v - lo) / (hi - lo)) * 100 : 0);
+
+  return {
+    tu: linea(objetivo),
+    analistas: a ? linea(a.mean) : null,
+    aviso,
+    barra: { compra: pos(precioMedio), actual: pos(precioActual), objetivo: pos(objetivo), media: pos(a?.mean), min: pos(a?.low), max: pos(a?.high) },
   };
 }

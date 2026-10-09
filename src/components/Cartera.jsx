@@ -11,6 +11,7 @@ import { NotaBadge, NivelCercano, UltimaNota, SectorEditor } from './DetailParts
 import { Sparkline, RangeBar } from './Charts';
 import ExchangeFilter from './ExchangeFilter';
 import ObjetivoVista from './ObjetivoVista';
+import AnalistasVista from './AnalistasVista';
 import { calcularObjetivo } from '../lib/objetivo';
 
 function agruparPorSimbolo(openLots) {
@@ -34,6 +35,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
   const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
+  const vistaEspecial = modo === 'objetivo' || modo === 'analistas';
   function setModo(m) {
     localStorage.setItem('cartera_modo', m);
     setModoState(m);
@@ -179,12 +181,13 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
       {filas.length > 0 && (
         <div className="obj-toggle table-only-desktop" role="tablist" aria-label="Vista">
-          <button role="tab" aria-selected={modo !== 'objetivo'} className={modo !== 'objetivo' ? 'active' : ''} onClick={() => setModo('hoy')}>Tabla</button>
-          <button role="tab" aria-selected={modo === 'objetivo'} className={modo === 'objetivo' ? 'active' : ''} onClick={() => setModo('objetivo')}>Vs objetivo</button>
+          <button role="tab" aria-selected={!vistaEspecial} className={!vistaEspecial ? 'active' : ''} onClick={() => setModo('hoy')}>Tabla</button>
+          <button role="tab" aria-selected={modo === 'objetivo'} className={modo === 'objetivo' ? 'active' : ''} onClick={() => setModo('objetivo')}>Objetivo</button>
+          <button role="tab" aria-selected={modo === 'analistas'} className={modo === 'analistas' ? 'active' : ''} onClick={() => setModo('analistas')}>Analistas</button>
         </div>
       )}
 
-      {filas.length > 0 && modo === 'objetivo' && (
+      {filas.length > 0 && vistaEspecial && (
         <div className="mobile-only">
           <SelectorModo modo={modo} setModo={setModo} />
         </div>
@@ -192,6 +195,8 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
       {filas.length === 0 ? (
         <div className="empty-state">Todavía no tienes ninguna compra registrada.</div>
+      ) : modo === 'analistas' ? (
+        <AnalistasVista filas={filasAlfa} onActualizarPosSettings={onActualizarPosSettings} onAbrir={setDetalle} />
       ) : modo === 'objetivo' ? (
         <ObjetivoVista
           filas={filasAlfa}
@@ -384,6 +389,7 @@ function SelectorModo({ modo, setModo }) {
       <button role="tab" aria-selected={modo === 'hoy'} className={modo === 'hoy' ? 'active' : ''} onClick={() => setModo('hoy')}>Hoy</button>
       <button role="tab" aria-selected={modo === 'total'} className={modo === 'total' ? 'active' : ''} onClick={() => setModo('total')}>Total</button>
       <button role="tab" aria-selected={modo === 'objetivo'} className={modo === 'objetivo' ? 'active' : ''} onClick={() => setModo('objetivo')}>Objetivo</button>
+      <button role="tab" aria-selected={modo === 'analistas'} className={modo === 'analistas' ? 'active' : ''} onClick={() => setModo('analistas')}>Analistas</button>
     </div>
   );
 }
