@@ -12,6 +12,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { comprobarEscritura } from './modo';
 
 const lotsCol = collection(db, 'lots');
 const salesCol = collection(db, 'sales');
@@ -26,12 +27,14 @@ export async function listarPositionSettings() {
 }
 
 export async function actualizarPositionSettings(owner, symbol, datos) {
+  comprobarEscritura();
   return setDoc(doc(db, 'positionSettings', `${owner}_${symbol}`), { owner, symbol, ...datos }, { merge: true });
 }
 
 // ---------- Lotes de compra ----------
 
 export async function crearLote(lote) {
+  comprobarEscritura();
   return addDoc(lotsCol, {
     ...lote,
     remainingQuantity: lote.quantity,
@@ -46,14 +49,17 @@ export async function listarLotes() {
 }
 
 export async function actualizarComentarioLote(id, comment) {
+  comprobarEscritura();
   return updateDoc(doc(db, 'lots', id), { comment });
 }
 
 export async function anadirNotaLote(id, texto) {
+  comprobarEscritura();
   return updateDoc(doc(db, 'lots', id), { notes: arrayUnion({ date: new Date().toISOString(), text: texto }) });
 }
 
 export async function actualizarLote(id, datos) {
+  comprobarEscritura();
   // Solo se llama desde la UI para lotes intactos (remainingQuantity === quantity),
   // así que es seguro actualizar también remainingQuantity junto con quantity.
   return updateDoc(doc(db, 'lots', id), { ...datos, remainingQuantity: datos.quantity });
@@ -62,15 +68,18 @@ export async function actualizarLote(id, datos) {
 // Total pagado en € (justificante del bróker). Se puede poner en cualquier lote,
 // también en los parcialmente vendidos: no toca cantidades.
 export async function actualizarCosteEURLote(id, costEUR) {
+  comprobarEscritura();
   return updateDoc(doc(db, 'lots', id), { costEUR });
 }
 
 // Tipo BCE de la fecha de compra, guardado una vez en el lote.
 export async function guardarFxCompraLote(id, fxRateBuy) {
+  comprobarEscritura();
   return updateDoc(doc(db, 'lots', id), { fxRateBuy });
 }
 
 export async function borrarLote(id) {
+  comprobarEscritura();
   return deleteDoc(doc(db, 'lots', id));
 }
 
@@ -82,12 +91,14 @@ export async function leerAjustes() {
 }
 
 export async function guardarAjustes(datos) {
+  comprobarEscritura();
   return setDoc(doc(db, 'settings', 'general'), datos, { merge: true });
 }
 
 // ---------- Ventas (aplica el resultado ya calculado por fifo.js) ----------
 
 export async function registrarVentaEnFirestore({ ventaData, updatedLots }) {
+  comprobarEscritura();
   const batch = writeBatch(db);
 
   const saleRef = doc(salesCol);
@@ -113,10 +124,12 @@ export async function listarVentas() {
 // ---------- Watchlist ----------
 
 export async function crearWatch(item) {
+  comprobarEscritura();
   return addDoc(watchlistCol, { ...item, createdAt: serverTimestamp() });
 }
 
 export async function actualizarWatch(id, datos) {
+  comprobarEscritura();
   return updateDoc(doc(db, 'watchlist', id), datos);
 }
 
@@ -126,14 +139,17 @@ export async function listarWatch() {
 }
 
 export async function actualizarComentarioWatch(id, comment) {
+  comprobarEscritura();
   return updateDoc(doc(db, 'watchlist', id), { comment });
 }
 
 export async function anadirNotaWatch(id, texto) {
+  comprobarEscritura();
   return updateDoc(doc(db, 'watchlist', id), { notes: arrayUnion({ date: new Date().toISOString(), text: texto }) });
 }
 
 export async function borrarWatch(id) {
+  comprobarEscritura();
   return deleteDoc(doc(db, 'watchlist', id));
 }
 
@@ -309,6 +325,7 @@ export async function listarAjustesValoracion() {
 }
 
 export async function guardarAjusteValoracion(owner, symbol, datos) {
+  comprobarEscritura();
   return setDoc(doc(db, 'valuationAdjustments', `${owner}_${symbol}`), limpio({ owner, symbol, ...datos }), { merge: true });
 }
 
@@ -318,5 +335,15 @@ export async function leerParamsValoracion(owner) {
 }
 
 export async function guardarParamsValoracion(owner, params) {
+  comprobarEscritura();
   return setDoc(doc(db, 'settings', `valoracion_${owner}`), limpio(params));
+}
+
+// Último tipo de referencia del BCE publicado (dólares por euro) y su fecha,
+// para la cabecera. Frankfurter devuelve el último día hábil disponible.
+export async function obtenerUltimoBCE(divisa) {
+  const res = await fetch(`https://api.frankfurter.dev/v1/latest?from=EUR&to=${divisa}`);
+  if (!res.ok) throw new Error(`No se pudo obtener el último tipo BCE de ${divisa}.`);
+  const data = await res.json();
+  return { rate: data.rates[divisa], date: data.date };
 }

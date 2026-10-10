@@ -88,13 +88,38 @@ function filasCalculadas(watchlist, prices, perfiles, positionSettings, fx) {
       { value: w.entryHigh, label: 'Ruptura', tipo: 'accent', cruza: 'encima', textoCruzado: 'Ruptura superada' },
     ]);
     const cambio = q?.price != null && q.previousClose != null ? q.price - q.previousClose : null;
+    // Distancia a la entrada: cuánto está el precio por encima (+) o por debajo (−) de la entrada.
+    // Ordenada de menor a mayor salen primero las que ya están en precio y luego las más cercanas.
+    const distEntrada = w.entryLow != null && precio != null && w.entryLow ? (precio / w.entryLow - 1) * 100 : null;
     const hoyPct = q?.changePercent ?? null;
     return {
       ...w, q, precio, precioEUR, tipo, esManual, entradaSaltada, rupturaSaltada, conAlerta: entradaSaltada || rupturaSaltada,
-      notas, comentario, ultimaNota, nNotas: numNotas(notas, comentario), cambio, hoyPct,
+      notas, comentario, ultimaNota, nNotas: numNotas(notas, comentario), cambio, hoyPct, distEntrada,
       sector: sector.nombre, sectorInfo: sector, nivel,
     };
   });
+}
+
+// Etiquetas de estado: en precio (cotiza en la entrada o por debajo) y ruptura superada
+function EtiquetasEstado({ w }) {
+  return (
+    <>
+      {w.entradaSaltada && <span className="tag tag-precio tag-mini">en precio</span>}
+      {w.rupturaSaltada && <span className="tag tag-accent tag-mini">ruptura</span>}
+    </>
+  );
+}
+
+function Distancia({ w, compacto = false }) {
+  if (w.distEntrada == null) return <span className="ink-faint">{compacto ? '' : '—'}</span>;
+  if (w.distEntrada <= 0) {
+    return <span className="dist-en-precio" title="Cotiza en la entrada o por debajo">{fmtPercent(w.distEntrada)}</span>;
+  }
+  return (
+    <span title={`Le falta caer un ${fmtNumber((1 - 1 / (1 + w.distEntrada / 100)) * 100, 1)} % para llegar a la entrada`}>
+      {compacto ? 'a ' : ''}{fmtPercent(w.distEntrada)}{compacto ? ' de la entrada' : ''}
+    </span>
+  );
 }
 
 // Estrella de favorito. Es un span (no un botón) porque va dentro de filas que ya son botones.
@@ -146,9 +171,25 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
 
   // Escritorio: orden por columnas, por defecto alfabético. iPhone: siempre alfabético.
   // En los dos, los favoritos van primero.
-  const { toggleSort, sortedRows, arrow } = useSort(filasBase, 'symbol');
+  const { toggleSort, sortedRows, arrow } = useSort(filasBase, 'distEntrada');
   const filas = favoritosPrimero(sortedRows);
-  const filasAlfa = favoritosPrimero([...filasBase].sort((a, b) => a.symbol.localeCompare(b.symbol)));
+  const [ordenMovil, setOrdenMovilState] = useState(() => {
+    try { return localStorage.getItem('seguimiento_orden_movil') || 'distancia'; } catch { return 'distancia'; }
+  });
+  function setOrdenMovil(o) {
+    try { localStorage.setItem('seguimiento_orden_movil', o); } catch { /* solo en memoria */ }
+    setOrdenMovilState(o);
+  }
+  const porDistancia = (a, b) => {
+    if (a.distEntrada == null && b.distEntrada == null) return a.symbol.localeCompare(b.symbol);
+    if (a.distEntrada == null) return 1;
+    if (b.distEntrada == null) return -1;
+    return a.distEntrada - b.distEntrada;
+  };
+  const filasAlfa = favoritosPrimero(
+    [...filasBase].sort(ordenMovil === 'distancia' ? porDistancia : (a, b) => a.symbol.localeCompare(b.symbol))
+  );
+  const nEnPrecio = filasTodas.filter((w) => w.entradaSaltada).length;
   const filaDetalle = detalle ? filasBase.find((w) => w.id === detalle) : null;
 
   return (
@@ -174,6 +215,13 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
         </div>
       )}
 
+      {nEnPrecio > 0 && (
+        <div className="en-precio-resumen">
+          <span className="tag tag-precio tag-mini">en precio</span>{' '}
+          {nEnPrecio === 1 ? '1 valor cotiza' : `${nEnPrecio} valores cotizan`} en su precio de entrada o por debajo.
+        </div>
+      )}
+
       {filas.length === 0 ? (
         <div className="empty-state">
           {filasTodas.length > 0 && vista === 'favoritos'
@@ -192,6 +240,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                   <th>Día</th>
                   <th className="num sortable" onClick={() => toggleSort('hoyPct')}>Hoy{arrow('hoyPct')}</th>
                   <th className="num sortable" onClick={() => toggleSort('entryLow')}>Entrada{arrow('entryLow')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('distEntrada')} title="Precio actual frente a la entrada: + está por encima, − ya está por debajo">Distancia{arrow('distEntrada')}</th>
                   <th className="num sortable" onClick={() => toggleSort('entryHigh')}>Ruptura{arrow('entryHigh')}</th>
                   <th>Rango 52 semanas</th>
                   <th>Cuaderno</th>
@@ -206,7 +255,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                       <span className="symbol">{w.symbol}</span>
                       <NotaBadge n={w.nNotas} />
                       {w.sector && <span className="sector">{w.sector}</span>}
-                      {w.conAlerta && <span className="tag tag-accent" style={{ marginLeft: 8 }}>alerta</span>}
+                      <EtiquetasEstado w={w} />
                       <span className="symbol-name">{w.name}</span>
                     </td>
                     <td className="num">
@@ -222,6 +271,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                     <td className="num">
                       <EditableEntry valor={w.entryLow} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryLow', v)} />
                     </td>
+                    <td className="num"><Distancia w={w} /></td>
                     <td className="num">
                       <EditableEntry valor={w.entryHigh} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryHigh', v)} />
                     </td>
@@ -247,6 +297,13 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
           </div>
 
           {/* --- Lista compacta (móvil) --- */}
+          <div className="mobile-only">
+            <div className="orden-movil" role="group" aria-label="Orden de la lista">
+              <span>Ordenar:</span>
+              <button className={ordenMovil === 'distancia' ? 'active' : ''} aria-pressed={ordenMovil === 'distancia'} onClick={() => setOrdenMovil('distancia')}>Distancia a la entrada</button>
+              <button className={ordenMovil === 'alfa' ? 'active' : ''} aria-pressed={ordenMovil === 'alfa'} onClick={() => setOrdenMovil('alfa')}>A–Z</button>
+            </div>
+          </div>
           <div className="mobile-only qlist">
             {filasAlfa.map((w) => (
               <button key={w.id} className={`qrow ${w.conAlerta ? 'row-alert' : ''}`} onClick={() => setDetalle(w.id)}>
@@ -255,6 +312,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                     <Estrella activa={!!w.favorite} onToggle={(v) => onToggleFavorito(w.id, v)} />
                     <span className="symbol">{w.symbol}</span>
                     <NotaBadge n={w.nNotas} />
+                    <EtiquetasEstado w={w} />
                     {w.sector && <span className="sector">{w.sector}</span>}
                   </div>
                   <div className="qrow-name">{w.name}</div>

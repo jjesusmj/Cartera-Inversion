@@ -38,6 +38,8 @@ import {
 } from './lib/api';
 import { venderFIFO } from './lib/fifo';
 import { SIMBOLO_FX } from './lib/costes';
+import { SOLO_LECTURA, MENSAJE_SOLO_LECTURA } from './lib/modo';
+import CabeceraDatos from './components/CabeceraDatos';
 
 export default function App() {
   const [view, setView] = useState('cartera');
@@ -79,6 +81,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [pricesLoading, setPricesLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [aviso, setAviso] = useState(null);
+
+  // Copia de prueba: cualquier acción que guardaría algo muestra un aviso y no hace nada.
+  const avisarSoloLectura = useCallback(() => {
+    setAviso(MENSAJE_SOLO_LECTURA);
+    clearTimeout(avisarSoloLectura.t);
+    avisarSoloLectura.t = setTimeout(() => setAviso(null), 3500);
+  }, []);
+  const ro = (fn) => (SOLO_LECTURA ? () => avisarSoloLectura() : fn);
 
   const [showBuyForm, setShowBuyForm] = useState(false);
   const [editLote, setEditLote] = useState(null);
@@ -117,6 +128,7 @@ export default function App() {
   // compra lo reciben ahora (tipo BCE de su fecha). Solo se hace una vez por
   // lote, porque después ya lo tienen guardado.
   useEffect(() => {
+    if (SOLO_LECTURA) return; // la copia de prueba no escribe en Firestore
     const sinTipo = lotsAll.filter((l) => l.currency && l.currency !== 'EUR' && l.fxRateBuy == null);
     if (sinTipo.length === 0) return;
     let cancelado = false;
@@ -421,7 +433,14 @@ export default function App() {
       </div>
 
       <main className="main">
+        {SOLO_LECTURA && (
+          <div className="solo-lectura-banda" role="note">
+            Copia de prueba · solo lectura. Muestra tus datos reales, pero no guarda ningún cambio.
+          </div>
+        )}
+        <CabeceraDatos prices={prices} ultimaActualizacion={ultimaActualizacion} />
         {error && <div className="error-box">{error}</div>}
+        {aviso && <div className="aviso-toast" role="status">{aviso}</div>}
 
         {loading ? (
           <p className="page-sub">Cargando cartera…</p>
@@ -436,20 +455,22 @@ export default function App() {
                 prices={prices}
                 perfiles={perfiles}
                 positionSettings={positionSettings}
-                onActualizarPosSettings={handleActualizarPosSettings}
-                onSectorManual={handleSectorManual}
+                onActualizarPosSettings={ro(handleActualizarPosSettings)}
+                onSectorManual={ro(handleSectorManual)}
                 pricesLoading={pricesLoading}
                 onRefreshPrices={refreshPrices}
-                onNuevaCompra={() => setShowBuyForm(true)}
-                onVender={abrirVenta}
+                onNuevaCompra={ro(() => setShowBuyForm(true))}
+                onVender={ro(abrirVenta)}
                 onAbrirNotas={abrirNotasLote}
-                onBorrarLote={handleBorrarLote}
-                onEditarLote={setEditLote}
-                onGuardarCosteEUR={handleGuardarCosteEUR}
+                onBorrarLote={ro(handleBorrarLote)}
+                onEditarLote={ro(setEditLote)}
+                onGuardarCosteEUR={ro(handleGuardarCosteEUR)}
                 irpfObjetivo={(ajustes.irpfObjetivo ?? 19) / 100}
                 comisionVentaObjetivo={ajustes.comisionVentaObjetivo ?? 0}
-                onCambiarIrpfObjetivo={handleCambiarIrpfObjetivo}
-                onCambiarComisionObjetivo={handleCambiarComisionObjetivo}
+                onCambiarIrpfObjetivo={ro(handleCambiarIrpfObjetivo)}
+                onCambiarComisionObjetivo={ro(handleCambiarComisionObjetivo)}
+                soloLectura={SOLO_LECTURA}
+                onSoloLectura={avisarSoloLectura}
               />
             )}
             {view === 'watchlist' && (
@@ -461,15 +482,15 @@ export default function App() {
                 prices={prices}
                 perfiles={perfiles}
                 positionSettings={positionSettings}
-                onSectorManual={handleSectorManual}
-                onNuevo={() => setShowWatchForm(true)}
-                onEditar={setEditWatch}
-                onActualizarEntrada={handleActualizarEntrada}
+                onSectorManual={ro(handleSectorManual)}
+                onNuevo={ro(() => setShowWatchForm(true))}
+                onEditar={ro(setEditWatch)}
+                onActualizarEntrada={ro(handleActualizarEntrada)}
                 margenTR={ajustes.margenTR ?? 0}
-                onCambiarMargenTR={handleCambiarMargenTR}
-                onToggleFavorito={handleToggleFavorito}
+                onCambiarMargenTR={ro(handleCambiarMargenTR)}
+                onToggleFavorito={ro(handleToggleFavorito)}
                 onAbrirNotas={abrirNotasWatch}
-                onBorrar={handleBorrarWatch}
+                onBorrar={ro(handleBorrarWatch)}
               />
             )}
             {view === 'resumen' && (
@@ -496,7 +517,7 @@ export default function App() {
                 prices={prices}
                 perfiles={perfiles}
                 owner={owner}
-                onToggleFavorito={handleToggleFavorito}
+                onToggleFavorito={ro(handleToggleFavorito)}
               />
             )}
             {view === 'renta' && <Renta sales={sales} />}
@@ -526,7 +547,7 @@ export default function App() {
         <NotesModal
           titulo={notasTarget.titulo}
           notas={notasTarget.notas}
-          onAdd={handleAgregarNota}
+          onAdd={ro(handleAgregarNota)}
           onClose={() => setNotasTarget(null)}
         />
       )}

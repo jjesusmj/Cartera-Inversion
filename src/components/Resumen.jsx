@@ -9,6 +9,7 @@ import { calcularXIRR } from '../lib/xirr';
 import AllocationDonut from './AllocationDonut';
 import Reparto from './Reparto';
 import ExchangeFilter from './ExchangeFilter';
+import ZonaBar from './ZonaBar';
 import { sectorDe, SIN_SECTOR } from '../lib/sectors';
 import { exchangeById, exchangeIdOf } from '../lib/exchanges';
 
@@ -180,6 +181,8 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
           </div>
         </div>
       </div>
+
+      <ZonaBar lotes={todosLosLotes} prices={prices} fx={fx} exchangeFilter={exchangeFilter} onCambiarExchangeFilter={onCambiarExchangeFilter} />
 
       <p className="section-note">
         El P/L no realizado convierte a euros con el tipo de cambio de hoy. La rentabilidad anualizada (XIRR) tiene
