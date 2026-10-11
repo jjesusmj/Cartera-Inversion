@@ -469,8 +469,6 @@ export default function App() {
                 comisionVentaObjetivo={ajustes.comisionVentaObjetivo ?? 0}
                 onCambiarIrpfObjetivo={ro(handleCambiarIrpfObjetivo)}
                 onCambiarComisionObjetivo={ro(handleCambiarComisionObjetivo)}
-                soloLectura={SOLO_LECTURA}
-                onSoloLectura={avisarSoloLectura}
               />
             )}
             {view === 'watchlist' && (

@@ -1639,57 +1639,24 @@ tr.ficha-row > td { padding: 0 !important; }
   left: 0;
   box-sizing: border-box;
   max-width: min(1240px, calc(100vw - 300px));
-  padding: 6px 20px 14px 22px;
+  padding: 2px 20px 10px 22px;
 }
-.ficha-sec { padding: 14px 0; border-bottom: 1px solid var(--line); }
-.ficha-title { font-size: 12.5px; font-weight: 600; margin: 0 0 10px; color: var(--ink); }
-.ficha-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 20px; }
+.ficha-stats { display: flex; flex-wrap: wrap; gap: 12px 36px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.ficha-dato-rango .rbar { margin-top: 6px; }
+.ficha-lotes { padding-top: 10px; }
+.ficha-lotes-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--ink-faint); margin-bottom: 2px; }
+.ficha-lotes-head a { color: var(--ink-dim); text-decoration: none; font-size: 12px; }
+.ficha-lotes-head a:hover { text-decoration: underline; }
 .ficha-dato-label { font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
 .ficha-dato-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 15px; margin-top: 3px; }
 .ficha-dato-sub { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
 .ficha-dato-sub.gain { color: var(--gain); }
 .ficha-dato-sub.loss { color: var(--loss); }
-.ficha-sec .lot-line { font-size: 12.5px; color: var(--ink-dim); padding: 6px 0; border-bottom: 1px dashed var(--line-soft); }
-.ficha-sec .lot-line:last-child { border-bottom: none; }
-.ficha-pie { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 12px; }
-.ficha-pie a { text-decoration: none; }
-
-/* Formulario de operación dentro de la ficha */
-.registro-campos {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px 12px;
-}
-.registro-campos label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--ink-faint); }
-.registro-campos input {
-  width: 130px;
-  background: var(--bg-raised);
-  border: 1px solid var(--line);
-  color: var(--ink);
-  padding: 7px 9px;
-  border-radius: 3px;
-  font-size: 16px;
-  font-family: var(--font-mono);
-}
-.registro-campos input[type="date"] { width: 150px; }
-.registro-campos:disabled input { background: var(--bg-inset); color: var(--ink-faint); }
-.registro-tipo { display: inline-flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
-.registro-tipo button { all: unset; cursor: pointer; font-size: 12.5px; padding: 8px 14px; color: var(--ink-dim); background: var(--bg-raised); }
-.registro-tipo button.active { background: var(--zona-es); color: #fff; }
-.registro-campos:disabled .registro-tipo button { cursor: default; }
-.registro-btn { margin-top: 10px; }
-.registro-btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
-.sheet .registro { border-top: 1px solid var(--line-soft); border-bottom: none; margin-bottom: 8px; }
-.sheet .registro-campos input { width: 100%; }
-.sheet .registro-campos label { flex: 1 1 40%; }
+.ficha-lotes .lot-line { font-size: 12.5px; color: var(--ink-dim); padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.ficha-lotes .lot-line:last-child { border-bottom: none; }
 
 /* Seguimiento: en precio y distancia */
 .tag-precio { border-color: var(--gain); color: var(--gain); background: var(--gain-bg); }
-.dist-en-precio { color: var(--gain); font-weight: 600; }
 .en-precio-resumen { font-size: 12.5px; color: var(--ink-dim); margin: -4px 0 14px; }
 .orden-movil { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-faint); margin: 0 0 6px; flex-wrap: wrap; }
 .orden-movil button {

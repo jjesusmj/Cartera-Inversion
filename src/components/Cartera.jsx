@@ -32,7 +32,7 @@ function claseSigno(v) {
   return v >= 0 ? 'gain' : 'loss';
 }
 
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, irpfObjetivo = 0.19, comisionVentaObjetivo = 0, onCambiarIrpfObjetivo, onCambiarComisionObjetivo, soloLectura = false, onSoloLectura }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, irpfObjetivo = 0.19, comisionVentaObjetivo = 0, onCambiarIrpfObjetivo, onCambiarComisionObjetivo }) {
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
   const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
@@ -320,12 +320,9 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                         <td colSpan={nColumnas}>
                           <FichaPosicion
                             f={f}
-                            soloLectura={soloLectura}
-                            onSoloLectura={onSoloLectura}
                             onEditarLote={onEditarLote}
                             onBorrarLote={onBorrarLote}
                             onGuardarCosteEUR={onGuardarCosteEUR}
-                            onVer={() => setDetalle(f.symbol)}
                           />
                         </td>
                       </tr>
@@ -396,8 +393,6 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           onEditarLote={(l) => { setDetalle(null); onEditarLote(l); }}
           onBorrarLote={onBorrarLote}
           onGuardarCosteEUR={onGuardarCosteEUR}
-          soloLectura={soloLectura}
-          onSoloLectura={onSoloLectura}
         />
       )}
     </div>
@@ -449,7 +444,7 @@ function FilaLote({ lote, symbol, onEditarLote, onBorrarLote, onGuardarCosteEUR 
 }
 
 // Hoja de detalle de una posición (se abre al tocar una fila en el iPhone)
-function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote, onGuardarCosteEUR, soloLectura, onSoloLectura }) {
+function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
   return (
     <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
       <div className="modal sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Detalle de ${f.symbol}`}>
@@ -504,7 +499,7 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
               <Stat label="Efecto divisa y comisiones" value={fmtMoneySigned(f.efectoDivisa)} clase={claseSigno(f.efectoDivisa)} />
             </>
           )}
-          <Stat label="Peso en la cartera" value={f.peso != null ? `${fmtNumber(f.peso, 1)} %` : '—'} />
+
         </div>
         {f.obj?.brutoEUR != null && (
           <div className="stat-grid" style={{ marginTop: 8 }}>
@@ -545,8 +540,6 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
               <FilaLote key={lote.id} lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} onGuardarCosteEUR={onGuardarCosteEUR} />
             ))}
         </div>
-
-        <RegistroOperacion f={f} soloLectura={soloLectura} onSoloLectura={onSoloLectura} />
 
         <div className="card-actions">
           <button className="btn" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
@@ -675,62 +668,35 @@ function PesoBarra({ peso, max }) {
   );
 }
 
-// Ficha que se despliega al pulsar una fila en escritorio: posición, lotes,
-// formulario de operación y enlaces, todo junto bajo la fila.
-function FichaPosicion({ f, soloLectura, onSoloLectura, onEditarLote, onBorrarLote, onGuardarCosteEUR, onVer }) {
+// Ficha que se despliega al pulsar una fila en escritorio. Solo lleva lo que
+// no está ya en la fila: coste, valor, efecto precio (acciones en divisa; el
+// efecto divisa ya va bajo el P/L), lotes FIFO y rango del día. El gráfico se abre pulsando el ticker.
+function FichaPosicion({ f, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
   const enDivisa = f.currency !== 'EUR';
   return (
     <div className="ficha">
-      <section className="ficha-sec">
-        <h4 className="ficha-title">Tu posición</h4>
-        <div className="ficha-stats">
-          <FichaDato label="Acciones" value={fmtNumber(f.cantidad, f.cantidad % 1 ? 2 : 0)} />
-          <FichaDato
-            label="Precio medio"
-            value={fmtCotizacion(f.precioMedio, f.currency)}
-            sub={enDivisa && f.precioMedioEUR != null ? `${f.costeAproximado ? '≈ ' : ''}${fmtCotizacion(f.precioMedioEUR)} pagado` : null}
-          />
-          <FichaDato label="Coste" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} sub="comisiones incluidas" />
-          <FichaDato label="Valor" value={fmtMoney(f.valorEUR)} sub={f.peso != null ? `${fmtNumber(f.peso, 1)} % del total` : null} />
-          <FichaDato
-            label="Plusvalía latente"
-            value={f.plEUR != null ? fmtMoneySigned(f.plEUR) : '—'}
-            sub={f.plPct != null ? fmtPercent(f.plPct) : null}
-            clase={claseSigno(f.plEUR)}
-          />
-          {enDivisa ? (
-            <>
-              <FichaDato label="Efecto precio" value={fmtMoneySigned(f.efectoAccion)} sub="lo que ha hecho la acción, al cambio de hoy" clase={claseSigno(f.efectoAccion)} />
-              <FichaDato label="Efecto divisa" value={fmtMoneySigned(f.efectoDivisa)} sub="tipo de cambio y comisiones" clase={claseSigno(f.efectoDivisa)} />
-            </>
-          ) : (
-            <FichaDato label="Efecto precio" value={f.plEUR != null ? fmtMoneySigned(f.plEUR) : '—'} sub="cotiza en euros: sin efecto divisa" clase={claseSigno(f.plEUR)} />
-          )}
+      <div className="ficha-stats">
+        <FichaDato label="Coste" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} sub="comisiones incluidas" />
+        <FichaDato label="Valor" value={fmtMoney(f.valorEUR)} />
+        {enDivisa && f.efectoAccion != null && (
+          <FichaDato label="Efecto precio" value={fmtMoneySigned(f.efectoAccion)} sub="P/L sin el efecto divisa" clase={claseSigno(f.efectoAccion)} />
+        )}
+        <div className="ficha-dato ficha-dato-rango">
+          <div className="ficha-dato-label">Rango del día</div>
+          <RangeBar low={f.q?.dayLow} high={f.q?.dayHigh} price={f.precioActual} />
         </div>
-      </section>
+      </div>
 
-      <section className="ficha-sec">
-        <h4 className="ficha-title">Lotes abiertos ({f.lotes.length}) · FIFO</h4>
+      <div className="ficha-lotes">
+        <div className="ficha-lotes-head">
+          <span>Lotes abiertos · FIFO</span>
+          <a href={yahooUrl(f.symbol)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>Ver en Yahoo Finance</a>
+        </div>
         {[...f.lotes]
           .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
           .map((lote) => (
             <FilaLote key={lote.id} lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} onGuardarCosteEUR={onGuardarCosteEUR} />
           ))}
-      </section>
-
-      <RegistroOperacion f={f} soloLectura={soloLectura} onSoloLectura={onSoloLectura} />
-
-      <div className="ficha-pie">
-        <div className="detail-strip-range">
-          <span className="detail-strip-label">Rango del día</span>
-          <RangeBar low={f.q?.dayLow} high={f.q?.dayHigh} price={f.precioActual} />
-        </div>
-        <div className="btn-row">
-          <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); onVer(); }}>Gráfico y objetivo</button>
-          <a className="btn btn-ghost" href={yahooUrl(f.symbol)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-            Ver en Yahoo Finance
-          </a>
-        </div>
       </div>
     </div>
   );
@@ -743,40 +709,5 @@ function FichaDato({ label, value, sub = null, clase = '' }) {
       <div className={`ficha-dato-value ${clase}`}>{value}</div>
       {sub && <div className={`ficha-dato-sub ${clase}`}>{sub}</div>}
     </div>
-  );
-}
-
-// Registrar compra o venta dentro de la ficha. En la copia de prueba se ve
-// pero está desactivado: es solo para valorar cómo quedaría.
-function RegistroOperacion({ f, soloLectura, onSoloLectura }) {
-  const [tipo, setTipo] = useState('compra');
-  const d = new Date();
-  const hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const precio = f.precioActual != null ? f.precioActual.toFixed(f.precioActual < 10 ? 3 : 2) : '';
-  return (
-    <section className="ficha-sec registro" onClick={(e) => e.stopPropagation()}>
-      <h4 className="ficha-title">Registrar compra o venta</h4>
-      <fieldset className="registro-campos" disabled={soloLectura}>
-        <div className="registro-tipo" role="group" aria-label="Tipo de operación">
-          <button type="button" className={tipo === 'compra' ? 'active' : ''} onClick={() => setTipo('compra')}>Compra</button>
-          <button type="button" className={tipo === 'venta' ? 'active' : ''} onClick={() => setTipo('venta')}>Venta</button>
-        </div>
-        <label>Fecha<input type="date" defaultValue={hoy} /></label>
-        <label>Acciones<input type="number" inputMode="decimal" placeholder="0" /></label>
-        <label>Precio ({f.currency})<input type="number" inputMode="decimal" defaultValue={precio} /></label>
-        <label>Comisión (€)<input type="number" inputMode="decimal" placeholder="0,00" /></label>
-      </fieldset>
-      <button
-        type="button"
-        className="btn btn-primary registro-btn"
-        aria-disabled={soloLectura}
-        onClick={() => soloLectura && onSoloLectura?.()}
-      >
-        Registrar {tipo}
-      </button>
-      {soloLectura && (
-        <div className="hint">Desactivado en la copia de prueba. Una venta usaría los lotes más antiguos primero (FIFO).</div>
-      )}
-    </section>
   );
 }

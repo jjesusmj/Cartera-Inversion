@@ -110,18 +110,6 @@ function EtiquetasEstado({ w }) {
   );
 }
 
-function Distancia({ w, compacto = false }) {
-  if (w.distEntrada == null) return <span className="ink-faint">{compacto ? '' : '—'}</span>;
-  if (w.distEntrada <= 0) {
-    return <span className="dist-en-precio" title="Cotiza en la entrada o por debajo">{fmtPercent(w.distEntrada)}</span>;
-  }
-  return (
-    <span title={`Le falta caer un ${fmtNumber((1 - 1 / (1 + w.distEntrada / 100)) * 100, 1)} % para llegar a la entrada`}>
-      {compacto ? 'a ' : ''}{fmtPercent(w.distEntrada)}{compacto ? ' de la entrada' : ''}
-    </span>
-  );
-}
-
 // Estrella de favorito. Es un span (no un botón) porque va dentro de filas que ya son botones.
 function Estrella({ activa, onToggle }) {
   return (
@@ -239,8 +227,7 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                   <th className="num sortable" onClick={() => toggleSort('precio')}>Precio actual{arrow('precio')}</th>
                   <th>Día</th>
                   <th className="num sortable" onClick={() => toggleSort('hoyPct')}>Hoy{arrow('hoyPct')}</th>
-                  <th className="num sortable" onClick={() => toggleSort('entryLow')}>Entrada{arrow('entryLow')}</th>
-                  <th className="num sortable" onClick={() => toggleSort('distEntrada')} title="Precio actual frente a la entrada: + está por encima, − ya está por debajo">Distancia{arrow('distEntrada')}</th>
+                  <th className="num sortable" onClick={() => toggleSort('distEntrada')} title="Ordena por cercanía: primero las que están en precio, luego las más cerca de la entrada">Entrada{arrow('distEntrada')}</th>
                   <th className="num sortable" onClick={() => toggleSort('entryHigh')}>Ruptura{arrow('entryHigh')}</th>
                   <th>Rango 52 semanas</th>
                   <th>Cuaderno</th>
@@ -271,7 +258,6 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                     <td className="num">
                       <EditableEntry valor={w.entryLow} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryLow', v)} />
                     </td>
-                    <td className="num"><Distancia w={w} /></td>
                     <td className="num">
                       <EditableEntry valor={w.entryHigh} precio={w.precio} currency={w.currency} onGuardar={(v) => onActualizarEntrada(w.id, 'entryHigh', v)} />
                     </td>
