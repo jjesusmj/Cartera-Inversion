@@ -146,6 +146,20 @@ export function detalleDesdeCompra(serie, s, maxDias) {
   return pts;
 }
 
+// Ganancia acumulada de cada acción desde su compra, en fechas reales, solo
+// los días del periodo (desde el índice `desde`). El periodo recorta la
+// ventana pero no mueve el cero: el último punto es la ganancia de hoy.
+export function detalleAcumulado(serie, s, desde = 0) {
+  const x = serie.simbolos[s];
+  if (!x) return [];
+  const pts = [];
+  for (let i = desde; i < serie.fechas.length; i++) {
+    if (x.inv[i] == null) continue;
+    pts.push({ i, fecha: serie.fechas[i], eur: x.gan[i], pct: x.inv[i] ? (x.gan[i] / x.inv[i]) * 100 : 0 });
+  }
+  return pts;
+}
+
 // Para periodos largos: un punto por semana (el último día de cada una)
 export function reducirSemanal(indices, fechas) {
   return indices.filter((k, j) => j === indices.length - 1 || semana(fechas[indices[j + 1]]) !== semana(fechas[k]));

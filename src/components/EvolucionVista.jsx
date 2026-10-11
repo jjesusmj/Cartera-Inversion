@@ -2,14 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { costeLoteEUR } from '../lib/costes';
 import { obtenerHistorico } from '../lib/api';
 import {
-  construirSerie, inicioPeriodo, agregado, cambios, detallePeriodo, detalleDesdeCompra, reducirSemanal, diasPeriodo,
+  construirSerie, inicioPeriodo, agregado, cambios, detalleAcumulado, reducirSemanal,
 } from '../lib/evolucion';
 
 // Resumen › Evolución
 //  - Parte 1 (agrupado): invertido y ganancia apilados en €, o rentabilidad en %,
 //    con las cifras del día arriba y las barras de lo que sube o baja cada día.
-//  - Parte 2 (detalle): una línea por acción, desde el inicio del periodo o desde la compra.
-// El filtro de bolsa de Resumen decide qué acciones entran (openLots ya viene filtrado).
+//  - Parte 2 (detalle): una línea por acción con su ganancia acumulada desde la compra.
+// Qué entra: el filtro de bolsa de Resumen (openLots ya viene filtrado) y el
+// selector de acción de aquí (Todas o una). Con una acción solo se ve la parte 1.
 
 const COLORES = ['#2457C5', '#C2410C', '#0F766E', '#7C3AED', '#A16207', '#DB2777', '#334155', '#65A30D', '#E11D48', '#0891B2', '#9333EA', '#B91C1C'];
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -61,8 +62,7 @@ function fraccion(e) {
 export default function EvolucionVista({ openLots }) {
   const [unidad, setUnidadState] = useState(() => leer('evo_unidad', 'eur'));
   const [periodo, setPeriodoState] = useState(() => leer('evo_periodo', '3m'));
-  const [desdeCompra, setDesdeCompra] = useState(false);
-  const [ocultas, setOcultas] = useState({});
+  const [accionSel, setAccionSel] = useState(null); // null = todas
   const [foco, setFoco] = useState(null);
   const [cur1, setCur1] = useState(null);
   const [cur2, setCur2] = useState(null);
@@ -108,8 +108,13 @@ export default function EvolucionVista({ openLots }) {
 
   const sinDatos = items.filter((it) => !Array.isArray(hist[it.symbol])).map((it) => it.symbol);
   const simbolos = items.map((i) => i.symbol);
+  // Si el filtro de bolsa deja fuera la acción elegida, se vuelve a Todas
+  const accion = accionSel && simbolos.includes(accionSel) ? accionSel : null;
+  const elegidos = accion ? [accion] : simbolos;
   const ini = inicioPeriodo(serie.fechas, periodo);
-  const ag = agregado(serie, simbolos, ini);
+  const ag = agregado(serie, elegidos, ini);
+  const lotesElegidos = accion ? lotes.filter((l) => l.symbol === accion) : lotes;
+  const elegir = (sym) => { setAccionSel(sym); setCur1(null); setCur2(null); setFoco(null); };
   const largo = periodo === '1a' || periodo === 'todo';
 
   return (
@@ -126,13 +131,27 @@ export default function EvolucionVista({ openLots }) {
         </div>
       </div>
 
-      <Agrupado ag={ag} unidad={unidad} largo={largo} lotes={lotes} cur={cur1} setCur={setCur1} />
+      {simbolos.length > 1 && (
+        <div className="evo-acciones" role="group" aria-label="Qué acciones sumar">
+          <button type="button" className={!accion ? 'active' : ''} aria-pressed={!accion} onClick={() => elegir(null)}>Todas</button>
+          {simbolos.map((sym) => (
+            <button key={sym} type="button" className={accion === sym ? 'active' : ''} aria-pressed={accion === sym} onClick={() => elegir(accion === sym ? null : sym)} title={nombre[sym]}>
+              {sym}
+            </button>
+          ))}
+        </div>
+      )}
+      {accion && <div className="evo-accion-nombre">{nombre[accion]} · ganancia desde la compra</div>}
 
-      <Detalle
-        serie={serie} simbolos={simbolos} ini={ini} periodo={periodo} unidad={unidad} desdeCompra={desdeCompra}
-        setDesdeCompra={(v) => { setDesdeCompra(v); setCur2(null); }} ocultas={ocultas} setOcultas={setOcultas}
-        foco={foco} setFoco={setFoco} cur={cur2} setCur={setCur2} color={color} nombre={nombre} lotes={lotes} largo={largo}
-      />
+      <Agrupado ag={ag} unidad={unidad} largo={largo} lotes={lotesElegidos} cur={cur1} setCur={setCur1} />
+
+      {!accion && simbolos.length > 1 && (
+        <Detalle
+          serie={serie} simbolos={simbolos} ini={ini} unidad={unidad}
+          foco={foco} setFoco={setFoco} cur={cur2} setCur={setCur2} color={color} nombre={nombre} lotes={lotes} largo={largo}
+          onElegir={elegir}
+        />
+      )}
 
       <div className="obj-nota">
         Cierres diarios de Yahoo Finance; lo que cotiza en dólares, al EUR/USD de cada día. Solo cuentan los lotes que siguen abiertos,
@@ -201,7 +220,12 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
   const verdes = valoresBarra.filter((v) => v > 0).length;
 
   const ganJ = ag.gan[j], invJ = ag.inv[j], valJ = ag.val[j];
-  const cambioPeriodo = ag.gan[ultimo] - ag.gan[0];
+  // Cambio de la ganancia en el periodo. Si la ventana empieza el día de la
+  // primera compra (o antes), se cuenta desde 0 y coincide con la ganancia total.
+  const primeraCompra = lotes.reduce((m, l) => (l.buyDate && (!m || l.buyDate < m) ? l.buyDate : m), null);
+  const desdeCero = primeraCompra != null && ag.fechas[0] <= primeraCompra;
+  const cambioPeriodo = ag.gan[ultimo] - (desdeCero ? 0 : ag.gan[0]);
+  const pctPeriodo = desdeCero ? (ag.inv[ultimo] ? (ag.gan[ultimo] / ag.inv[ultimo]) * 100 : 0) : (ag.val[0] ? (cambioPeriodo / ag.val[0]) * 100 : 0);
 
   return (
     <div className="obj-card evo-card">
@@ -216,7 +240,7 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
       </div>
       <div className="evo-fecha">
         {cur == null
-          ? <>Hoy · en el periodo <b className={cambioPeriodo >= 0 ? 'gain' : 'loss'}>{unidad === 'eur' ? eur(cambioPeriodo) : pct(ag.val[0] ? (cambioPeriodo / ag.val[0]) * 100 : 0)}</b></>
+          ? <>Hoy · en el periodo <b className={cambioPeriodo >= 0 ? 'gain' : 'loss'}>{unidad === 'eur' ? eur(cambioPeriodo) : pct(pctPeriodo)}</b></>
           : <>{fechaLarga(ag.fechas[j])} · suelta para volver a hoy</>}
       </div>
 
@@ -286,13 +310,10 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
   );
 }
 
-function EjeX({ fechas, periodo, desdeCompra, maxDias }) {
+function EjeX({ fechas, periodo }) {
   const ultimo = fechas.length - 1;
   let marcas = [];
-  if (desdeCompra) {
-    const pasos = maxDias <= 31 ? [0, 7, 14, 21, 28] : maxDias <= 92 ? [0, 30, 60, 90] : maxDias <= 366 ? [0, 91, 182, 274, 365] : [0, 365, 730, 1095, 1460, 1825, 2190, 2555, 2920, 3285, 3650].filter((d) => d <= maxDias);
-    marcas = pasos.map((d) => ({ left: `${(d / maxDias) * 100}%`, txt: d === 0 ? 'compra' : d % 365 === 0 ? `${d / 365} a` : d >= 90 ? `${Math.round(d / 30.4)} m` : `${d} d` }));
-  } else if (ultimo > 0) {
+  if (ultimo > 0) {
     let previo = null;
     fechas.forEach((f, k) => {
       const [y, m] = f.split('-').map(Number);
@@ -316,18 +337,16 @@ function EjeX({ fechas, periodo, desdeCompra, maxDias }) {
 }
 
 // ---------- Parte 2: detalle por acción ----------
-function Detalle({ serie, simbolos, ini, periodo, unidad, desdeCompra, setDesdeCompra, ocultas, setOcultas, foco, setFoco, cur, setCur, color, nombre, lotes, largo }) {
+// Ganancia acumulada desde la compra, en fechas reales. El periodo solo recorta
+// la ventana: el último punto de cada línea es su P/L de hoy, como en Cartera.
+function Detalle({ serie, simbolos, ini, unidad, foco, setFoco, cur, setCur, color, nombre, lotes, largo, onElegir }) {
   const n = serie.fechas.length;
-  const maxDiasPer = diasPeriodo(periodo);
   const series = {};
-  for (const s of simbolos) {
-    series[s] = desdeCompra ? detalleDesdeCompra(serie, s, maxDiasPer) : detallePeriodo(serie, s, ini);
-  }
+  for (const s of simbolos) series[s] = detalleAcumulado(serie, s, ini);
   const valor = (p) => (unidad === 'eur' ? p.eur : p.pct);
   const ult = (s) => (series[s].length ? valor(series[s][series[s].length - 1]) : null);
-  const visibles = simbolos.filter((s) => !ocultas[s] && series[s].length);
-  const maxDias = desdeCompra ? (maxDiasPer || Math.max(1, ...visibles.map((s) => series[s][series[s].length - 1]?.dias || 0))) : null;
-  const pos = desdeCompra ? (p) => p.dias / maxDias : (p) => (p.i - ini) / Math.max(1, n - 1 - ini);
+  const visibles = simbolos.filter((s) => series[s].length);
+  const pos = (p) => (p.i - ini) / Math.max(1, n - 1 - ini);
 
   const todos = visibles.flatMap((s) => series[s].map(valor));
   const e = escala(Math.min(0, ...(todos.length ? todos : [0])), Math.max(0, ...(todos.length ? todos : [1])), H2);
@@ -341,60 +360,34 @@ function Detalle({ serie, simbolos, ini, periodo, unidad, desdeCompra, setDesdeC
 
   const finales = separar(visibles.map((s) => ({ s, y: e.y(ult(s)) - 7 })), 13, H2 - 6);
 
-  // Compras dentro del periodo (solo de las acciones visibles)
+  // Compras dentro del periodo
   const marcas = new Map();
-  if (!desdeCompra) {
-    for (const l of lotes) {
-      if (ocultas[l.symbol] || !visibles.includes(l.symbol)) continue;
-      if (!l.buyDate || l.buyDate <= serie.fechas[ini] || l.buyDate > serie.fechas[n - 1]) continue;
-      const i = serie.fechas.findIndex((f) => f >= l.buyDate);
-      if (!marcas.has(i)) marcas.set(i, new Set());
-      marcas.get(i).add(l.symbol);
-    }
+  for (const l of lotes) {
+    if (!l.buyDate || l.buyDate <= serie.fechas[ini] || l.buyDate > serie.fechas[n - 1]) continue;
+    const i = serie.fechas.findIndex((f) => f >= l.buyDate);
+    if (!marcas.has(i)) marcas.set(i, new Set());
+    marcas.get(i).add(l.symbol);
   }
   const listaMarcas = [...marcas.entries()].sort((a, b) => a[0] - b[0]);
 
   let tip = null, curPos = null;
   if (cur != null && visibles.length) {
-    let cab, filas;
-    if (desdeCompra) {
-      const dia = Math.round(cur * maxDias);
-      curPos = dia / maxDias;
-      cab = `Día ${dia} desde la compra`;
-      filas = visibles.map((s) => {
-        const p = series[s].reduce((m, q) => (Math.abs(q.dias - dia) < Math.abs(m.dias - dia) ? q : m), series[s][0]);
-        return Math.abs(p.dias - dia) <= 5 ? { s, v: valor(p) } : null;
-      });
-    } else {
-      const i = Math.round(ini + cur * (n - 1 - ini));
-      curPos = (i - ini) / Math.max(1, n - 1 - ini);
-      cab = fechaLarga(serie.fechas[i]);
-      filas = visibles.map((s) => {
-        const p = series[s].find((q) => q.i === i);
-        return p ? { s, v: valor(p) } : null;
-      });
-    }
-    tip = { cab, filas: filas.filter(Boolean).sort((a, b) => b.v - a.v) };
+    const i = Math.round(ini + cur * (n - 1 - ini));
+    curPos = (i - ini) / Math.max(1, n - 1 - ini);
+    const filas = visibles.map((s) => {
+      const p = series[s].find((q) => q.i === i);
+      return p ? { s, v: valor(p) } : null;
+    });
+    tip = { cab: fechaLarga(serie.fechas[i]), filas: filas.filter(Boolean).sort((a, b) => b.v - a.v) };
   }
 
-  const orden = [...simbolos].sort((a, b) => (ult(b) ?? -Infinity) - (ult(a) ?? -Infinity));
-  const todasVisibles = simbolos.every((s) => !ocultas[s]);
+  const orden = [...visibles].sort((a, b) => (ult(b) ?? -Infinity) - (ult(a) ?? -Infinity));
   const fmt = unidad === 'eur' ? eur : pct;
-  const fechasEje = desdeCompra ? [] : serie.fechas.slice(ini);
 
   return (
     <div className="obj-card evo-card">
-      <div className="evo-det-cab">
-        <div className="evo-tit">Cada acción</div>
-        <button type="button" className={`evo-switch ${desdeCompra ? 'on' : ''}`} role="switch" aria-checked={desdeCompra} onClick={() => setDesdeCompra(!desdeCompra)}>
-          <i><b /></i>Desde la compra
-        </button>
-      </div>
-      <div className="obj-nota">
-        {desdeCompra
-          ? `Cada línea empieza en 0 el día que la compraste${maxDiasPer ? ` (primeros ${periodo === '1a' ? '12 meses' : periodo === '3m' ? '3 meses' : 'días del mes'})` : ''}.`
-          : 'Cada línea empieza en 0 al inicio del periodo, o el día que la compraste si fue después.'}
-      </div>
+      <div className="evo-tit">Cada acción</div>
+      <div className="obj-nota">Ganancia de cada acción desde que la compraste. El periodo solo recorta la ventana: el final de cada línea es lo que ganas hoy.</div>
 
       <div className="evo-graf" style={{ height: H2 }}>
         <div className="evo-ticks">
@@ -453,23 +446,19 @@ function Detalle({ serie, simbolos, ini, periodo, unidad, desdeCompra, setDesdeC
           ))}
         </div>
       </div>
-      <EjeX fechas={fechasEje} periodo={largo ? 'largo' : 'corto'} desdeCompra={desdeCompra} maxDias={maxDias} />
+      <EjeX fechas={serie.fechas.slice(ini)} periodo={largo ? 'largo' : 'corto'} />
 
       <div className="evo-lista-cab">
-        <span className="obj-nota">De mejor a peor · toca para mostrar u ocultar · toca el nombre de la línea para resaltarla</span>
-        <button type="button" className="ana-usar" onClick={() => { const o = {}; for (const s of simbolos) o[s] = todasVisibles; setOcultas(o); setFoco(null); }}>
-          {todasVisibles ? 'Ocultar todas' : 'Mostrar todas'}
-        </button>
+        <span className="obj-nota">De mejor a peor · toca una para ver solo esa arriba</span>
       </div>
       <div className="evo-lista">
         {orden.map((s) => {
           const v = ult(s);
-          const off = !!ocultas[s];
           return (
-            <button key={s} type="button" className={`evo-fila ${off ? 'off' : ''}`} aria-pressed={!off} onClick={() => { setOcultas({ ...ocultas, [s]: !off }); setFoco(null); }}>
-              <span className="evo-caja" style={{ borderColor: off ? 'var(--line)' : color[s], background: off ? 'transparent' : color[s] }} />
+            <button key={s} type="button" className="evo-fila" onClick={() => onElegir(s)} onMouseEnter={() => setFoco(s)} onMouseLeave={() => setFoco(null)}>
+              <span className="evo-caja" style={{ borderColor: color[s], background: color[s] }} />
               <span className="evo-fila-nom"><b>{s}</b> <span>{nombre[s]}</span></span>
-              <span className={`evo-fila-v ${v == null || off ? '' : v >= 0 ? 'gain' : 'loss'}`}>{v == null ? '—' : fmt(v)}</span>
+              <span className={`evo-fila-v ${v == null ? '' : v >= 0 ? 'gain' : 'loss'}`}>{v == null ? '—' : fmt(v)}</span>
             </button>
           );
         })}

@@ -1,7 +1,7 @@
 // Evolución diaria de la cartera. Ejecutar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { construirSerie, agregado, cambios, inicioPeriodo, detallePeriodo, detalleDesdeCompra } from '../src/lib/evolucion.js';
+import { construirSerie, agregado, cambios, inicioPeriodo, detallePeriodo, detalleDesdeCompra, detalleAcumulado } from '../src/lib/evolucion.js';
 
 const cerca = (real, esperado, msg) => assert.ok(Math.abs(real - esperado) < 0.01, `${msg}: ${real} frente a ${esperado}`);
 
@@ -54,4 +54,17 @@ test('inicio del periodo', () => {
   const f = ['2025-01-02', '2025-06-02', '2025-09-15', '2025-10-01', '2025-10-09'];
   assert.equal(inicioPeriodo(f, '1m'), 2);
   assert.equal(inicioPeriodo(f, 'todo'), 0);
+});
+
+test('detalle acumulado: el periodo recorta pero no mueve el cero', () => {
+  const s = construirSerie(lots, hist);
+  const todo = detalleAcumulado(s, 'SAN.MC', 0);
+  const desde3 = detalleAcumulado(s, 'SAN.MC', 2);
+  assert.equal(desde3.length, 3);
+  // Mismo valor el mismo día, empiece donde empiece la ventana
+  assert.equal(desde3[0].eur, todo[2].eur);
+  assert.equal(desde3[desde3.length - 1].eur, 290);
+  cerca(desde3[desde3.length - 1].pct, (290 / 1010) * 100, '% sobre invertido');
+  // Oracle no aparece antes de comprarla
+  assert.equal(detalleAcumulado(s, 'ORCL', 0)[0].fecha, '2026-01-06');
 });
