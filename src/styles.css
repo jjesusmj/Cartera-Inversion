@@ -1714,3 +1714,5 @@ tr.ficha-row > td { padding: 0 !important; }
 .evo-acciones button.active { background: var(--ink); border-color: var(--ink); color: #fff; }
 .evo-acciones button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .evo-accion-nombre { font-size: 12.5px; color: var(--ink-dim); margin: -2px 0 10px; }
+.evo-ley-inv { background: none !important; border-top: 2px dashed #8a8a8a; height: 0 !important; width: 14px; display: inline-block; vertical-align: middle; }
+.evo-fin-per { color: var(--loss) !important; font-weight: 600; }

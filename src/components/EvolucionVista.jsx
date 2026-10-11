@@ -42,8 +42,15 @@ function escala(lo, hi, alto) {
   for (let v = a; v <= b + paso / 1000; v += paso) ticks.push(+v.toFixed(6));
   return { ticks, y: (v) => +(alto - ((v - a) / (b - a || 1)) * alto).toFixed(1) };
 }
-const tickTxt = (v, unidad) =>
-  `${v < 0 ? '−' : ''}${unidad === 'eur' ? (Math.abs(v) >= 1000 ? `${miles(Math.abs(v) / 1000)}k` : miles(Math.abs(v))) : `${miles(Math.abs(v))} %`}`;
+// Con pasos de menos de 1.000 € se escribe la cifra entera (2.400) para no repetir "2k"
+const tickTxt = (v, unidad, paso = 1000) => {
+  const a = Math.abs(v);
+  const txt = unidad === 'eur'
+    ? (a >= 1000 && paso >= 1000 ? `${miles(a / 1000)}k` : miles(a))
+    : `${paso < 1 ? a.toFixed(1).replace('.', ',') : miles(a)} %`;
+  return `${v < 0 ? '−' : ''}${txt}`;
+};
+const pasoDe = (ticks) => (ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : 1000);
 
 // Etiquetas sin solaparse (posición en px, separación mínima)
 function separar(items, minimo, alto) {
@@ -172,25 +179,43 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
   const X = (k) => +((k / ultimo) * VB).toFixed(1);
   const xp = (k) => `${((k / ultimo) * 100).toFixed(2)}%`;
 
-  let e, areas = [], lineas = [], finales = [];
+  let e, areas = [], lineas = [], finales = [], clips = null;
   if (unidad === 'eur') {
-    e = escala(0, Math.max(...ag.val), H1);
-    const lv = indices.map((k, t) => `${t ? 'L' : 'M'}${X(k)},${e.y(ag.val[k])}`).join('');
-    const li = indices.map((k, t) => {
-      if (!t) return `M${X(k)},${e.y(ag.inv[k])}`;
-      const prev = indices[t - 1];
-      return (ag.inv[k] !== ag.inv[prev] ? `L${X(k)},${e.y(ag.inv[prev])}` : '') + `L${X(k)},${e.y(ag.inv[k])}`;
-    }).join('');
-    const vuelta = [...indices].reverse().map((k) => `L${X(k)},${e.y(ag.inv[k])}`).join('');
+    // Eje adaptado a lo que se mueve en la ventana (sin forzar el 0): así la
+    // ganancia se ve aunque sea pequeña frente a lo invertido. Por eso lo
+    // invertido va como línea, no como área: un área sin el 0 engañaría.
+    const minimo = Math.min(...indices.map((k, t) => Math.min(ag.inv[k], ag.val[k], t ? ag.val[k] - (ag.inv[k] - ag.inv[indices[t - 1]]) : Infinity)));
+    const maximo = Math.max(...indices.map((k) => Math.max(ag.inv[k], ag.val[k])));
+    const margen = Math.max((maximo - minimo) * 0.12, maximo * 0.01, 1);
+    e = escala(Math.max(0, minimo - margen), maximo + margen, H1);
+    // Valor: el día de una compra, primero lo que valían las acciones que ya
+    // tenías y luego el salto de la compra, alineado con el escalón de lo invertido
+    const ptsV = [];
+    indices.forEach((k, t) => {
+      const sube = t ? ag.inv[k] - ag.inv[indices[t - 1]] : 0;
+      if (sube) ptsV.push([X(k), e.y(ag.val[k] - sube)]);
+      ptsV.push([X(k), e.y(ag.val[k])]);
+    });
+    // Invertido en escalón: sube el día de cada compra
+    const ptsI = [];
+    indices.forEach((k, t) => {
+      if (t && ag.inv[k] !== ag.inv[indices[t - 1]]) ptsI.push([X(k), e.y(ag.inv[indices[t - 1]])]);
+      ptsI.push([X(k), e.y(ag.inv[k])]);
+    });
+    const camino = (pts) => pts.map(([x, y], t) => `${t ? 'L' : 'M'}${x},${y}`).join('');
+    const lv = camino(ptsV), li = camino(ptsI);
+    const banda = `${lv}${[...ptsI].reverse().map(([x, y]) => `L${x},${y}`).join('')}Z`;
+    // La banda se pinta dos veces: verde por encima de lo invertido, roja por debajo
+    clips = { arriba: `${li}L${VB},0L0,0Z`, abajo: `${li}L${VB},${H1}L0,${H1}Z` };
     areas = [
-      { d: `${li}L${VB},${H1}L0,${H1}Z`, fill: 'rgba(138, 138, 138, 0.18)' },
-      { d: `${lv}${vuelta}Z`, fill: 'rgba(34, 136, 77, 0.22)' },
+      { d: banda, fill: 'rgba(34, 136, 77, 0.24)', clip: 'url(#evo-clip-arriba)' },
+      { d: banda, fill: 'rgba(194, 43, 43, 0.20)', clip: 'url(#evo-clip-abajo)' },
     ];
-    lineas = [{ d: li, stroke: '#8a8a8a', w: 1.6 }, { d: lv, stroke: 'var(--ink)', w: 2.2 }];
+    lineas = [{ d: li, stroke: '#8a8a8a', w: 1.6, dash: '4 3' }, { d: lv, stroke: 'var(--ink)', w: 2.2 }];
     const yV = e.y(ag.val[ultimo]), yI = e.y(ag.inv[ultimo]);
     finales = separar([
       { y: yV - 7, txt: `${miles(ag.val[ultimo])} €`, cls: 'evo-fin-val' },
-      { y: (yV + yI) / 2 - 7, txt: eur(ag.gan[ultimo]), cls: 'evo-fin-gan' },
+      { y: (yV + yI) / 2 - 7, txt: eur(ag.gan[ultimo]), cls: ag.gan[ultimo] >= 0 ? 'evo-fin-gan' : 'evo-fin-per' },
       { y: yI - 7, txt: `${miles(ag.inv[ultimo])} €`, cls: 'evo-fin-inv' },
     ], 22, H1 - 6);
   } else {
@@ -246,15 +271,21 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
 
       <div className="evo-graf" style={{ height: H1 }}>
         <div className="evo-ticks">
-          {e.ticks.map((v) => <span key={v} style={{ top: e.y(v) - 7 }}>{tickTxt(v, unidad)}</span>)}
+          {e.ticks.map((v) => <span key={v} style={{ top: e.y(v) - 7 }}>{tickTxt(v, unidad, pasoDe(e.ticks))}</span>)}
         </div>
         <div className="evo-plot">
           <svg viewBox={`0 0 ${VB} ${H1}`} preserveAspectRatio="none" aria-hidden="true">
             {e.ticks.map((v) => <path key={v} d={`M0,${e.y(v)}H${VB}`} className="evo-grid" />)}
             {unidad === 'pct' && <path d={`M0,${e.y(0)}H${VB}`} className="evo-cero" />}
-            {areas.map((a, k) => <path key={k} d={a.d} fill={a.fill} />)}
+            {clips && (
+              <defs>
+                <clipPath id="evo-clip-arriba"><path d={clips.arriba} /></clipPath>
+                <clipPath id="evo-clip-abajo"><path d={clips.abajo} /></clipPath>
+              </defs>
+            )}
+            {areas.map((a, k) => <path key={k} d={a.d} fill={a.fill} clipPath={a.clip} />)}
             {marcas.map(([k]) => <path key={k} d={`M${X(k)},0V${H1}`} className="evo-compra" />)}
-            {lineas.map((l, k) => <path key={k} d={l.d} stroke={l.stroke} strokeWidth={l.w} fill="none" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />)}
+            {lineas.map((l, k) => <path key={k} d={l.d} stroke={l.stroke} strokeWidth={l.w} strokeDasharray={l.dash} fill="none" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />)}
           </svg>
           {marcas.map(([k, syms], t) => (
             <span key={k} className="evo-compra-txt" style={{ left: xp(k), top: t % 2 ? -12 : -24 }}>{[...syms].join(' · ')}</span>
@@ -276,8 +307,9 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
 
       {unidad === 'eur' && (
         <div className="evo-leyenda">
-          <span><i style={{ background: 'rgba(138,138,138,.35)' }} /> invertido</span>
+          <span><i className="evo-ley-inv" /> invertido</span>
           <span><i style={{ background: 'rgba(34,136,77,.35)' }} /> ganancia</span>
+          <span><i style={{ background: 'rgba(194,43,43,.3)' }} /> pérdida</span>
           <span><i className="evo-ley-linea" /> valor</span>
           {marcas.length > 0 && <span><i className="evo-ley-compra" /> compra</span>}
         </div>
@@ -391,7 +423,7 @@ function Detalle({ serie, simbolos, ini, unidad, foco, setFoco, cur, setCur, col
 
       <div className="evo-graf" style={{ height: H2 }}>
         <div className="evo-ticks">
-          {e.ticks.map((v) => <span key={v} style={{ top: e.y(v) - 7 }}>{tickTxt(v, unidad)}</span>)}
+          {e.ticks.map((v) => <span key={v} style={{ top: e.y(v) - 7 }}>{tickTxt(v, unidad, pasoDe(e.ticks))}</span>)}
         </div>
         <div className="evo-plot">
           <svg viewBox={`0 0 ${VB} ${H2}`} preserveAspectRatio="none" aria-hidden="true">
