@@ -250,7 +250,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                 {filas.map((f) => (
                   <React.Fragment key={f.symbol}>
                     <tr
-                      className={`row-clickable ${f.conAlerta ? 'row-alert' : ''}`}
+                      className={`row-clickable ${f.conAlerta ? 'row-alert' : ''} ${abierto === f.symbol ? 'is-open' : ''}`}
                       onClick={() => setAbierto(abierto === f.symbol ? null : f.symbol)}
                     >
                       <td className="cell-ficha">

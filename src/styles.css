@@ -1631,7 +1631,17 @@ td.cell-ficha { position: relative; padding-left: 22px !important; }
   transition: transform 0.15s;
 }
 .ficha-chevron.is-open { transform: rotate(90deg); color: var(--ink); }
-tr.ficha-row { background: var(--bg-inset); cursor: default; }
+/* Fila abierta: fondo blanco y borde verde a la izquierda; la ficha, en verde
+   muy suave con el mismo borde, para que se lea como un bloque aparte */
+tr.row-clickable.is-open { background: var(--bg); }
+tr.row-clickable.is-open:hover { background: var(--bg); }
+tr.row-clickable.is-open > td { border-bottom-color: transparent; }
+tr.row-clickable.is-open > td:first-child,
+tr.ficha-row > td { box-shadow: inset 3px 0 0 var(--zona-es); }
+tr.ficha-row { background: #eef3f1; cursor: default; }
+tr.ficha-row > td { border-bottom: 2px solid #d5e2dd !important; }
+tr.ficha-row .ficha-stats { border-bottom-color: #d5e2dd; }
+tr.ficha-row .lot-line { border-bottom-color: #d5e2dd; }
 tr.ficha-row > td { padding: 0 !important; }
 .ficha {
   /* La tabla puede ser más ancha que la pantalla: la ficha se queda en la parte visible */
