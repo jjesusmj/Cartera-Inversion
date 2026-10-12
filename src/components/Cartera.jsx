@@ -104,7 +104,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
     return {
       ...g, q, cantidad, precioMedio, precioActual, esManual, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
-      precioMedioEUR, precioActualEUR, costeAproximado, efectoAccion, efectoDivisa,
+      precioMedioEUR, precioActualEUR, costeAproximado, efectoAccion, efectoDivisa, rate,
       sector: sector.nombre, sectorInfo: sector, nivel, obj,
       stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado,
       conAlerta: stopSaltado || objetivoSaltado,
@@ -489,8 +489,8 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
             value={fmtCotizacion(f.precioMedio, f.currency)}
             sub={f.currency !== 'EUR' && f.precioMedioEUR != null ? `${f.costeAproximado ? '≈ ' : ''}${fmtCotizacion(f.precioMedioEUR)} pagado` : null}
           />
-          <Stat label="Invertido" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} />
-          <Stat label="Valor de mercado" value={fmtMoney(f.valorEUR)} />
+          <Stat label="Coste compra" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} />
+          <Stat label="Valor mercado" value={fmtMoney(f.valorEUR)} />
           <Stat label="Hoy" value={f.hoyEUR != null ? `${fmtMoneySigned(f.hoyEUR)} (${fmtPercent(f.hoyPct)})` : '—'} clase={claseSigno(f.hoyEUR)} />
           <Stat label="Total" value={f.plEUR != null ? `${fmtMoneySigned(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'} clase={claseSigno(f.plEUR)} />
           {f.efectoAccion != null && (
@@ -668,18 +668,63 @@ function PesoBarra({ peso, max }) {
   );
 }
 
-// Ficha que se despliega al pulsar una fila en escritorio. Solo lleva lo que
-// no está ya en la fila: coste, valor, efecto precio (acciones en divisa; el
-// efecto divisa ya va bajo el P/L), lotes FIFO y rango del día. El gráfico se abre pulsando el ticker.
+// Ficha que se despliega al pulsar una fila en escritorio: coste de compra,
+// valor de mercado, P/L actual (con la parte que viene de la divisa), valor en
+// el precio objetivo, rango del día y lotes FIFO. Debajo de cada importe en €
+// va el importe en la divisa de la acción. El gráfico se abre pulsando el ticker.
 function FichaPosicion({ f, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
   const enDivisa = f.currency !== 'EUR';
+  const costeDivisa = f.precioMedio * f.cantidad;
+  const valorDivisa = f.precioActual != null ? f.precioActual * f.cantidad : null;
+  // Valor objetivo: cantidad × objetivo, al cambio de hoy, contra el coste de compra
+  const valorObjDivisa = f.targetPrice != null ? f.targetPrice * f.cantidad : null;
+  const valorObjEUR = valorObjDivisa != null && f.rate != null ? valorObjDivisa * f.rate : null;
+  const ganObjEUR = valorObjEUR != null && f.costeEUR != null ? valorObjEUR - f.costeEUR : null;
+  const ganObjPct = ganObjEUR != null && f.costeEUR ? (ganObjEUR / f.costeEUR) * 100 : null;
+  const aprox = f.costeAproximado ? '≈ ' : '';
   return (
     <div className="ficha">
       <div className="ficha-stats">
-        <FichaDato label="Coste" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} sub="comisiones incluidas" />
-        <FichaDato label="Valor" value={fmtMoney(f.valorEUR)} />
-        {enDivisa && f.efectoAccion != null && (
-          <FichaDato label="Efecto precio" value={fmtMoneySigned(f.efectoAccion)} sub="P/L sin el efecto divisa" clase={claseSigno(f.efectoAccion)} />
+        <FichaDato
+          label="Coste compra"
+          value={`${aprox}${fmtMoney(f.costeEUR)}`}
+          sub={enDivisa ? fmtMoney(costeDivisa, f.currency) : null}
+        />
+        <FichaDato
+          label="Valor mercado"
+          value={fmtMoney(f.valorEUR)}
+          sub={enDivisa && valorDivisa != null ? fmtMoney(valorDivisa, f.currency) : null}
+        />
+        <FichaDato
+          label="P/L actual"
+          value={fmtMoneySigned(f.plEUR)}
+          clase={claseSigno(f.plEUR)}
+          sub={f.plPct != null ? (
+            <>
+              <span className={claseSigno(f.plPct)}>{fmtPercent(f.plPct)}</span>
+              {enDivisa && f.efectoDivisa != null && (
+                <> · divisa <span className={claseSigno(f.efectoDivisa)}>{fmtMoneySigned(f.efectoDivisa)}</span></>
+              )}
+            </>
+          ) : null}
+        />
+        {valorObjEUR != null && (
+          <FichaDato
+            label="Valor objetivo"
+            value={`${aprox}${fmtMoney(valorObjEUR)}`}
+            title={`Vendiendo ${fmtNumber(f.cantidad, 2)} ud. a ${fmtCotizacion(f.targetPrice, f.currency)}${enDivisa ? ', al cambio de hoy' : ''}`}
+            sub={
+              <>
+                {enDivisa && <div>{fmtMoney(valorObjDivisa, f.currency)}</div>}
+                {ganObjEUR != null && (
+                  <div>
+                    <span className={claseSigno(ganObjEUR)}>{fmtMoneySigned(ganObjEUR)}</span> sobre el coste de compra{' '}
+                    <span className={claseSigno(ganObjEUR)}>({fmtPercent(ganObjPct)})</span>
+                  </div>
+                )}
+              </>
+            }
+          />
         )}
         <div className="ficha-dato ficha-dato-rango">
           <div className="ficha-dato-label">Rango del día</div>
@@ -702,12 +747,12 @@ function FichaPosicion({ f, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
   );
 }
 
-function FichaDato({ label, value, sub = null, clase = '' }) {
+function FichaDato({ label, value, sub = null, clase = '', title }) {
   return (
-    <div className="ficha-dato">
+    <div className="ficha-dato" title={title}>
       <div className="ficha-dato-label">{label}</div>
       <div className={`ficha-dato-value ${clase}`}>{value}</div>
-      {sub && <div className={`ficha-dato-sub ${clase}`}>{sub}</div>}
+      {sub && <div className="ficha-dato-sub">{sub}</div>}
     </div>
   );
 }
