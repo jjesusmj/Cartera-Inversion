@@ -222,9 +222,16 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
     const r = ag.gan.map((g, k) => (ag.inv[k] ? (g / ag.inv[k]) * 100 : 0));
     e = escala(Math.min(0, ...r), Math.max(0, ...r), H1);
     const lr = indices.map((k, t) => `${t ? 'L' : 'M'}${X(k)},${e.y(r[k])}`).join('');
-    areas = [{ d: `${lr}L${VB},${e.y(0)}L0,${e.y(0)}Z`, fill: 'rgba(34, 136, 77, 0.16)' }];
-    lineas = [{ d: lr, stroke: 'var(--gain)', w: 2.2 }];
-    finales = [{ y: e.y(r[ultimo]) - 7, txt: pct(r[ultimo]), cls: 'evo-fin-gan' }];
+    const y0 = e.y(0);
+    const banda = `${lr}L${VB},${y0}L0,${y0}Z`;
+    // Igual que en €: verde por encima del 0 % (lo invertido), roja por debajo
+    clips = { arriba: `M0,${y0}H${VB}V0H0Z`, abajo: `M0,${y0}H${VB}V${H1}H0Z` };
+    areas = [
+      { d: banda, fill: 'rgba(34, 136, 77, 0.24)', clip: 'url(#evo-clip-arriba)' },
+      { d: banda, fill: 'rgba(194, 43, 43, 0.20)', clip: 'url(#evo-clip-abajo)' },
+    ];
+    lineas = [{ d: lr, stroke: 'var(--ink)', w: 2.2 }];
+    finales = [{ y: e.y(r[ultimo]) - 7, txt: pct(r[ultimo]), cls: r[ultimo] >= 0 ? 'evo-fin-gan' : 'evo-fin-per' }];
   }
 
   // Compras dentro del periodo
@@ -305,15 +312,13 @@ function Agrupado({ ag, unidad, largo, lotes, cur, setCur }) {
       </div>
       <EjeX fechas={ag.fechas} periodo={largo ? 'largo' : 'corto'} />
 
-      {unidad === 'eur' && (
-        <div className="evo-leyenda">
-          <span><i className="evo-ley-inv" /> invertido</span>
-          <span><i style={{ background: 'rgba(34,136,77,.35)' }} /> ganancia</span>
-          <span><i style={{ background: 'rgba(194,43,43,.3)' }} /> pérdida</span>
-          <span><i className="evo-ley-linea" /> valor</span>
-          {marcas.length > 0 && <span><i className="evo-ley-compra" /> compra</span>}
-        </div>
-      )}
+      <div className="evo-leyenda">
+        {unidad === 'eur' && <span><i className="evo-ley-inv" /> invertido</span>}
+        <span><i style={{ background: 'rgba(34,136,77,.35)' }} /> ganancia</span>
+        <span><i style={{ background: 'rgba(194,43,43,.3)' }} /> pérdida</span>
+        <span><i className="evo-ley-linea" /> {unidad === 'eur' ? 'valor' : 'rentabilidad'}</span>
+        {marcas.length > 0 && <span><i className="evo-ley-compra" /> compra</span>}
+      </div>
 
       <div className="evo-barras-tit">{largo ? 'Lo que sube o baja cada semana' : 'Lo que sube o baja cada día'}</div>
       <div className="evo-graf evo-graf-barras" style={{ height: 64 }}>
