@@ -14,11 +14,17 @@ export function fmtCantidad(n) {
 
 const ORDEN = { stop: 0, alcanzado: 1, cerca: 2, normal: 3, recuperacion: 4, sinDatos: 5 };
 
-// Pestaña "Objetivo": lo que ganarías si cada posición llega a su precio objetivo
-export default function ObjetivoVista({ filas, irpf, comision, onCambiarIrpf, onCambiarComision, onAbrir }) {
+function netoTexto(r) {
+  if (!r) return '';
+  return r.impuesto > 0 ? `neto ${fmtMoneySigned(r.neto)}` : 'sin IRPF';
+}
+
+// Pestaña "Objetivo": lo que te queda neto si vendes hoy o en el precio objetivo.
+// El IRPF va por tramos de la base del ahorro (lib/objetivo.js).
+export default function ObjetivoVista({ filas, comision, onCambiarComision, onAbrir }) {
   const conObjetivo = filas.filter((f) => f.obj.estado !== 'sin');
   const sinObjetivo = filas.filter((f) => f.obj.estado === 'sin');
-  const total = resumirObjetivos(conObjetivo.map((f) => f.obj), irpf);
+  const total = resumirObjetivos(filas.map((f) => f.obj), comision);
   const avisos = conObjetivo.filter((f) => esAviso(f.obj));
   const ordenadas = [...conObjetivo].sort((a, b) =>
     (ORDEN[a.obj.estado] - ORDEN[b.obj.estado]) || ((b.obj.progreso ?? -1) - (a.obj.progreso ?? -1)) || a.symbol.localeCompare(b.symbol)
@@ -27,14 +33,20 @@ export default function ObjetivoVista({ filas, irpf, comision, onCambiarIrpf, on
   return (
     <div className="obj-vista">
       <div className="obj-resumen">
-        <div className="obj-resumen-label">Si todas llegan a su objetivo</div>
-        <div className="obj-resumen-main">
-          <span className={`obj-num ${claseSigno(total.netoEUR)}`}>{total.n ? fmtMoneySigned(total.netoEUR) : '—'}</span>
-          <span className="obj-resumen-sub">neto</span>
+        <div className="obj-resumen-label">Neto después de IRPF</div>
+        <div className="obj-resumen-dos">
+          <div>
+            <span className="obj-mini-label">Si vendes todo hoy</span>
+            <span className={`obj-num ${claseSigno(total.hoy.neto)}`}>{total.hoy.n ? fmtMoneySigned(total.hoy.neto) : '—'}</span>
+            {total.hoy.n > 0 && <span className="obj-sub">bruto {fmtMoneySigned(total.hoy.bruto)} · IRPF y com. {fmtMoneySigned(-(total.hoy.impuesto + total.hoy.comisiones))}</span>}
+          </div>
+          <div>
+            <span className="obj-mini-label">Si llegan a su objetivo</span>
+            <span className={`obj-num ${claseSigno(total.netoEUR)}`}>{total.n ? fmtMoneySigned(total.netoEUR) : '—'}</span>
+            {total.n > 0 && <span className="obj-sub">bruto {fmtMoneySigned(total.brutoEUR)} · IRPF y com. {fmtMoneySigned(-(total.impuesto + total.comisiones))}</span>}
+          </div>
         </div>
         <div className="obj-resumen-grid">
-          <div><span className="obj-mini-label">Bruto</span><span className="obj-num-s">{total.n ? fmtMoneySigned(total.brutoEUR) : '—'}</span></div>
-          <div><span className="obj-mini-label">IRPF y comisiones</span><span className="obj-num-s">{total.n ? fmtMoneySigned(-(total.impuesto + total.comisiones)) : '—'}</span></div>
           <div><span className="obj-mini-label">Con objetivo</span><span className="obj-num-s">{total.n} de {filas.length}</span></div>
           <div>
             <span className="obj-mini-label">Avisos</span>
@@ -44,7 +56,6 @@ export default function ObjetivoVista({ filas, irpf, comision, onCambiarIrpf, on
           </div>
         </div>
         <div className="obj-ajustes">
-          <AjusteNumero label="IRPF fijo" valor={fmtNumber(irpf * 100, 0)} sufijo="%" onGuardar={onCambiarIrpf} />
           <AjusteNumero label="Comisión venta" valor={fmtNumber(comision, 2)} sufijo="€" onGuardar={onCambiarComision} />
         </div>
       </div>
@@ -55,10 +66,11 @@ export default function ObjetivoVista({ filas, irpf, comision, onCambiarIrpf, on
 
       {sinObjetivo.length > 0 && (
         <div className="obj-sin">
-          <div className="obj-sin-titulo">Sin objetivo ({sinObjetivo.length}) · no cuentan en el total</div>
+          <div className="obj-sin-titulo">Sin objetivo ({sinObjetivo.length}) · solo cuentan en el total de hoy</div>
           {sinObjetivo.map((f) => (
             <button key={f.symbol} className="obj-sin-fila" onClick={() => onAbrir(f.symbol)}>
               <span><b>{f.symbol}</b> · {f.name}</span>
+              {f.obj.hoy && <span className={`obj-sin-neto ${claseSigno(f.obj.hoy.neto)}`}>hoy {fmtMoneySigned(f.obj.hoy.bruto)}{f.obj.hoy.impuesto > 0 ? ` · ${netoTexto(f.obj.hoy)}` : ''}</span>}
               <span className="obj-poner">Poner objetivo</span>
             </button>
           ))}
@@ -66,7 +78,7 @@ export default function ObjetivoVista({ filas, irpf, comision, onCambiarIrpf, on
       )}
 
       <div className="obj-nota">
-        Valor de venta al cambio de hoy; coste real en € de tus lotes. El IRPF se aplica al total, con las pérdidas compensadas.
+        IRPF por tramos de la base del ahorro (19 % hasta 6.000 €, 21 % hasta 50.000 €, 23 % hasta 200.000 €, 27 % hasta 300.000 €, 30 % más). Cada acción se calcula como si fuera la única venta del año; el total aplica los tramos a la suma de todas y compensa pérdidas, por eso no coincide con la suma de las filas. Valor de venta al cambio de hoy; coste real en € de tus lotes. Las ventas ya hechas este año se ven en Declaración.
       </div>
     </div>
   );
@@ -116,8 +128,9 @@ function TarjetaObjetivo({ f, onAbrir }) {
 
       <div className="obj-cells">
         <div>
-          <span className="obj-mini-label">{f.plEUR != null && f.plEUR < 0 ? 'Perdido' : 'Ganado'}</span>
-          <span className={`obj-num-s ${claseSigno(f.plEUR)}`}>{fmtMoneySigned(f.plEUR)}</span>
+          <span className="obj-mini-label">Hoy</span>
+          <span className={`obj-num-s ${claseSigno(o.hoy?.bruto)}`}>{fmtMoneySigned(o.hoy?.bruto)}</span>
+          <span className={`obj-sub ${o.hoy?.impuesto > 0 ? 'obj-neto' : ''}`}>{netoTexto(o.hoy)}</span>
         </div>
         <div>
           <span className="obj-mini-label">{o.faltaEUR < 0 ? 'Por encima' : 'Falta'}</span>
@@ -127,7 +140,7 @@ function TarjetaObjetivo({ f, onAbrir }) {
         <div>
           <span className="obj-mini-label">Objetivo</span>
           <span className={`obj-num-s ${claseSigno(o.brutoEUR)}`}>{fmtMoneySigned(o.brutoEUR)}</span>
-          <span className="obj-sub">{o.impuesto > 0 ? `neto ${fmtMoneySigned(o.netoEUR)}` : 'sin IRPF'}</span>
+          <span className={`obj-sub ${o.impuesto > 0 ? 'obj-neto' : ''}`}>{netoTexto({ impuesto: o.impuesto, neto: o.netoEUR })}</span>
         </div>
       </div>
 

@@ -1,13 +1,13 @@
 // Rentabilidad frente al objetivo. Ejecutar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularObjetivo, resumirObjetivos } from '../src/lib/objetivo.js';
+import { calcularObjetivo, resumirObjetivos, impuestoAhorro } from '../src/lib/objetivo.js';
 
 const cerca = (real, esperado, msg) => assert.ok(Math.abs(real - esperado) < 0.01, `${msg}: ${real} frente a ${esperado}`);
 
 test('posición en euros a mitad de recorrido', () => {
   // 22 acciones a 45 (coste 990 €), cotiza a 54,02, objetivo 60
-  const r = calcularObjetivo({ cantidad: 22, precioMedio: 45, precioActual: 54.02, rate: 1, costeEUR: 990, targetPrice: 60, comision: 3, irpf: 0.19 });
+  const r = calcularObjetivo({ cantidad: 22, precioMedio: 45, precioActual: 54.02, rate: 1, costeEUR: 990, targetPrice: 60, comision: 3 });
   assert.equal(r.estado, 'normal');
   cerca(r.brutoEUR, 330, 'bruto');
   cerca(r.impuesto, 327 * 0.19, 'impuesto');
@@ -51,13 +51,50 @@ test('sin objetivo o sin cotización', () => {
 
 test('el total compensa pérdidas con ganancias', () => {
   const t = resumirObjetivos([
-    { brutoEUR: 1000, comision: 0, estado: 'normal' },
-    { brutoEUR: -400, comision: 0, estado: 'recuperacion' },
-    { estado: 'sin' },
-  ], 0.19);
+    { brutoEUR: 1000, estado: 'normal', hoy: { bruto: 500 } },
+    { brutoEUR: -400, estado: 'recuperacion', hoy: { bruto: -100 } },
+    { estado: 'sin', hoy: { bruto: 50 } },
+  ]);
   assert.equal(t.n, 2);
   cerca(t.impuesto, 600 * 0.19, 'impuesto');
   cerca(t.netoEUR, 600 * 0.81, 'neto');
+  assert.equal(t.hoy.n, 3);
+  cerca(t.hoy.impuesto, 450 * 0.19, 'impuesto hoy');
+});
+
+test('tramos de la base del ahorro', () => {
+  assert.equal(impuestoAhorro(0), 0);
+  assert.equal(impuestoAhorro(-500), 0);
+  cerca(impuestoAhorro(5000), 950, '19 %');
+  cerca(impuestoAhorro(12310), 6000 * 0.19 + 6310 * 0.21, '21 %');
+  cerca(impuestoAhorro(60000), 1140 + 44000 * 0.21 + 10000 * 0.23, '23 %');
+  cerca(impuestoAhorro(350000), 1140 + 9240 + 34500 + 27000 + 50000 * 0.30, '30 %');
+});
+
+test('Santander hoy: 12.310 € de ganancia → 9.845 € netos', () => {
+  // 1150 acciones a 2,16 (coste 2.484 €), cotiza a 12,8860 → bruto 12.334,90 €
+  const r = calcularObjetivo({ cantidad: 1150, precioMedio: 2.16, precioActual: 12.886, rate: 1, costeEUR: 2484 });
+  assert.equal(r.estado, 'sin');
+  cerca(r.hoy.bruto, 12334.9, 'bruto hoy');
+  cerca(r.hoy.impuesto, 1140 + 6334.9 * 0.21, 'impuesto hoy');
+  // Con el bruto de la captura (12.310 €): neto 9.845 €
+  cerca(12310 - impuestoAhorro(12310), 9844.9, 'neto 12.310');
+});
+
+test('acción en pérdida hoy: sin IRPF y neto igual al bruto', () => {
+  // TEP: 5 acciones a 116 (580 €), cotiza a 69,06
+  const r = calcularObjetivo({ cantidad: 5, precioMedio: 116, precioActual: 69.06, rate: 1, costeEUR: 580, targetPrice: 90 });
+  assert.equal(r.hoy.impuesto, 0);
+  cerca(r.hoy.neto, r.hoy.bruto, 'neto = bruto');
+  cerca(r.hoy.bruto, -234.7, 'bruto');
+});
+
+test('cada fila sola paga menos que el total: la suma de filas no coincide', () => {
+  const a = calcularObjetivo({ cantidad: 1, precioMedio: 0, precioActual: 6000, rate: 1, costeEUR: 0 });
+  const b = calcularObjetivo({ cantidad: 1, precioMedio: 0, precioActual: 6000, rate: 1, costeEUR: 0 });
+  const t = resumirObjetivos([a, b]);
+  cerca(a.hoy.impuesto + b.hoy.impuesto, 2280, 'filas');
+  cerca(t.hoy.impuesto, 1140 + 1260, 'total');
 });
 
 test('stop superado tiene prioridad y cuenta como aviso', () => {

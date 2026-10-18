@@ -1395,6 +1395,13 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 .obj-chip-neutro { background: var(--bg-inset); color: var(--ink-dim); }
 
 
+.obj-resumen-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 6px 0 12px; }
+.obj-resumen-dos > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.obj-resumen-dos .obj-sub { white-space: normal; }
+.obj-resumen-dos .obj-num { font-size: 22px; overflow-wrap: anywhere; }
+@media (max-width: 420px) { .obj-resumen-dos { gap: 10px; } .obj-resumen-dos .obj-num { font-size: 19px; } }
+.obj-sub.obj-neto { color: var(--ink); font-weight: 600; }
+.obj-sin-neto { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; margin-left: auto; margin-right: 10px; white-space: nowrap; }
 .obj-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .obj-mini-label { font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; }
 .obj-num-s { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1440,6 +1447,7 @@ td.cell-link:hover .symbol { text-decoration: underline; }
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
   min-height: 44px; border-top: 1px solid var(--line-soft); font-size: 13px;
 }
+@media (max-width: 420px) { .obj-sin-fila { flex-wrap: wrap; padding: 6px 0; } .obj-sin-fila > span:first-child { flex: 1 1 100%; } .obj-sin-neto { margin-left: 0; } }
 
 /* Pestaña Analistas */
 .ana-cabecera { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }

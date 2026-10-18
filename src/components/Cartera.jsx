@@ -32,7 +32,7 @@ function claseSigno(v) {
   return v >= 0 ? 'gain' : 'loss';
 }
 
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, irpfObjetivo = 0.19, comisionVentaObjetivo = 0, onCambiarIrpfObjetivo, onCambiarComisionObjetivo }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, comisionVentaObjetivo = 0, onCambiarComisionObjetivo }) {
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
   const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
@@ -99,7 +99,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
     const obj = calcularObjetivo({
       cantidad, precioMedio, precioActual, rate, costeEUR,
       targetPrice: ajuste.targetPrice ?? null, stopPrice: ajuste.stopPrice ?? null,
-      comision: comisionVentaObjetivo, irpf: irpfObjetivo,
+      comision: comisionVentaObjetivo,
     });
 
     return {
@@ -217,9 +217,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
       ) : modo === 'objetivo' ? (
         <ObjetivoVista
           filas={filasAlfa}
-          irpf={irpfObjetivo}
           comision={comisionVentaObjetivo}
-          onCambiarIrpf={onCambiarIrpfObjetivo}
           onCambiarComision={onCambiarComisionObjetivo}
           onAbrir={setDetalle}
         />

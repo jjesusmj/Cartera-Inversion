@@ -298,13 +298,7 @@ export default function App() {
     await guardarAjustes({ margenTR });
   }
 
-  // Vista "Vs objetivo": tipo de IRPF fijo (en %) y comisión de venta (€)
-  async function handleCambiarIrpfObjetivo(valor) {
-    const irpfObjetivo = Math.min(100, Math.max(0, parseFloat(valor) || 0));
-    setAjustes((a) => ({ ...a, irpfObjetivo }));
-    await guardarAjustes({ irpfObjetivo });
-  }
-
+  // Vista "Vs objetivo": comisión de venta (€). El IRPF va por tramos.
   async function handleCambiarComisionObjetivo(valor) {
     const comisionVentaObjetivo = Math.max(0, parseFloat(valor) || 0);
     setAjustes((a) => ({ ...a, comisionVentaObjetivo }));
@@ -465,9 +459,7 @@ export default function App() {
                 onBorrarLote={ro(handleBorrarLote)}
                 onEditarLote={ro(setEditLote)}
                 onGuardarCosteEUR={ro(handleGuardarCosteEUR)}
-                irpfObjetivo={(ajustes.irpfObjetivo ?? 19) / 100}
                 comisionVentaObjetivo={ajustes.comisionVentaObjetivo ?? 0}
-                onCambiarIrpfObjetivo={ro(handleCambiarIrpfObjetivo)}
                 onCambiarComisionObjetivo={ro(handleCambiarComisionObjetivo)}
               />
             )}
