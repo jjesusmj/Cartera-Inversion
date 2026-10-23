@@ -1,7 +1,7 @@
 // Tamaño de posición y riesgo de cartera. Ejecutar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularATR, calcularStop, calcularTamano, riesgoPosicion, riesgoCartera, pasoStop, semaforoRiesgo } from '../src/lib/tamano.js';
+import { calcularATR, calcularStop, calcularTamano, riesgoPosicion, riesgoCartera, pasoStop, semaforoRiesgo, leerDecimal, leerImporte } from '../src/lib/tamano.js';
 
 const cerca = (real, esperado, msg) => assert.ok(Math.abs(real - esperado) < 0.01, `${msg}: ${real} frente a ${esperado}`);
 
@@ -43,19 +43,32 @@ test('acción en dólares: riesgo en euros con el tipo de cambio', () => {
   cerca(r.capitalEUR, 25 * 120 * 0.86, 'capital en €');
 });
 
-test('tope por posición recorta el tamaño', () => {
+test('el tope por posición avisa pero no recorta', () => {
   // Stop muy ajustado: 10 € / 0,5 € = 20 acciones = 1.000 € (100 % del capital)
   const r = calcularTamano({ capital: 1000, pctRiesgo: 1, entrada: 50, stop: 49.5, maxPctPosicion: 20 });
-  assert.equal(r.porRiesgo, 20);
-  assert.equal(r.acciones, 4);
-  assert.equal(r.limitante, 'posicion');
-  assert.ok(r.avisos.length > 0);
+  assert.equal(r.acciones, 20);
+  assert.equal(r.topePosicion, 4);
+  assert.equal(r.pasa.posicion, true);
 });
 
-test('tope por liquidez recorta el tamaño', () => {
+test('la liquidez avisa pero no recorta', () => {
   const r = calcularTamano({ capital: 1000, pctRiesgo: 1, entrada: 50, stop: 46, liquidez: 60 });
-  assert.equal(r.acciones, 1);
-  assert.equal(r.limitante, 'liquidez');
+  assert.equal(r.acciones, 3);
+  assert.equal(r.pasa.liquidez, true);
+});
+
+test('lectura de números: precio de Yahoo con 3 decimales', () => {
+  assert.equal(leerDecimal('66.885'), 66.885);
+  assert.equal(leerDecimal('66,885'), 66.885);
+  assert.equal(leerDecimal(66.885), 66.885);
+  assert.equal(leerDecimal(''), null);
+  assert.equal(leerImporte('15.000'), 15000);
+  assert.equal(leerImporte('15.000,50'), 15000.5);
+  assert.equal(leerImporte('3000'), 3000);
+  assert.equal(leerImporte('1.5'), 1.5);
+  // Calculadora con ese precio: stop a 2 × ATR = 62,733
+  const stop = calcularStop({ modo: 'atr', entrada: leerDecimal('66.885'), atr: leerDecimal('2.0755'), multiplicador: 2 });
+  assert.ok(Math.abs(stop - 62.734) < 0.01);
 });
 
 test('stop por encima de la entrada da error, no acciones negativas', () => {

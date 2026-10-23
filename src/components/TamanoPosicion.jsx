@@ -6,7 +6,7 @@ import { useFxToday } from '../lib/useFxToday';
 import { costeLoteEUR, tiposValoracion, tipoEsEnVivo } from '../lib/costes';
 import { exchangeById, exchangeIdOf } from '../lib/exchanges';
 import { obtenerATR, leerAjustesTamano, guardarAjustesTamano } from '../lib/api';
-import { calcularStop, calcularTamano, riesgoPosicion, riesgoCartera, pasoStop, semaforoRiesgo } from '../lib/tamano';
+import { calcularStop, calcularTamano, riesgoPosicion, riesgoCartera, pasoStop, semaforoRiesgo, leerDecimal as num, leerImporte } from '../lib/tamano';
 import { SOLO_LECTURA } from '../lib/modo';
 
 // Valores por defecto de los parámetros (se guardan en Firestore por titular)
@@ -29,14 +29,6 @@ const SUBS = [
 
 const REFRESCO_MS = 5 * 60 * 1000;
 
-function num(v) {
-  if (v === '' || v == null) return null;
-  let t = String(v).trim().replace(/\s|€|%|\$/g, '');
-  // Con coma decimal, o con puntos en grupos de 3 (15.000), los puntos son de miles
-  if (t.includes(',') || /^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
-  const n = parseFloat(t);
-  return Number.isFinite(n) ? n : null;
-}
 
 export default function TamanoPosicion({
   owner,
@@ -77,7 +69,7 @@ export default function TamanoPosicion({
   }, [ajustesCargados]);
 
   async function guardarAjuste(campo, valor) {
-    const v = num(valor);
+    const v = leerImporte(valor);
     setAjustes((a) => ({ ...a, [campo]: v }));
     if (SOLO_LECTURA) { onAvisoSoloLectura?.(); return; }
     try {
@@ -376,12 +368,11 @@ export default function TamanoPosicion({
                   <div className="tp-res-label">Acciones a comprar</div>
                   <div className="tp-stepper">
                     <button className="tp-step" onClick={() => moverAcciones(-1)} disabled={!resultado.acciones} aria-label="Una acción menos">−</button>
-                    <div className={`tp-res-valor ${resultado.esManual && (resultado.pasa.margen || resultado.pasa.posicion || resultado.pasa.liquidez) ? 'tp-ambar' : 'accent'}`}>{resultado.acciones}</div>
+                    <div className={`tp-res-valor ${resultado.pasa.margen || resultado.pasa.posicion || resultado.pasa.liquidez ? 'tp-ambar' : 'accent'}`}>{resultado.acciones}</div>
                     <button className="tp-step" onClick={() => moverAcciones(1)} aria-label="Una acción más">+</button>
                   </div>
                   <div className="tp-res-sub">
                     {fmtNumber(resultado.accionesSinRedondear, 2)} sin redondear · recomendado {resultado.recomendadas}
-                    {!resultado.esManual && resultado.limitante !== 'riesgo' && <> (recortado por {resultado.limitante === 'posicion' ? 'tope por posición' : 'liquidez'})</>}
                     {resultado.esManual && <> · <button className="tp-link" onClick={() => setAccionesManual(null)}>volver al recomendado</button></>}
                   </div>
                 </div>
@@ -414,16 +405,13 @@ export default function TamanoPosicion({
               </div>
 
               <div className="tp-margen">
-                <span>Margen:</span> puedes subir hasta <b>{resultado.maxAccionesMargen} acciones</b> sin pasar del {fmtNumber(resultado.maxPctMargen, 0)} % de riesgo (máximo recomendado)
-                {resultado.topePosicion != null && <>, {resultado.topePosicion} por el tope por posición</>}
-                {resultado.topeLiquidez != null && <> y {resultado.topeLiquidez} por tu liquidez</>}.
-                {resultado.esManual && (resultado.pasa.margen || resultado.pasa.posicion || resultado.pasa.liquidez) && (
+                <span>Margen:</span> puedes subir hasta <b>{resultado.maxAccionesMargen} acciones</b> sin pasar del {fmtNumber(resultado.maxPctMargen, 0)} % de riesgo (máximo recomendado).
+                {(resultado.pasa.margen || resultado.pasa.posicion || resultado.pasa.liquidez) && (
                   <div className="tp-ambar tp-margen-aviso">
-                    Con {resultado.acciones} acciones pasas {[
-                      resultado.pasa.margen && `el ${fmtNumber(resultado.maxPctMargen, 0)} % de riesgo`,
-                      resultado.pasa.posicion && 'el tope por posición',
-                      resultado.pasa.liquidez && 'tu liquidez',
-                    ].filter(Boolean).join(', ')}.
+                    {resultado.pasa.margen && <div>Con {resultado.acciones} acciones arriesgas el {fmtNumber(resultado.riesgoPct, 2)} %, más del {fmtNumber(resultado.maxPctMargen, 0)} %.</div>}
+                    {resultado.pasa.posicion && <div>Usarías el {fmtNumber(resultado.pctCapital, 1)} % del capital en esta acción (tu tope por posición es {fmtNumber(ajustes.maxPctPosicion, 0)} %).</div>}
+                    {resultado.pasa.liquidez && <div>Necesitas {fmtMoney(resultado.capitalEUR)} y tienes {fmtMoney(liquidez)} de liquidez.</div>}
+                    <div className="tp-margen-nota">Solo es un aviso: el cálculo no se recorta.</div>
                   </div>
                 )}
               </div>
@@ -724,7 +712,7 @@ function NumInput({ valor, onGuardar, placeholder }) {
       onChange={(e) => setTexto(e.target.value)}
       onBlur={() => {
         setEditando(false);
-        const nuevo = num(texto);
+        const nuevo = leerImporte(texto);
         if (nuevo !== (valor ?? null)) onGuardar(texto);
       }}
       onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
@@ -916,8 +904,8 @@ Disponible:            8.308,70 $`}</pre>
         <h3><span className="guia-n">5</span> Lo que añade la app</h3>
         <ul className="guia-lista">
           <li><strong>Comisiones.</strong> Las de compra y venta se restan del riesgo máximo, para que si salta el stop la pérdida total sea el 1 % de verdad.</li>
-          <li><strong>Tope por posición.</strong> Con un stop muy ajustado la fórmula puede pedir meter medio capital en una acción. Si pasa del {fmtNumber(ajustes.maxPctPosicion ?? 20, 0)} % del capital, se recorta.</li>
-          <li><strong>Tope por liquidez.</strong> Si no tienes dinero suficiente, se recorta a lo que puedes pagar.</li>
+          <li><strong>Tope por posición.</strong> Con un stop muy ajustado la fórmula puede pedir meter medio capital en una acción. Si pasa del {fmtNumber(ajustes.maxPctPosicion ?? 20, 0)} % del capital, te avisa (no recorta el cálculo).</li>
+          <li><strong>Liquidez.</strong> Si no tienes dinero suficiente para la compra, te avisa (no recorta el cálculo).</li>
           <li><strong>Riesgo de lo que ya tienes.</strong> Se mide respecto a lo que pagaste: lo pagado − lo que recibirías en el stop. Si subes el stop por encima de tu coste, esa posición pasa a riesgo 0. Sin stop, o con el stop por encima del precio actual, se calcula al precio de hoy (es un mínimo).</li>
           <li><strong>Liquidez.</strong> Si no la escribes, es capital bolsa − invertido. Escríbela a mano si tienes más o menos dinero libre de verdad.</li>
           <li><strong>Huecos.</strong> El stop no garantiza el precio. Si la acción abre muy por debajo (resultados, noticias), la orden se ejecuta más abajo y puedes perder más del 1 %.</li>
@@ -950,9 +938,6 @@ Disponible:            8.308,70 $`}</pre>
             <Formula>
               Número de acciones = <Frac arriba={`${m(resultado.riesgoMaxEUR)} − ${m(resultado.comisiones)}`} abajo={m(resultado.riesgoAccionEUR)} /> <span className="nw">= {fmtNumber(resultado.accionesSinRedondear, 2)} → <b>{resultado.porRiesgo} acciones</b></span>{resultado.esManual && <span className="nw"> (has elegido {resultado.acciones} a mano)</span>}
             </Formula>
-            {resultado.limitante !== 'riesgo' && (
-              <p className="guia-mini">Recortado a <b>{resultado.acciones}</b> por {resultado.limitante === 'posicion' ? `el tope por posición (${fmtNumber(ajustes.maxPctPosicion, 0)} % = ${m(resultado.maxPosicionEUR)})` : `tu liquidez (${m(liquidez)})`}.</p>
-            )}
             <Formula>
               Capital invertido = {resultado.acciones} × {m(resultado.precioEUR)} + {m(ajustes.comisionCompra ?? 0)} = <b>{m(resultado.capitalEUR)}</b>
             </Formula>

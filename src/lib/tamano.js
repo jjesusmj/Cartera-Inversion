@@ -16,6 +16,26 @@
 
 export const RATIOS = [1, 2, 3];
 
+// --- Lectura de números escritos o recibidos como texto ---
+// Precios, ATR, %: el punto o la coma son siempre el decimal (66.885 = 66,885).
+export function leerDecimal(v) {
+  if (v === '' || v == null) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const n = parseFloat(String(v).trim().replace(/\s|€|%|\$/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Importes escritos a mano en € (capital, liquidez): acepta punto de miles.
+// 15.000 → 15000 · 15.000,5 → 15000,5 · 15000,5 → 15000,5 · 1.5 → 1,5
+export function leerImporte(v) {
+  if (v === '' || v == null) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  let t = String(v).trim().replace(/\s|€|%|\$/g, '');
+  if (t.includes(',') || /^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : null;
+}
+
 // ATR de 14 sesiones con el suavizado de Wilder (el que usa TradingView).
 // velas: [{ h, l, c }] en orden cronológico.
 export function calcularATR(velas, periodo = 14) {
@@ -77,10 +97,9 @@ export function calcularTamano({
   const topePosicion = maxPosicionEUR != null ? Math.max(0, Math.floor((maxPosicionEUR - (comisionCompra || 0)) / precioEUR + 1e-9)) : null;
   const topeLiquidez = liquidez != null && liquidez >= 0 ? Math.max(0, Math.floor((liquidez - (comisionCompra || 0)) / precioEUR + 1e-9)) : null;
 
-  let recomendadas = porRiesgo;
-  let limitante = 'riesgo';
-  if (topePosicion != null && topePosicion < recomendadas) { recomendadas = topePosicion; limitante = 'posicion'; }
-  if (topeLiquidez != null && topeLiquidez < recomendadas) { recomendadas = topeLiquidez; limitante = 'liquidez'; }
+  // El recomendado sale solo de la regla del % de riesgo; los topes solo informan
+  const recomendadas = porRiesgo;
+  const limitante = 'riesgo';
 
   // Margen: hasta cuántas acciones sin pasar del maxPctMargen de riesgo
   const maxAccionesMargen = Math.max(0, Math.floor(((capital * maxPctMargen) / 100 - comisiones) / riesgoAccionEUR + 1e-9));
@@ -90,11 +109,6 @@ export function calcularTamano({
 
   const avisos = [];
   if (riesgoMaxEUR <= comisiones) avisos.push('Las comisiones ya se comen todo el riesgo permitido: sube el % o el capital.');
-  if (!esManual && limitante === 'posicion') {
-    avisos.push(`Recortado por el tope por posición (${maxPctPosicion} % del capital): sin él serían ${porRiesgo} acciones.`);
-  }
-  if (!esManual && limitante === 'liquidez') avisos.push(`Recortado por tu liquidez: sin ese límite serían ${porRiesgo} acciones.`);
-  if (acciones === 0 && porRiesgo > 0 && !esManual) avisos.push('Con estos límites no llega ni para una acción.');
 
   const capitalEUR = acciones > 0 ? acciones * precioEUR + (comisionCompra || 0) : 0;
   const riesgoEUR = acciones > 0 ? acciones * riesgoAccionEUR + comisiones : 0;

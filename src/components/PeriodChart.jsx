@@ -122,9 +122,18 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
     const area = `${linea}L${x(ultimo[0]).toFixed(1)},${yRef.toFixed(1)}L${x(pts[0][0]).toFixed(1)},${yRef.toFixed(1)}Z`;
     const sube = ultimo[1] >= data.reference;
 
+    // Etiquetas de los niveles sin montarse: de arriba abajo, cada una al menos 12 px bajo la anterior
+    const posEtiqueta = {};
+    let ultimaY = -Infinity;
+    for (const l of [...nivelesDentro].filter((n) => !n.fino).sort((a, b) => y(a.value) - y(b.value))) {
+      const ty = Math.min(ALTO - 2, Math.max(y(l.value) - 4, ultimaY + 12, 10));
+      posEtiqueta[l.label] = ty;
+      ultimaY = ty;
+    }
+
     return {
       pts, t0, t1, x, y, linea, area, yRef, ultimo, sube,
-      nivelesDentro, nivelesFuera, comprasDentro, zonasValidas,
+      nivelesDentro, nivelesFuera, comprasDentro, zonasValidas, posEtiqueta,
       nivelesArriba: nivelesFuera.filter((l) => l.value > max),
       nivelesAbajo: nivelesFuera.filter((l) => l.value < min),
     };
@@ -201,7 +210,7 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
                 <g key={l.label}>
                   <line x1="0" x2={ancho} y1={g.y(l.value)} y2={g.y(l.value)} className={`pchart-level ${l.tipo}${l.fino ? ' is-fino' : ''}`} />
                   {!l.fino && (
-                    <text x="4" y={g.y(l.value) - 4} className={`pchart-level-text ${l.tipo}`}>
+                    <text x="4" y={g.posEtiqueta[l.label] ?? g.y(l.value) - 4} className={`pchart-level-text ${l.tipo}`}>
                       {l.label} {fmtPrecio(l.value)}
                     </text>
                   )}
