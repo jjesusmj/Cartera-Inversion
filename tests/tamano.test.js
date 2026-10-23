@@ -82,7 +82,24 @@ test('riesgo de una posición respecto al coste', () => {
   const libre = riesgoPosicion({ costeEUR: 2000, cantidad: 25, stop: 120, fx: 0.86 });
   assert.equal(libre.estado, 'libre');
   assert.equal(libre.riesgoEUR, 0);
-  assert.equal(riesgoPosicion({ costeEUR: 2000, cantidad: 25, stop: null }).estado, 'sin-stop');
+  // Sin stop: pérdida si vendes hoy (25 × 100 $ × 0,86 − 1 = 2.149 € → riesgo 851 €)
+  const sin = riesgoPosicion({ costeEUR: 3000, cantidad: 25, stop: null, precioActual: 100, fx: 0.86, comisionVenta: 1 });
+  assert.equal(sin.estado, 'sin-stop');
+  cerca(sin.riesgoEUR, 851, 'sin stop');
+  // Sin stop y en ganancias: riesgo 0 a precio de hoy
+  assert.equal(riesgoPosicion({ costeEUR: 1500, cantidad: 25, stop: null, precioActual: 100, fx: 0.86 }).riesgoEUR, 0);
+});
+
+test('stop superado: riesgo = pérdida si vendes hoy', () => {
+  // Caso ORCL: coste 3.253,43 €, 25 acc., stop 145 $ por encima del precio 127,41 $
+  const fx = 3236.03 / 3625;
+  const r = riesgoPosicion({ costeEUR: 3253.43, cantidad: 25, stop: 145, precioActual: 127.41, fx, comisionVenta: 1 });
+  assert.equal(r.estado, 'superado');
+  cerca(r.riesgoEUR, 3253.43 - (127.41 * 25 * fx - 1), 'riesgo hoy');
+  assert.ok(r.riesgoEUR > 400);
+  // Stop por debajo del precio: cálculo normal
+  const n = riesgoPosicion({ costeEUR: 3253.43, cantidad: 25, stop: 120, precioActual: 127.41, fx, comisionVenta: 1 });
+  assert.equal(n.estado, 'riesgo');
 });
 
 test('riesgo de cartera frente al límite del 6 %', () => {

@@ -28,7 +28,14 @@ const SUBS = [
 
 const REFRESCO_MS = 5 * 60 * 1000;
 
-const num = (v) => (v === '' || v == null ? null : parseFloat(String(v).replace(',', '.')));
+function num(v) {
+  if (v === '' || v == null) return null;
+  let t = String(v).trim().replace(/\s|€|%|\$/g, '');
+  // Con coma decimal, o con puntos en grupos de 3 (15.000), los puntos son de miles
+  if (t.includes(',') || /^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : null;
+}
 
 export default function TamanoPosicion({
   owner,
@@ -110,7 +117,7 @@ export default function TamanoPosicion({
         const manual = g.lotes.find((l) => l.manualPrice != null)?.manualPrice ?? null;
         const precioActual = prices[g.symbol]?.price ?? manual;
         const stop = positionSettings[g.symbol]?.stopPrice ?? null;
-        const r = riesgoPosicion({ costeEUR, cantidad, stop, fx: fxUSD, comisionVenta: ajustes.comisionVenta });
+        const r = riesgoPosicion({ costeEUR, cantidad, stop, precioActual, fx: fxUSD, comisionVenta: ajustes.comisionVenta });
         const valorEUR = precioActual != null && fxUSD ? precioActual * cantidad * fxUSD : null;
         const distanciaStop = stop != null && precioActual ? (stop / precioActual - 1) * 100 : null;
         return { ...g, cantidad, costeEUR, precioMedio, precioActual, stop, valorEUR, distanciaStop, ...r };
@@ -120,6 +127,11 @@ export default function TamanoPosicion({
 
   const invertidoEUR = posiciones.reduce((s, p) => s + (p.costeEUR ?? 0), 0);
   const sinStop = posiciones.filter((p) => p.estado === 'sin-stop');
+  const superados = posiciones.filter((p) => p.estado === 'superado');
+  // Liquidez: la escrita a mano o, si está vacía, capital bolsa − invertido
+  const liquidezAuto = ajustes.capital > 0 ? ajustes.capital - invertidoEUR : null;
+  const liquidezEsAuto = ajustes.liquidez == null;
+  const liquidez = liquidezEsAuto ? liquidezAuto : ajustes.liquidez;
   const cartera = riesgoCartera({
     riesgos: posiciones.map((p) => p.riesgoEUR),
     capital: ajustes.capital,
@@ -183,7 +195,7 @@ export default function TamanoPosicion({
     fx: fxCalc,
     comisionCompra: ajustes.comisionCompra,
     comisionVenta: ajustes.comisionVenta,
-    liquidez: ajustes.liquidez,
+    liquidez: liquidez != null ? Math.max(0, liquidez) : null,
     maxPctPosicion: ajustes.maxPctPosicion,
   });
 
@@ -268,7 +280,7 @@ export default function TamanoPosicion({
                 <label>Riesgo por operación (%)</label>
                 <NumInput valor={ajustes.pctRiesgo} onGuardar={(v) => guardarAjuste('pctRiesgo', v)} />
                 <div className="hint">
-                  {ajustes.capital > 0 ? `= ${fmtMoney((ajustes.capital * (ajustes.pctRiesgo ?? 0)) / 100)} de ${fmtMoney(ajustes.capital)}` : 'Sobre tu capital bolsa.'}
+                  {ajustes.capital > 0 ? `= ${fmtMoney((ajustes.capital * (ajustes.pctRiesgo ?? 0)) / 100)} de ${fmtMoney(ajustes.capital)} · recomendado 1 %` : 'Recomendado: 1\u00a0% (máx. 2\u00a0%) del capital bolsa.'}
                 </div>
               </div>
             </div>
@@ -331,7 +343,7 @@ export default function TamanoPosicion({
               <div className="tp-resultado">
                 <div className="tp-res tp-res-main">
                   <div className="tp-res-label">Acciones a comprar</div>
-                  <div className="tp-res-valor">{resultado.acciones}</div>
+                  <div className="tp-res-valor accent">{resultado.acciones}</div>
                   <div className="tp-res-sub">
                     {fmtNumber(resultado.accionesSinRedondear, 2)} sin redondear
                     {resultado.limitante !== 'riesgo' && <> · recortado por {resultado.limitante === 'posicion' ? 'tope por posición' : 'liquidez'}</>}
@@ -344,12 +356,12 @@ export default function TamanoPosicion({
                 </div>
                 <div className="tp-res">
                   <div className="tp-res-label">Capital necesario</div>
-                  <div className="tp-res-valor">{fmtMoney(resultado.capitalEUR)}</div>
+                  <div className="tp-res-valor tp-azul">{fmtMoney(resultado.capitalEUR)}</div>
                   <div className="tp-res-sub">{fmtNumber(resultado.pctCapital, 1)} % del capital bolsa</div>
                 </div>
                 <div className="tp-res">
                   <div className="tp-res-label">Riesgo real</div>
-                  <div className="tp-res-valor accent">{fmtMoney(resultado.riesgoEUR)}</div>
+                  <div className="tp-res-valor loss">{fmtMoney(resultado.riesgoEUR)}</div>
                   <div className="tp-res-sub">
                     {fmtNumber(resultado.riesgoPct, 2)} % · máximo {fmtMoney(resultado.riesgoMaxEUR)}
                   </div>
@@ -362,7 +374,7 @@ export default function TamanoPosicion({
                   {resultado.objetivos.map((o) => (
                     <div key={o.ratio} className={`tp-obj ${o.ratio === 3 ? 'tp-obj-dest' : ''}`}>
                       <div className="tp-obj-ratio">1:{o.ratio}</div>
-                      <div className="tp-obj-precio">{fmtCotizacion(o.precio, cur)}</div>
+                      <div className="tp-obj-precio gain">{fmtCotizacion(o.precio, cur)}</div>
                       <div className="tp-obj-sub">+{fmtNumber(o.pctSubida, 1)} %</div>
                       <div className="tp-obj-gan gain">{fmtMoney(o.gananciaEUR)}</div>
                     </div>
@@ -371,16 +383,13 @@ export default function TamanoPosicion({
                 <div className="hint">Ganancia neta de las dos comisiones. Busca al menos 1:2; mejor 1:3.</div>
               </div>
 
-              {(resultado.avisos.length > 0 || superaLimite || (ajustes.liquidez == null && ajustes.capital > 0)) && (
+              {(resultado.avisos.length > 0 || superaLimite) && (
                 <div className="tp-avisos">
                   {resultado.avisos.map((a) => <div key={a} className="warn-box">{a}</div>)}
                   {superaLimite && (
                     <div className="warn-box">
                       Con esta operación el riesgo total pasaría a {fmtMoney(riesgoTrasOperacion)} ({fmtNumber(pctTrasOperacion, 1)} %), por encima de tu límite del {fmtNumber(ajustes.limitePct, 0)} %.
                     </div>
-                  )}
-                  {ajustes.liquidez == null && ajustes.capital > 0 && (
-                    <div className="tp-nota">Sin liquidez escrita no se comprueba si tienes dinero para comprar. Puedes ponerla en «Cartera y riesgo».</div>
                   )}
                 </div>
               )}
@@ -420,24 +429,27 @@ export default function TamanoPosicion({
       {sub === 'cartera' && (
         <section>
           <div className="kpi-row tp-kpis">
-            <div className="kpi">
+            <div className="kpi tp-kpi tp-kpi-capital">
               <div className="kpi-label">Capital bolsa</div>
-              <div className="kpi-value">{fmtMoney(ajustes.capital)}</div>
+              <div className="kpi-value accent">{fmtMoney(ajustes.capital)}</div>
               <div className="kpi-split">1 operación al {fmtNumber(ajustes.pctRiesgo ?? 1, 1)} % = {ajustes.capital ? fmtMoney((ajustes.capital * (ajustes.pctRiesgo ?? 1)) / 100) : '—'}</div>
             </div>
-            <div className="kpi">
+            <div className="kpi tp-kpi tp-kpi-invertido">
               <div className="kpi-label">Invertido (a coste)</div>
               <div className="kpi-value">{fmtMoney(invertidoEUR)}</div>
               <div className="kpi-split">{ajustes.capital ? `${fmtNumber((invertidoEUR / ajustes.capital) * 100, 1)} % del capital · ` : ''}{posiciones.length} posiciones</div>
             </div>
-            <div className="kpi">
-              <div className="kpi-label">Liquidez</div>
-              <div className="kpi-value">{fmtMoney(ajustes.liquidez)}</div>
-              <div className="kpi-split">{ajustes.liquidez != null && ajustes.capital ? `${fmtNumber((ajustes.liquidez / ajustes.capital) * 100, 1)} % del capital` : 'Escríbela en Parámetros'}</div>
+            <div className="kpi tp-kpi tp-kpi-liquidez">
+              <div className="kpi-label">Liquidez {liquidezEsAuto ? '(automática)' : '(a mano)'}</div>
+              <div className={`kpi-value ${liquidez != null && liquidez < 0 ? 'loss' : 'gain'}`}>{fmtMoney(liquidez)}</div>
+              <div className="kpi-split">
+                {liquidez != null && ajustes.capital ? `${fmtNumber((liquidez / ajustes.capital) * 100, 1)} % del capital · ` : ''}
+                {liquidezEsAuto ? 'capital − invertido' : `automática sería ${fmtMoney(liquidezAuto)}`}
+              </div>
             </div>
-            <div className="kpi">
+            <div className="kpi tp-kpi tp-kpi-riesgo">
               <div className="kpi-label">Riesgo cartera</div>
-              <div className={`kpi-value ${cartera.pct != null && cartera.pct > (ajustes.limitePct ?? 6) ? 'loss' : ''}`}>{fmtMoney(cartera.totalEUR)}</div>
+              <div className={`kpi-value ${cartera.totalEUR > 0 ? 'loss' : 'gain'}`}>{fmtMoney(cartera.totalEUR)}</div>
               <div className="tp-bar" aria-hidden="true">
                 <span style={{ width: `${Math.min(100, cartera.pct != null ? (cartera.pct / (ajustes.limitePct || 6)) * 100 : 0)}%` }} className={cartera.pct > (ajustes.limitePct ?? 6) ? 'is-alert' : ''} />
               </div>
@@ -452,23 +464,39 @@ export default function TamanoPosicion({
             <summary className="tp-panel-title">Parámetros: capital, liquidez, % de riesgo, topes y comisiones</summary>
             <div className="tp-params">
               <Param label="Capital bolsa" sufijo="€" valor={ajustes.capital} onGuardar={(v) => guardarAjuste('capital', v)} hint="Dinero para todas las operaciones" />
-              <Param label="Liquidez" sufijo="€" valor={ajustes.liquidez} onGuardar={(v) => guardarAjuste('liquidez', v)} hint="Lo que tienes libre en el bróker" />
-              <Param label="Riesgo por operación" sufijo="%" valor={ajustes.pctRiesgo} onGuardar={(v) => guardarAjuste('pctRiesgo', v)} />
-              <Param label="Límite riesgo total" sufijo="%" valor={ajustes.limitePct} onGuardar={(v) => guardarAjuste('limitePct', v)} hint="Habitual: 5–6 %" />
-              <Param label="Tope por posición" sufijo="%" valor={ajustes.maxPctPosicion} onGuardar={(v) => guardarAjuste('maxPctPosicion', v)} hint="Máx. del capital en una acción" />
-              <Param label="Comisión compra" sufijo="€" valor={ajustes.comisionCompra} onGuardar={(v) => guardarAjuste('comisionCompra', v)} />
-              <Param label="Comisión venta" sufijo="€" valor={ajustes.comisionVenta} onGuardar={(v) => guardarAjuste('comisionVenta', v)} />
+              <Param
+                label="Liquidez"
+                sufijo="€"
+                valor={ajustes.liquidez}
+                placeholder={liquidezAuto != null ? `Auto: ${fmtNumber(liquidezAuto, 2)}` : 'Automática'}
+                onGuardar={(v) => guardarAjuste('liquidez', v)}
+                hint={liquidezEsAuto ? 'Vacío = capital − invertido. Escríbela si tienes más o menos dinero libre.' : (
+                  <>A mano. <button className="tp-link" onClick={() => guardarAjuste('liquidez', '')}>Volver a automática</button></>
+                )}
+              />
+              <Param label="Riesgo por operación" sufijo="%" valor={ajustes.pctRiesgo} onGuardar={(v) => guardarAjuste('pctRiesgo', v)} hint={'Recomendado: 1\u00a0% (máx. 2\u00a0%)'} />
+              <Param label="Límite riesgo total" sufijo="%" valor={ajustes.limitePct} onGuardar={(v) => guardarAjuste('limitePct', v)} hint="Recomendado: 5–6 %" />
+              <Param label="Tope por posición" sufijo="%" valor={ajustes.maxPctPosicion} onGuardar={(v) => guardarAjuste('maxPctPosicion', v)} hint="Recomendado: 20 % del capital en una acción" />
+              <Param label="Comisión compra" sufijo="€" valor={ajustes.comisionCompra} onGuardar={(v) => guardarAjuste('comisionCompra', v)} hint="Trade Republic: 1 €" />
+              <Param label="Comisión venta" sufijo="€" valor={ajustes.comisionVenta} onGuardar={(v) => guardarAjuste('comisionVenta', v)} hint="Trade Republic: 1 €" />
             </div>
           </details>
-          {ajustes.capital > 0 && ajustes.liquidez != null && Math.abs(invertidoEUR + ajustes.liquidez - ajustes.capital) > ajustes.capital * 0.02 && (
+          {ajustes.capital > 0 && !liquidezEsAuto && Math.abs(invertidoEUR + ajustes.liquidez - ajustes.capital) > ajustes.capital * 0.02 && (
             <div className="tp-nota">
               Invertido + liquidez = {fmtMoney(invertidoEUR + ajustes.liquidez)}, y tu capital bolsa es {fmtMoney(ajustes.capital)}.
               No tiene por qué cuadrar (ganancias, dinero fuera de la bolsa), pero revisa que el capital sigue siendo el que quieres usar.
             </div>
           )}
+          {superados.length > 0 && (
+            <div className="warn-box">
+              Stop por encima del precio actual en {superados.map((p) => p.symbol).join(', ')}: ese stop ya no sirve (se ejecutaría al momento).
+              Su riesgo se calcula al precio de hoy. Revisa el stop.
+            </div>
+          )}
           {sinStop.length > 0 && (
             <div className="warn-box">
-              {sinStop.length === 1 ? '1 posición sin stop' : `${sinStop.length} posiciones sin stop`} ({sinStop.map((p) => p.symbol).join(', ')}): {sinStop.length === 1 ? 'no suma al riesgo, pero en realidad arriesgas todo lo invertido en ella' : 'no suman al riesgo, pero en realidad arriesgas todo lo invertido en ellas'}.
+              {sinStop.length === 1 ? '1 posición sin stop' : `${sinStop.length} posiciones sin stop`} ({sinStop.map((p) => p.symbol).join(', ')}):
+              su riesgo se calcula como si vendieras al precio de hoy. Es un mínimo: sin stop la pérdida puede seguir creciendo.
             </div>
           )}
 
@@ -498,7 +526,7 @@ export default function TamanoPosicion({
                         </td>
                         <td className="num">{fmtNumber(p.cantidad, p.cantidad % 1 ? 2 : 0)}</td>
                         <td className="num">{fmtCotizacion(p.precioMedio, p.currency)}</td>
-                        <td className="num">{fmtCotizacion(p.precioActual, p.currency)}</td>
+                        <td className={`num ${p.precioActual != null ? (p.precioActual >= p.precioMedio ? 'gain' : 'loss') : ''}`}>{fmtCotizacion(p.precioActual, p.currency)}</td>
                         <td className="num">{fmtMoney(p.costeEUR)}</td>
                         <td className="num">
                           <StopInput valor={p.stop} currency={p.currency} onGuardar={(v) => onActualizarPosSettings(p.symbol, 'stopPrice', v)} />
@@ -523,7 +551,7 @@ export default function TamanoPosicion({
                     </div>
                     <div className="tp-card-grid">
                       <div><span>Precio medio</span><b className="num">{fmtCotizacion(p.precioMedio, p.currency)}</b></div>
-                      <div><span>Actual</span><b className="num">{fmtCotizacion(p.precioActual, p.currency)}</b></div>
+                      <div><span>Actual</span><b className={`num ${p.precioActual != null ? (p.precioActual >= p.precioMedio ? 'gain' : 'loss') : ''}`}>{fmtCotizacion(p.precioActual, p.currency)}</b></div>
                       <div>
                         <span>Stop</span>
                         <StopInput valor={p.stop} currency={p.currency} onGuardar={(v) => onActualizarPosSettings(p.symbol, 'stopPrice', v)} />
@@ -533,7 +561,7 @@ export default function TamanoPosicion({
                 ))}
               </div>
               <p className="tp-nota">
-                Riesgo = lo que pagaste en € − lo que recibirías si salta el stop (al EUR/USD de hoy, menos la comisión de venta). Si el stop ya está por encima de tu coste, la posición está libre de riesgo.
+                Riesgo = lo que pagaste en € − lo que recibirías si salta el stop (al EUR/USD de hoy, menos la comisión de venta). Si el stop ya está por encima de tu coste, la posición está libre de riesgo. Sin stop, o con el stop por encima del precio actual, se toma el precio de hoy.
                 El stop es el mismo de la pestaña Cartera.
               </p>
             </>
@@ -542,7 +570,7 @@ export default function TamanoPosicion({
       )}
 
       {sub === 'guia' && (
-        <Guia ajustes={ajustes} resultado={resultado} entrada={entrada} stop={stop} calc={calc} multiplicador={multiplicador} fxCalc={fxCalc} cartera={cartera} />
+        <Guia ajustes={ajustes} liquidez={liquidez} resultado={resultado} entrada={entrada} stop={stop} calc={calc} multiplicador={multiplicador} fxCalc={fxCalc} cartera={cartera} />
       )}
     </div>
   );
@@ -550,28 +578,34 @@ export default function TamanoPosicion({
 
 // ---------- Piezas pequeñas ----------
 
-function NumInput({ valor, onGuardar }) {
-  const [texto, setTexto] = useState(valor ?? '');
-  useEffect(() => setTexto(valor ?? ''), [valor]);
+function NumInput({ valor, onGuardar, placeholder }) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState('');
+  const mostrado = editando ? texto : valor != null ? fmtNumber(valor, valor % 1 ? 2 : 0) : '';
   return (
     <input
-      type="number"
+      type="text"
       inputMode="decimal"
-      step="any"
-      value={texto}
+      value={mostrado}
+      placeholder={placeholder}
+      onFocus={() => { setTexto(valor != null ? String(valor).replace('.', ',') : ''); setEditando(true); }}
       onChange={(e) => setTexto(e.target.value)}
-      onBlur={() => String(texto) !== String(valor ?? '') && onGuardar(texto)}
+      onBlur={() => {
+        setEditando(false);
+        const nuevo = num(texto);
+        if (nuevo !== (valor ?? null)) onGuardar(texto);
+      }}
       onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
     />
   );
 }
 
-function Param({ label, sufijo, valor, onGuardar, hint }) {
+function Param({ label, sufijo, valor, onGuardar, hint, placeholder }) {
   return (
     <div className="field tp-param">
       <label>{label}</label>
       <div className="tp-param-input">
-        <NumInput valor={valor} onGuardar={onGuardar} />
+        <NumInput valor={valor} onGuardar={onGuardar} placeholder={placeholder} />
         <span>{sufijo}</span>
       </div>
       {hint && <div className="hint">{hint}</div>}
@@ -605,13 +639,16 @@ function StopInput({ valor, currency, onGuardar }) {
 }
 
 function RiesgoCelda({ p, capital }) {
-  if (p.estado === 'sin-stop') return <span className="tag tp-tag-warn">Sin stop</span>;
-  if (p.estado === 'sin-datos') return <span className="tp-sin">—</span>;
+  if (p.estado === 'sin-datos' || (p.riesgoEUR == null && p.estado !== 'libre')) {
+    return p.estado === 'sin-stop' ? <span className="tag tp-tag-warn">Sin stop</span> : <span className="tp-sin">—</span>;
+  }
   if (p.estado === 'libre') return <span className="tag tp-tag-ok">Libre de riesgo</span>;
+  const etiqueta = p.estado === 'sin-stop' ? 'Sin stop' : p.estado === 'superado' ? 'Stop superado' : null;
   return (
-    <span className="loss">
-      {fmtMoney(p.riesgoEUR)}
-      {capital > 0 && <span className="cell-sub">{fmtNumber((p.riesgoEUR / capital) * 100, 2)} %</span>}
+    <span className="tp-riesgo">
+      {etiqueta && <span className="tag tp-tag-warn">{etiqueta}</span>}
+      <span className={p.riesgoEUR > 0 ? 'loss' : 'gain'}>{fmtMoney(p.riesgoEUR)}</span>
+      {capital > 0 && <span className="cell-sub">{fmtNumber((p.riesgoEUR / capital) * 100, 2)} %{etiqueta ? ' · a precio de hoy' : ''}</span>}
     </span>
   );
 }
@@ -632,7 +669,7 @@ function Formula({ children }) {
 
 // ---------- Subpestaña «Cómo se calcula» ----------
 
-function Guia({ ajustes, resultado, entrada, stop, calc, multiplicador, fxCalc, cartera }) {
+function Guia({ ajustes, liquidez, resultado, entrada, stop, calc, multiplicador, fxCalc, cartera }) {
   const cur = calc.currency;
   const m = (v) => fmtMoney(v);
   const p = (v) => fmtCotizacion(v, cur);
@@ -725,7 +762,8 @@ Disponible:            8.308,70 $`}</pre>
           <li><strong>Comisiones.</strong> Las de compra y venta se restan del riesgo máximo, para que si salta el stop la pérdida total sea el 1 % de verdad.</li>
           <li><strong>Tope por posición.</strong> Con un stop muy ajustado la fórmula puede pedir meter medio capital en una acción. Si pasa del {fmtNumber(ajustes.maxPctPosicion ?? 20, 0)} % del capital, se recorta.</li>
           <li><strong>Tope por liquidez.</strong> Si no tienes dinero suficiente, se recorta a lo que puedes pagar.</li>
-          <li><strong>Riesgo de lo que ya tienes.</strong> Se mide respecto a lo que pagaste: lo pagado − lo que recibirías en el stop. Si subes el stop por encima de tu coste, esa posición pasa a riesgo 0.</li>
+          <li><strong>Riesgo de lo que ya tienes.</strong> Se mide respecto a lo que pagaste: lo pagado − lo que recibirías en el stop. Si subes el stop por encima de tu coste, esa posición pasa a riesgo 0. Sin stop, o con el stop por encima del precio actual, se calcula al precio de hoy (es un mínimo).</li>
+          <li><strong>Liquidez.</strong> Si no la escribes, es capital bolsa − invertido. Escríbela a mano si tienes más o menos dinero libre de verdad.</li>
           <li><strong>Huecos.</strong> El stop no garantiza el precio. Si la acción abre muy por debajo (resultados, noticias), la orden se ejecuta más abajo y puedes perder más del 1 %.</li>
           {enDolares && <li><strong>Dólares.</strong> Precio y stop van en $, el riesgo en €. Si el dólar se mueve, la pérdida en € también cambia un poco.</li>}
         </ul>
@@ -757,7 +795,7 @@ Disponible:            8.308,70 $`}</pre>
               Número de acciones = <Frac arriba={`${m(resultado.riesgoMaxEUR)} − ${m(resultado.comisiones)}`} abajo={m(resultado.riesgoAccionEUR)} /> <span className="nw">= {fmtNumber(resultado.accionesSinRedondear, 2)} → <b>{resultado.porRiesgo} acciones</b></span>
             </Formula>
             {resultado.limitante !== 'riesgo' && (
-              <p className="guia-mini">Recortado a <b>{resultado.acciones}</b> por {resultado.limitante === 'posicion' ? `el tope por posición (${fmtNumber(ajustes.maxPctPosicion, 0)} % = ${m(resultado.maxPosicionEUR)})` : `tu liquidez (${m(ajustes.liquidez)})`}.</p>
+              <p className="guia-mini">Recortado a <b>{resultado.acciones}</b> por {resultado.limitante === 'posicion' ? `el tope por posición (${fmtNumber(ajustes.maxPctPosicion, 0)} % = ${m(resultado.maxPosicionEUR)})` : `tu liquidez (${m(liquidez)})`}.</p>
             )}
             <Formula>
               Capital invertido = {resultado.acciones} × {m(resultado.precioEUR)} + {m(ajustes.comisionCompra ?? 0)} = <b>{m(resultado.capitalEUR)}</b>

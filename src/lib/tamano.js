@@ -124,12 +124,23 @@ export function calcularTamano({
   };
 }
 
-// Pérdida si salta el stop, respecto a lo que pagaste (en €, comisiones de compra
-// incluidas en el coste). Si el stop ya está por encima de tu coste: 0.
-// cantidad × stop se pasa a € con el tipo de hoy.
-export function riesgoPosicion({ costeEUR, cantidad, stop, fx = 1, comisionVenta = 0 }) {
-  if (!(stop > 0)) return { estado: 'sin-stop', riesgoEUR: null };
-  if (costeEUR == null || !(fx > 0)) return { estado: 'sin-datos', riesgoEUR: null };
+// Riesgo de una posición abierta, en €:
+//   - Sin stop o con el stop por encima del precio actual (stop superado):
+//     se toma como salida el precio de hoy; el riesgo es lo que pierdes si
+//     vendes ahora respecto a lo que pagaste (mínimo 0). Es un mínimo: sin un
+//     stop válido la pérdida puede seguir creciendo.
+//   - Stop normal: lo pagado − lo que recibirías en el stop (mínimo 0; si el
+//     stop está por encima de tu coste, la posición queda libre de riesgo).
+// cantidad × precio se pasa a € con el tipo de hoy y se resta la comisión de venta.
+export function riesgoPosicion({ costeEUR, cantidad, stop, precioActual = null, fx = 1, comisionVenta = 0 }) {
+  const sinStop = !(stop > 0);
+  const superado = !sinStop && precioActual > 0 && stop >= precioActual;
+  if (costeEUR == null || !(fx > 0)) return { estado: sinStop ? 'sin-stop' : 'sin-datos', riesgoEUR: null };
+  if (sinStop || superado) {
+    if (!(precioActual > 0)) return { estado: sinStop ? 'sin-stop' : 'sin-datos', riesgoEUR: null };
+    const ventaHoyEUR = precioActual * cantidad * fx - (comisionVenta || 0);
+    return { estado: sinStop ? 'sin-stop' : 'superado', riesgoEUR: Math.max(0, costeEUR - ventaHoyEUR), salidaEUR: ventaHoyEUR };
+  }
   const salidaEUR = stop * cantidad * fx - (comisionVenta || 0);
   const perdida = costeEUR - salidaEUR;
   if (perdida <= 0) return { estado: 'libre', riesgoEUR: 0, salidaEUR };
