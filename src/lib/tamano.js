@@ -39,6 +39,8 @@ export function calcularStop({ modo, entrada, atr, multiplicador, pct, manual })
   return manual > 0 ? manual : null;
 }
 
+// accionesManual: número elegido a mano con − / + (si no, el recomendado).
+// maxPctMargen: % de riesgo hasta el que se calcula el margen (2 %).
 export function calcularTamano({
   capital,
   pctRiesgo,
@@ -49,8 +51,10 @@ export function calcularTamano({
   comisionVenta = 0,
   liquidez = null,
   maxPctPosicion = null,
+  accionesManual = null,
+  maxPctMargen = 2,
 }) {
-  const vacio = { acciones: 0, error: null, avisos: [] };
+  const vacio = { acciones: 0, error: null, avisos: [], objetivos: [] };
   if (!(capital > 0)) return { ...vacio, error: 'Escribe tu capital bolsa en «Cartera y riesgo».' };
   if (!(pctRiesgo > 0)) return { ...vacio, error: 'El riesgo por operación debe ser mayor que 0.' };
   if (!(entrada > 0)) return { ...vacio, error: 'Falta el precio de entrada.' };
@@ -64,32 +68,44 @@ export function calcularTamano({
   const riesgoAccionEUR = riesgoAccion * fx;
   const precioEUR = entrada * fx;
 
+  // Acciones que da la regla, redondeadas al entero más cercano (desde ,5 hacia arriba)
   const accionesSinRedondear = Math.max(0, (riesgoMaxEUR - comisiones) / riesgoAccionEUR);
-  const porRiesgo = Math.floor(accionesSinRedondear + 1e-9);
+  const porRiesgo = Math.floor(accionesSinRedondear + 0.5 + 1e-9);
 
-  const topes = [{ motivo: 'riesgo', acciones: porRiesgo }];
+  // Topes de dinero: aquí no se redondea hacia arriba (no se puede pagar lo que no hay)
   const maxPosicionEUR = maxPctPosicion > 0 ? (capital * maxPctPosicion) / 100 : null;
-  if (maxPosicionEUR != null) {
-    topes.push({ motivo: 'posicion', acciones: Math.floor((maxPosicionEUR - (comisionCompra || 0)) / precioEUR + 1e-9) });
-  }
-  if (liquidez != null && liquidez >= 0) {
-    topes.push({ motivo: 'liquidez', acciones: Math.floor((liquidez - (comisionCompra || 0)) / precioEUR + 1e-9) });
-  }
-  const limitante = topes.reduce((a, b) => (b.acciones < a.acciones ? b : a));
-  const acciones = Math.max(0, limitante.acciones);
+  const topePosicion = maxPosicionEUR != null ? Math.max(0, Math.floor((maxPosicionEUR - (comisionCompra || 0)) / precioEUR + 1e-9)) : null;
+  const topeLiquidez = liquidez != null && liquidez >= 0 ? Math.max(0, Math.floor((liquidez - (comisionCompra || 0)) / precioEUR + 1e-9)) : null;
+
+  let recomendadas = porRiesgo;
+  let limitante = 'riesgo';
+  if (topePosicion != null && topePosicion < recomendadas) { recomendadas = topePosicion; limitante = 'posicion'; }
+  if (topeLiquidez != null && topeLiquidez < recomendadas) { recomendadas = topeLiquidez; limitante = 'liquidez'; }
+
+  // Margen: hasta cuántas acciones sin pasar del maxPctMargen de riesgo
+  const maxAccionesMargen = Math.max(0, Math.floor(((capital * maxPctMargen) / 100 - comisiones) / riesgoAccionEUR + 1e-9));
+
+  const esManual = accionesManual != null && accionesManual >= 0 && accionesManual !== recomendadas;
+  const acciones = esManual ? Math.floor(accionesManual) : recomendadas;
 
   const avisos = [];
   if (riesgoMaxEUR <= comisiones) avisos.push('Las comisiones ya se comen todo el riesgo permitido: sube el % o el capital.');
-  if (limitante.motivo === 'posicion' && acciones < porRiesgo) {
+  if (!esManual && limitante === 'posicion') {
     avisos.push(`Recortado por el tope por posición (${maxPctPosicion} % del capital): sin él serían ${porRiesgo} acciones.`);
   }
-  if (limitante.motivo === 'liquidez' && acciones < porRiesgo) {
-    avisos.push(`Recortado por tu liquidez: sin ese límite serían ${porRiesgo} acciones.`);
-  }
-  if (acciones === 0 && porRiesgo > 0) avisos.push('Con estos límites no llega ni para una acción.');
+  if (!esManual && limitante === 'liquidez') avisos.push(`Recortado por tu liquidez: sin ese límite serían ${porRiesgo} acciones.`);
+  if (acciones === 0 && porRiesgo > 0 && !esManual) avisos.push('Con estos límites no llega ni para una acción.');
 
   const capitalEUR = acciones > 0 ? acciones * precioEUR + (comisionCompra || 0) : 0;
   const riesgoEUR = acciones > 0 ? acciones * riesgoAccionEUR + comisiones : 0;
+  const riesgoPct = (riesgoEUR / capital) * 100;
+
+  // Qué límites pasa el número elegido (solo informa, no bloquea)
+  const pasa = {
+    margen: acciones > maxAccionesMargen,
+    posicion: topePosicion != null && acciones > topePosicion,
+    liquidez: topeLiquidez != null && acciones > topeLiquidez,
+  };
 
   const objetivos = RATIOS.map((r) => {
     const distancia = r * riesgoAccion;
@@ -112,16 +128,43 @@ export function calcularTamano({
     precioEUR,
     accionesSinRedondear,
     porRiesgo,
+    recomendadas,
     acciones,
-    limitante: acciones < porRiesgo ? limitante.motivo : 'riesgo',
+    esManual,
+    limitante,
     maxPosicionEUR,
+    topePosicion,
+    topeLiquidez,
+    maxAccionesMargen,
+    maxPctMargen,
+    pasa,
     capitalEUR,
     riesgoEUR,
-    riesgoPct: (riesgoEUR / capital) * 100,
+    riesgoPct,
     pctCapital: (capitalEUR / capital) * 100,
     distanciaStopPct: (riesgoAccion / entrada) * 100,
     objetivos,
   };
+}
+
+// Paso de los botones − / + del stop: un cuarto del ATR (o 0,5 % del precio sin ATR)
+export function pasoStop({ atr, entrada }) {
+  if (atr > 0) return atr / 4;
+  return entrada > 0 ? entrada * 0.005 : 0.1;
+}
+
+// Semáforo del riesgo total con la operación nueva
+//   rojo-ya: ya estás por encima del límite antes de comprar
+//   rojo: esta compra te pasa del límite · amarillo: llegas justo (no cabe otra)
+//   verde: puedes operar
+export function semaforoRiesgo({ pctAhora, pctCon, limitePct, pctOperacion }) {
+  if (pctAhora == null) return null;
+  const eps = 1e-9;
+  if (pctAhora > limitePct + eps) return 'rojo-ya';
+  if (pctCon == null) return pctAhora + pctOperacion > limitePct + eps ? 'amarillo' : 'verde';
+  if (pctCon > limitePct + eps) return 'rojo';
+  if (pctCon + pctOperacion > limitePct + eps) return 'amarillo';
+  return 'verde';
 }
 
 // Riesgo de una posición abierta, en €:

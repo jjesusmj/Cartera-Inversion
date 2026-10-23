@@ -46,10 +46,12 @@ function indiceCercano(points, t) {
   return Math.abs(points[lo][0] - t) <= Math.abs(points[hi][0] - t) ? lo : hi;
 }
 
-// levels: [{ value, label, tipo: 'loss' | 'gain' | 'neutral' | 'accent' }]
+// levels: [{ value, label, tipo: 'loss' | 'gain' | 'neutral' | 'accent', fino?: true }]
 // compras: [{ date: 'YYYY-MM-DD', price }]
-export default function PeriodChart({ symbol, currency, dia, levels = [], compras = [] }) {
-  const [range, setRange] = useState('1d');
+// zonas: [{ desde, hasta, tipo }] franjas sombreadas entre dos precios
+// nivelesSiempre: los niveles y zonas entran siempre en la escala (calculadora)
+export default function PeriodChart({ symbol, currency, dia, levels = [], compras = [], zonas = [], rangoInicial = '1d', nivelesSiempre = false }) {
+  const [range, setRange] = useState(rangoInicial);
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
@@ -96,13 +98,14 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
 
     // Niveles y compras entran en la escala si están cerca del precio; si no,
     // se indican en el borde para no aplastar el gráfico.
-    const cerca = (v) => v >= min - margen && v <= max + margen;
+    const cerca = (v) => nivelesSiempre || (v >= min - margen && v <= max + margen);
     const nivelesDentro = levels.filter((l) => l.value != null && cerca(l.value));
     const nivelesFuera = levels.filter((l) => l.value != null && !cerca(l.value));
     const comprasDentro = compras
       .map((c) => ({ ...c, t: Date.parse(`${c.date}T12:00:00Z`) / 1000 }))
       .filter((c) => c.t >= t0 && c.t <= t1 && cerca(c.price));
-    for (const v of [...nivelesDentro.map((l) => l.value), ...comprasDentro.map((c) => c.price)]) {
+    const zonasValidas = zonas.filter((z) => z.desde != null && z.hasta != null && (nivelesSiempre || (cerca(z.desde) && cerca(z.hasta))));
+    for (const v of [...nivelesDentro.map((l) => l.value), ...comprasDentro.map((c) => c.price), ...zonasValidas.flatMap((z) => [z.desde, z.hasta])]) {
       min = Math.min(min, v);
       max = Math.max(max, v);
     }
@@ -121,11 +124,11 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
 
     return {
       pts, t0, t1, x, y, linea, area, yRef, ultimo, sube,
-      nivelesDentro, nivelesFuera, comprasDentro,
+      nivelesDentro, nivelesFuera, comprasDentro, zonasValidas,
       nivelesArriba: nivelesFuera.filter((l) => l.value > max),
       nivelesAbajo: nivelesFuera.filter((l) => l.value < min),
     };
-  }, [data, range, ancho, levels, compras]);
+  }, [data, range, ancho, levels, compras, zonas, nivelesSiempre]);
 
   function onPointer(e) {
     if (!g) return;
@@ -186,15 +189,22 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
               role="img"
               aria-label={`Gráfico de ${symbol}, ${periodo.nombre}`}
             >
+              {g.zonasValidas.map((z, i) => {
+                const y1 = g.y(Math.max(z.desde, z.hasta));
+                const y2 = g.y(Math.min(z.desde, z.hasta));
+                return <rect key={`z${i}`} x="0" width={ancho} y={y1} height={Math.max(0, y2 - y1)} className={`pchart-zona ${z.tipo}`} />;
+              })}
               <path d={g.area} style={{ fill: color, fillOpacity: 0.1 }} />
               <line x1="0" x2={ancho} y1={g.yRef} y2={g.yRef} style={{ stroke: 'var(--ink-faint)' }} strokeWidth="0.8" strokeDasharray="2 3" />
 
               {g.nivelesDentro.map((l) => (
                 <g key={l.label}>
-                  <line x1="0" x2={ancho} y1={g.y(l.value)} y2={g.y(l.value)} className={`pchart-level ${l.tipo}`} />
-                  <text x="4" y={g.y(l.value) - 4} className={`pchart-level-text ${l.tipo}`}>
-                    {l.label} {fmtPrecio(l.value)}
-                  </text>
+                  <line x1="0" x2={ancho} y1={g.y(l.value)} y2={g.y(l.value)} className={`pchart-level ${l.tipo}${l.fino ? ' is-fino' : ''}`} />
+                  {!l.fino && (
+                    <text x="4" y={g.y(l.value) - 4} className={`pchart-level-text ${l.tipo}`}>
+                      {l.label} {fmtPrecio(l.value)}
+                    </text>
+                  )}
                 </g>
               ))}
 

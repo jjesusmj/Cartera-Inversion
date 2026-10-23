@@ -1,7 +1,7 @@
 // Tamaño de posición y riesgo de cartera. Ejecutar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularATR, calcularStop, calcularTamano, riesgoPosicion, riesgoCartera } from '../src/lib/tamano.js';
+import { calcularATR, calcularStop, calcularTamano, riesgoPosicion, riesgoCartera, pasoStop, semaforoRiesgo } from '../src/lib/tamano.js';
 
 const cerca = (real, esperado, msg) => assert.ok(Math.abs(real - esperado) < 0.01, `${msg}: ${real} frente a ${esperado}`);
 
@@ -12,12 +12,12 @@ test('ejemplo de la guía: 1.000 €, 1 %, entrada 50 €, ATR 2 €, stop a 2 �
   cerca(r.riesgoMaxEUR, 10, 'riesgo máximo');
   cerca(r.riesgoAccionEUR, 4, 'riesgo por acción');
   cerca(r.accionesSinRedondear, 2.5, 'sin redondear');
-  assert.equal(r.acciones, 2);
-  cerca(r.capitalEUR, 100, 'capital invertido');
-  cerca(r.riesgoEUR, 8, 'riesgo real');
+  assert.equal(r.acciones, 3); // desde ,5 se redondea hacia arriba
+  cerca(r.capitalEUR, 150, 'capital invertido');
+  cerca(r.riesgoEUR, 12, 'riesgo real');
   cerca(r.objetivos[2].precio, 62, 'objetivo 1:3');
   cerca(r.objetivos[0].precio, 54, 'objetivo 1:1');
-  cerca(r.objetivos[2].gananciaEUR, 24, 'ganancia 1:3');
+  cerca(r.objetivos[2].gananciaEUR, 36, 'ganancia 1:3');
 });
 
 test('ejemplo Netflix: 10.000, 1 %, entrada 65,05 → 26 acciones', () => {
@@ -33,14 +33,14 @@ test('las comisiones se descuentan del riesgo', () => {
   cerca(r.riesgoEUR, 10, 'riesgo con comisiones');
   cerca(r.capitalEUR, 101, 'capital con comisión de compra');
   const r2 = calcularTamano({ capital: 1000, pctRiesgo: 1, entrada: 50, stop: 47, comisionCompra: 1, comisionVenta: 1 });
-  assert.equal(r2.acciones, 2); // 8 / 3 = 2,67
+  assert.equal(r2.acciones, 3); // 8 / 3 = 2,67 → 3
 });
 
 test('acción en dólares: riesgo en euros con el tipo de cambio', () => {
   // 15.000 €, 1 % = 150 €; entrada 120 $, stop 113 $ (7 $ ≈ 6,02 € a 0,86 €/$)
   const r = calcularTamano({ capital: 15000, pctRiesgo: 1, entrada: 120, stop: 113, fx: 0.86 });
-  assert.equal(r.acciones, 24); // 150 / 6,02 = 24,9
-  cerca(r.capitalEUR, 24 * 120 * 0.86, 'capital en €');
+  assert.equal(r.acciones, 25); // 150 / 6,02 = 24,9 → 25
+  cerca(r.capitalEUR, 25 * 120 * 0.86, 'capital en €');
 });
 
 test('tope por posición recorta el tamaño', () => {
@@ -108,4 +108,35 @@ test('riesgo de cartera frente al límite del 6 %', () => {
   cerca(r.pct, 2.5, 'pct');
   cerca(r.margenEUR, 350, 'margen');
   assert.equal(r.caben, 3);
+});
+
+test('redondeo: por debajo de ,5 hacia abajo', () => {
+  const r = calcularTamano({ capital: 1000, pctRiesgo: 1, entrada: 50, stop: 45.8 }); // 10 / 4,2 = 2,38
+  assert.equal(r.acciones, 2);
+});
+
+test('acciones a mano y margen hasta el 2 %', () => {
+  const base = { capital: 10000, pctRiesgo: 1, entrada: 50, stop: 46 }; // 100 / 4 = 25
+  const r = calcularTamano(base);
+  assert.equal(r.recomendadas, 25);
+  assert.equal(r.maxAccionesMargen, 50); // 200 / 4
+  const m = calcularTamano({ ...base, accionesManual: 30 });
+  assert.equal(m.acciones, 30);
+  assert.ok(m.esManual);
+  cerca(m.riesgoEUR, 120, 'riesgo con 30');
+  assert.equal(m.pasa.margen, false);
+  assert.equal(calcularTamano({ ...base, accionesManual: 51 }).pasa.margen, true);
+  assert.equal(calcularTamano({ ...base, maxPctPosicion: 20, accionesManual: 41 }).pasa.posicion, true); // 2.000 € / 50 = 40
+});
+
+test('paso del stop: un cuarto del ATR', () => {
+  cerca(pasoStop({ atr: 3.5, entrada: 120 }), 0.875, 'paso');
+  cerca(pasoStop({ atr: null, entrada: 120 }), 0.6, 'paso sin ATR');
+});
+
+test('semáforo del riesgo total', () => {
+  assert.equal(semaforoRiesgo({ pctAhora: 7.2, pctCon: 8.2, limitePct: 6, pctOperacion: 1 }), 'rojo-ya');
+  assert.equal(semaforoRiesgo({ pctAhora: 5.5, pctCon: 6.5, limitePct: 6, pctOperacion: 1 }), 'rojo');
+  assert.equal(semaforoRiesgo({ pctAhora: 4.5, pctCon: 5.5, limitePct: 6, pctOperacion: 1 }), 'amarillo');
+  assert.equal(semaforoRiesgo({ pctAhora: 2, pctCon: 3, limitePct: 6, pctOperacion: 1 }), 'verde');
 });
