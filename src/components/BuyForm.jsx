@@ -6,22 +6,24 @@ import { EXCHANGES, exchangeById } from '../lib/exchanges';
 // Sirve tanto para registrar una compra nueva como para editar un lote
 // existente: si se pasa `initial`, el formulario arranca precargado y
 // cambia a modo edición.
-export default function BuyForm({ onClose, onSubmit, initial }) {
+export default function BuyForm({ onClose, onSubmit, initial, prefill }) {
   const esEdicion = !!initial;
-  const exchangeInicial = initial?.exchangeId || (initial?.currency === 'USD' ? 'us' : 'es');
+  // `prefill`: compra nueva con datos ya rellenos (desde la calculadora de tamaño)
+  const base = initial || prefill;
+  const exchangeInicial = base?.exchangeId || (base?.currency === 'USD' ? 'us' : 'es');
 
   const [form, setForm] = useState({
     exchangeId: exchangeInicial,
-    symbol: initial?.symbol || '',
-    name: initial?.name || '',
-    broker: initial?.broker || BROKERS[0],
-    buyDate: initial?.buyDate || new Date().toISOString().slice(0, 10),
-    quantity: initial?.quantity ?? '',
-    price: initial?.price ?? '',
-    commission: initial?.commission ?? '0',
-    costEUR: initial?.costEUR ?? '',
-    comment: initial?.comment || '',
-    manualPrice: initial?.manualPrice ?? '',
+    symbol: base?.symbol || '',
+    name: base?.name || '',
+    broker: base?.broker || BROKERS[0],
+    buyDate: base?.buyDate || new Date().toISOString().slice(0, 10),
+    quantity: base?.quantity ?? '',
+    price: base?.price ?? '',
+    commission: base?.commission ?? '0',
+    costEUR: base?.costEUR ?? '',
+    comment: base?.comment || '',
+    manualPrice: base?.manualPrice ?? '',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);

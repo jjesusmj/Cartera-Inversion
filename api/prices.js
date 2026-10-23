@@ -10,7 +10,8 @@
 // como red de seguridad.
 //
 // Solo se llama al abrir la app, al pulsar "Actualizar" o al deslizar hacia
-// abajo en el iPhone. No hay consultas automáticas.
+// abajo en el iPhone. Única consulta automática: cada 5 minutos mientras la
+// pestaña «Tamaño Posición & Gestión Cartera» está abierta y visible.
 //
 // Para comprobar a mano lo que devuelve Yahoo:
 //   /api/prices?symbols=BKNG&currencies=USD&debug=1

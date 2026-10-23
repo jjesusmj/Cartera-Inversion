@@ -347,3 +347,24 @@ export async function obtenerUltimoBCE(divisa) {
   const data = await res.json();
   return { rate: data.rates[divisa], date: data.date };
 }
+
+// ---------- Tamaño de posición ----------
+
+// Precio actual y ATR 14 (velas diarias de Yahoo) de un valor.
+export async function obtenerATR(symbol, currency) {
+  const res = await fetch(`/api/atr?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency || '')}`);
+  const datos = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(datos.error || 'No se pudo obtener el ATR de Yahoo.');
+  return datos; // { price, atr, currency, marketTime }
+}
+
+// Ajustes de la pestaña (capital bolsa, liquidez, % de riesgo…), uno por titular.
+export async function leerAjustesTamano(owner) {
+  const snap = await getDoc(doc(db, 'settings', `tamano_${owner}`));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function guardarAjustesTamano(owner, datos) {
+  comprobarEscritura();
+  return setDoc(doc(db, 'settings', `tamano_${owner}`), datos, { merge: true });
+}

@@ -5,6 +5,7 @@ import Watchlist from './components/Watchlist';
 import Resumen from './components/Resumen';
 import Renta from './components/Renta';
 import Valoracion from './components/Valoracion';
+import TamanoPosicion from './components/TamanoPosicion';
 import BuyForm from './components/BuyForm';
 import SaleForm from './components/SaleForm';
 import WatchForm from './components/WatchForm';
@@ -93,6 +94,7 @@ export default function App() {
 
   const [showBuyForm, setShowBuyForm] = useState(false);
   const [editLote, setEditLote] = useState(null);
+  const [prefillCompra, setPrefillCompra] = useState(null); // compra rellenada desde la calculadora
   const [showWatchForm, setShowWatchForm] = useState(false);
   const [editWatch, setEditWatch] = useState(null);
   const [sellTarget, setSellTarget] = useState(null); // { symbol, name, currency, openLots }
@@ -221,7 +223,7 @@ export default function App() {
     obtenerPerfiles(clavesSimbolos.split(',')).then(setPerfiles);
   }, [clavesSimbolos]);
 
-  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen' || view === 'valoracion';
+  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen' || view === 'valoracion' || view === 'tamano';
   const pull = usePullToRefresh(() => {
     if (!pricesLoading) refreshPrices();
   }, vistaConPrecios);
@@ -239,6 +241,7 @@ export default function App() {
   async function handleAddLote(data) {
     await crearLote({ ...(await conFxCompra(data)), owner });
     setShowBuyForm(false);
+    setPrefillCompra(null);
     cargarTodo();
   }
 
@@ -510,6 +513,20 @@ export default function App() {
                 onToggleFavorito={ro(handleToggleFavorito)}
               />
             )}
+            {view === 'tamano' && (
+              <TamanoPosicion
+                owner={owner}
+                openLots={openLots}
+                prices={prices}
+                positionSettings={positionSettings}
+                onActualizarPosSettings={ro(handleActualizarPosSettings)}
+                pricesLoading={pricesLoading}
+                onRefreshPrices={refreshPrices}
+                ultimaActualizacion={ultimaActualizacion}
+                onRegistrarCompra={ro((datos) => setPrefillCompra(datos))}
+                onAvisoSoloLectura={avisarSoloLectura}
+              />
+            )}
             {view === 'renta' && <Renta sales={sales} />}
           </>
         )}
@@ -523,6 +540,9 @@ export default function App() {
       </main>
 
       {showBuyForm && <BuyForm onClose={() => setShowBuyForm(false)} onSubmit={handleAddLote} />}
+      {prefillCompra && (
+        <BuyForm prefill={prefillCompra} onClose={() => setPrefillCompra(null)} onSubmit={handleAddLote} />
+      )}
       {editLote && (
         <BuyForm initial={editLote} onClose={() => setEditLote(null)} onSubmit={handleEditarLote} />
       )}

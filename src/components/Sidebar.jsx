@@ -3,6 +3,7 @@ import { OWNERS } from '../lib/owners';
 
 const ITEMS = [
   { id: 'cartera', label: 'Cartera' },
+  { id: 'tamano', label: 'Tamaño Posición & Gestión Cartera', corto: 'Posición' },
   { id: 'watchlist', label: 'Seguimiento' },
   { id: 'resumen', label: 'Resumen' },
   { id: 'valoracion', label: 'Valoración' },
@@ -33,7 +34,14 @@ export default function Sidebar({ view, setView, owner, setOwner }) {
             className={view === item.id ? 'active' : ''}
             onClick={() => setView(item.id)}
           >
-            {item.label}
+            {item.corto ? (
+              <>
+                <span className="nav-largo">{item.label}</span>
+                <span className="nav-corto">{item.corto}</span>
+              </>
+            ) : (
+              item.label
+            )}
           </button>
         ))}
       </nav>
