@@ -8,6 +8,7 @@ const ITEMS = [
   { id: 'resumen', label: 'Resumen' },
   { id: 'valoracion', label: 'Valoración' },
   { id: 'renta', label: 'Declaración' },
+  { id: 'patternlab', label: 'Pattern Lab', corto: 'Lab' },
 ];
 
 export default function Sidebar({ view, setView, owner, setOwner }) {

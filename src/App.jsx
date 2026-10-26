@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Cartera from './components/Cartera';
 import Watchlist from './components/Watchlist';
@@ -41,6 +41,9 @@ import { venderFIFO } from './lib/fifo';
 import { SIMBOLO_FX } from './lib/costes';
 import { SOLO_LECTURA, MENSAJE_SOLO_LECTURA } from './lib/modo';
 import CabeceraDatos from './components/CabeceraDatos';
+
+// Pattern Lab va en su propio archivo y solo se descarga al abrir la pestaña
+const PatternLab = lazy(() => import('./patternlab/PatternLab'));
 
 export default function App() {
   const [view, setView] = useState('cartera');
@@ -528,6 +531,11 @@ export default function App() {
               />
             )}
             {view === 'renta' && <Renta sales={sales} />}
+            {view === 'patternlab' && (
+              <Suspense fallback={<p className="page-sub">Cargando Pattern Lab…</p>}>
+                <PatternLab openLots={openLots} watchlist={watchlist} />
+              </Suspense>
+            )}
           </>
         )}
 
