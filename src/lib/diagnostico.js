@@ -17,22 +17,15 @@ export function sma(cierres, n) {
   return media(cierres.slice(-n));
 }
 
-// RSI de Wilder
+// RSI con medias simples de las últimas n subidas y bajadas (como AITerminal)
 export function rsi(cierres, n = 14) {
   if (cierres.length <= n) return null;
   let sube = 0;
   let baja = 0;
-  for (let i = 1; i <= n; i++) {
+  for (let i = cierres.length - n; i < cierres.length; i++) {
     const d = cierres[i] - cierres[i - 1];
     if (d > 0) sube += d;
     else baja -= d;
-  }
-  sube /= n;
-  baja /= n;
-  for (let i = n + 1; i < cierres.length; i++) {
-    const d = cierres[i] - cierres[i - 1];
-    sube = (sube * (n - 1) + Math.max(d, 0)) / n;
-    baja = (baja * (n - 1) + Math.max(-d, 0)) / n;
   }
   if (baja === 0) return 100;
   return 100 - 100 / (1 + sube / baja);
@@ -49,7 +42,8 @@ export function volatilidad(cierres, n = 30) {
 }
 
 // precio: cotización actual (si no, el último cierre); rango52: { min, max } de la cotización
-export function tecnico({ cierres = [], volumenes = [] } = {}, precio = null, rango52 = null) {
+// sesionAbierta: el último volumen es de hoy y aún no está completo; se usa el del día anterior
+export function tecnico({ cierres = [], volumenes = [], sesionAbierta = false } = {}, precio = null, rango52 = null) {
   if (cierres.length < 30) return null;
   const p = esNum(precio) ? precio : cierres[cierres.length - 1];
   const s20 = sma(cierres, 20);
@@ -59,9 +53,9 @@ export function tecnico({ cierres = [], volumenes = [] } = {}, precio = null, ra
   const max52 = esNum(rango52?.max) ? rango52.max : Math.max(...ultimoAno);
   const min52 = esNum(rango52?.min) ? rango52.min : Math.min(...ultimoAno);
   const hace = (n) => (cierres.length > n ? cierres[cierres.length - 1 - n] : null);
-  const vols = volumenes.filter(esNum);
+  const vols = (sesionAbierta ? volumenes.slice(0, -1) : volumenes).filter(esNum);
   const volMedia90 = vols.length > 90 ? media(vols.slice(-91, -1)) : null;
-  const volHoy = vols.length ? vols[vols.length - 1] : null;
+  const volDia = vols.length ? vols[vols.length - 1] : null;
   return {
     rsi: rsi(cierres, 14),
     sma20: s20,
@@ -73,7 +67,7 @@ export function tecnico({ cierres = [], volumenes = [] } = {}, precio = null, ra
     distMax52: max52 ? p / max52 - 1 : null,
     distMin52: min52 ? p / min52 - 1 : null,
     volatilidad30: volatilidad(cierres, 30),
-    volumenVsMedia: volMedia90 && esNum(volHoy) ? volHoy / volMedia90 : null,
+    volumenVsMedia: volMedia90 && esNum(volDia) ? volDia / volMedia90 : null,
     var1m: hace(21) ? p / hace(21) - 1 : null,
     var3m: hace(63) ? p / hace(63) - 1 : null,
   };
@@ -99,15 +93,22 @@ export function cagr(serie, anos = 3) {
   return { valor: (fin / ini) ** (1 / n) - 1, anos: n };
 }
 
+// Datos más recientes: balance del último trimestre y resultados de los últimos
+// 12 meses (reciente = { trimestre: { Cuenta: valor }, ttm: { Cuenta: valor } }).
+// Si Yahoo no los tiene, se usa la última cuenta anual.
+const balance = (cuentas, reciente, k) => (esNum(reciente?.trimestre?.[k]) ? reciente.trimestre[k] : val(cuentas, k));
+const doceMeses = (cuentas, reciente, k) => (esNum(reciente?.ttm?.[k]) ? reciente.ttm[k] : val(cuentas, k));
+
 // Altman Z original: 1,2·FM/A + 1,4·BR/A + 3,3·EBIT/A + 0,6·Capitalización/Pasivo + 1,0·Ventas/A
-export function altmanZ(cuentas, capitalizacion) {
-  const A = val(cuentas, 'TotalAssets');
-  const AC = val(cuentas, 'CurrentAssets');
-  const PC = val(cuentas, 'CurrentLiabilities');
-  const BR = val(cuentas, 'RetainedEarnings');
-  const EBIT = val(cuentas, 'EBIT');
-  const P = val(cuentas, 'TotalLiabilitiesNetMinorityInterest');
-  const V = val(cuentas, 'TotalRevenue');
+export function altmanZ(cuentas, capitalizacion, reciente = null) {
+  const b = (k) => balance(cuentas, reciente, k);
+  const A = b('TotalAssets');
+  const AC = b('CurrentAssets');
+  const PC = b('CurrentLiabilities');
+  const BR = b('RetainedEarnings');
+  const EBIT = doceMeses(cuentas, reciente, 'EBIT');
+  const P = b('TotalLiabilitiesNetMinorityInterest');
+  const V = doceMeses(cuentas, reciente, 'TotalRevenue');
   if (![A, AC, PC, BR, EBIT, P, V, capitalizacion].every(esNum) || A <= 0 || P <= 0) return null;
   return 1.2 * ((AC - PC) / A) + 1.4 * (BR / A) + 3.3 * (EBIT / A) + 0.6 * (capitalizacion / P) + 1.0 * (V / A);
 }
@@ -157,33 +158,39 @@ export function roic(cuentas) {
 // Salud financiera (panel)
 // ===================================================================
 
-export function saludFinanciera(resumen, cuentas, { esBanco = false } = {}) {
+// Deuda financiera sin alquileres, caja del último trimestre y resultados de 12 meses
+export function saludFinanciera(resumen, cuentas, { esBanco = false, reciente = null } = {}) {
   const f = resumen?.financialData || {};
   const k = resumen?.keyStats || {};
   const s = resumen?.summary || {};
-  const deuda = f.totalDebt ?? val(cuentas, 'TotalDebt');
-  const caja = f.totalCash ?? val(cuentas, 'CashAndCashEquivalents');
-  const ebitda = f.ebitda ?? val(cuentas, 'EBITDA');
-  const patrimonio = val(cuentas, 'StockholdersEquity');
-  const ebit = val(cuentas, 'EBIT');
-  const intereses = val(cuentas, 'InterestExpense');
+  const b = (c) => balance(cuentas, reciente, c);
+  const deuda = b('TotalDebt') ?? f.totalDebt ?? null;
+  const caja = reciente?.trimestre?.CashCashEquivalentsAndShortTermInvestments ?? f.totalCash ?? val(cuentas, 'CashAndCashEquivalents');
+  const ebitda = doceMeses(cuentas, reciente, 'EBITDA') ?? f.ebitda ?? null;
+  const patrimonio = b('StockholdersEquity');
+  const resultado = reciente?.ttm?.OperatingIncome ?? val(cuentas, 'EBIT');
+  const intereses = doceMeses(cuentas, reciente, 'InterestExpense');
+  const ac = b('CurrentAssets');
+  const pc = b('CurrentLiabilities');
+  const existencias = reciente?.trimestre?.Inventory ?? 0;
   const acciones = k.sharesOutstanding;
   const base = {
-    deudaTotal: deuda ?? null,
+    deudaTotal: deuda,
     caja: caja ?? null,
     patrimonio,
-    deudaPatrimonio: esNum(f.debtToEquity) ? f.debtToEquity / 100 : esNum(deuda) && patrimonio > 0 ? deuda / patrimonio : null,
+    deudaPatrimonio: esNum(deuda) && patrimonio > 0 ? deuda / patrimonio : null,
+    fechaBalance: reciente?.fechaTrimestre || cuentas?.TotalAssets?.at(-1)?.fecha || null,
   };
   if (esBanco) return { ...base, esBanco: true };
   return {
     ...base,
     esBanco: false,
     deudaNetaEbitda: esNum(deuda) && esNum(caja) && ebitda > 0 ? (deuda - caja) / ebitda : null,
-    coberturaIntereses: esNum(ebit) && intereses > 0 ? ebit / intereses : null,
-    ratioCorriente: f.currentRatio ?? null,
-    ratioRapido: f.quickRatio ?? null,
+    coberturaIntereses: esNum(resultado) && intereses > 0 ? resultado / intereses : null,
+    ratioCorriente: esNum(ac) && pc > 0 ? ac / pc : f.currentRatio ?? null,
+    ratioRapido: esNum(ac) && pc > 0 ? (ac - existencias) / pc : f.quickRatio ?? null,
     cajaNetaAccion: esNum(deuda) && esNum(caja) && acciones > 0 ? (caja - deuda) / acciones : null,
-    altman: altmanZ(cuentas, s.marketCap),
+    altman: altmanZ(cuentas, s.marketCap, reciente),
     piotroski: piotroski(cuentas),
   };
 }
@@ -236,7 +243,7 @@ const num = (x, dec = 1) => (esNum(x) ? x.toFixed(dec).replace('.', ',') : null)
 const unir = (...t) => t.filter(Boolean).join(' · ') || '—';
 
 // rentFCF: rentabilidad anual a 5 años de la valoración por FCF de la app (si la hay guardada)
-export function diagnostico({ resumen, cuentas, esBanco = false, rentFCF = null, argus = null }) {
+export function diagnostico({ resumen, cuentas, reciente = null, esBanco = false, rentFCF = null, argus = null }) {
   const f = resumen?.financialData || {};
   const k = resumen?.keyStats || {};
   const s = resumen?.summary || {};
@@ -285,7 +292,7 @@ export function diagnostico({ resumen, cuentas, esBanco = false, rentFCF = null,
       );
 
   // Salud financiera
-  const sf = saludFinanciera(resumen, cuentas, { esBanco });
+  const sf = saludFinanciera(resumen, cuentas, { esBanco, reciente });
   const salud = esBanco
     ? fila('salud', 'Salud financiera', [], 'Altman y Piotroski no sirven para bancos', 'No aplica')
     : fila(

@@ -104,3 +104,32 @@ test('diagnóstico: 6 filas, dividendo "No paga" y banco sin salud', () => {
   assert.equal(banco.find((f) => f.id === 'salud').lectura, 'No aplica');
   assert.equal(saludFinanciera(resumen, empresa, { esBanco: true }).altman, undefined);
 });
+
+test('RSI con medias simples de las últimas 14 variaciones', () => {
+  // 10 subidas de 1 y 4 bajadas de 2 → subidas 10, bajadas 8 → 100 − 100/(1 + 10/8)
+  const cierres = [50];
+  for (let i = 0; i < 10; i++) cierres.push(cierres.at(-1) + 1);
+  for (let i = 0; i < 4; i++) cierres.push(cierres.at(-1) - 2);
+  cerca(rsi(cierres), 100 - 100 / (1 + 10 / 8), 'rsi');
+});
+
+test('volumen: con la sesión abierta se usa el último día completo', () => {
+  const cierres = Array(100).fill(10);
+  const volumenes = [...Array(98).fill(100), 200, 30];
+  cerca(tecnico({ cierres, volumenes, sesionAbierta: true }).volumenVsMedia, 2, 'día completo');
+  cerca(tecnico({ cierres, volumenes, sesionAbierta: false }).volumenVsMedia, 30 / ((89 * 100 + 200) / 90), 'hoy');
+});
+
+test('salud con el balance del último trimestre y resultados de 12 meses', () => {
+  const reciente = {
+    trimestre: { TotalDebt: 150, CashCashEquivalentsAndShortTermInvestments: 80, StockholdersEquity: 300, CurrentAssets: 130, CurrentLiabilities: 120, Inventory: 10 },
+    ttm: { EBITDA: 360, OperatingIncome: 160, InterestExpense: 8 },
+  };
+  const s = saludFinanciera({ financialData: { totalDebt: 999 }, keyStats: {}, summary: {} }, empresa, { reciente });
+  cerca(s.deudaNetaEbitda, 70 / 360, 'deuda neta / EBITDA');
+  cerca(s.deudaPatrimonio, 0.5, 'deuda / patrimonio');
+  cerca(s.coberturaIntereses, 20, 'cobertura');
+  cerca(s.ratioRapido, 1, 'ratio rápido');
+  // Sin datos recientes se usa la cuenta anual
+  cerca(saludFinanciera({}, empresa).deudaPatrimonio, 230 / 600, 'anual');
+});

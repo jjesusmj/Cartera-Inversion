@@ -1,7 +1,8 @@
 // Vercel Serverless Function — GET /api/ficha?symbol=NFLX&currency=USD
 // Datos del Resumen de la ficha de valor, todo de Yahoo Finance:
 //  - quoteSummary: analistas, márgenes, deuda, caja, ratios y estimaciones
-//  - fundamentals-timeseries: cuentas anuales (para Altman Z, Piotroski y crecimientos)
+//  - fundamentals-timeseries: cuentas anuales (Piotroski y crecimientos), balance del
+//    último trimestre y resultados de los últimos 12 meses (salud financiera y Altman Z)
 //  - insights: nota de Argus Research y perspectiva técnica de Trading Central (solo algunos valores)
 //  - chart: 2 años de cierres y volúmenes diarios (para el análisis técnico)
 // Cada bloque puede fallar por separado: se devuelve null y la ficha lo indica.
@@ -15,6 +16,13 @@ const CUENTAS = [
   'EBIT', 'EBITDA', 'InterestExpense', 'TotalRevenue', 'GrossProfit', 'NetIncome', 'DilutedEPS',
   'OperatingCashFlow', 'OrdinarySharesNumber', 'TaxRateForCalcs',
 ];
+
+// Balance del último trimestre y resultados de los últimos 12 meses
+const TRIMESTRE = [
+  'TotalAssets', 'CurrentAssets', 'CurrentLiabilities', 'Inventory', 'RetainedEarnings', 'StockholdersEquity',
+  'TotalLiabilitiesNetMinorityInterest', 'TotalDebt', 'CashCashEquivalentsAndShortTermInvestments',
+];
+const DOCE_MESES = ['EBIT', 'EBITDA', 'OperatingIncome', 'InterestExpense', 'TotalRevenue'];
 
 function simboloYahoo(symbol, divisa) {
   return divisa === 'USD' ? symbol.replace('.', '-') : symbol;
@@ -72,6 +80,29 @@ async function cuentasAnuales(sym) {
   return out;
 }
 
+// { trimestre: { Cuenta: valor }, ttm: { Cuenta: valor }, fechaTrimestre }
+async function cuentasRecientes(sym) {
+  const fin = Math.floor(Date.now() / 1000);
+  const inicio = fin - 2 * 365 * 86400;
+  const tipos = [...TRIMESTRE.map((c) => `quarterly${c}`), ...DOCE_MESES.map((c) => `trailing${c}`)].join(',');
+  const j = await yahooJson(
+    `https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(sym)}?type=${tipos}&period1=${inicio}&period2=${fin}`
+  );
+  const out = { trimestre: {}, ttm: {}, fechaTrimestre: null };
+  for (const r of j?.timeseries?.result || []) {
+    const tipo = r.meta?.type?.[0];
+    const ultimo = (r[tipo] || []).filter((x) => x && raw(x.reportedValue) != null).sort((a, b) => a.asOfDate.localeCompare(b.asOfDate)).pop();
+    if (!ultimo) continue;
+    if (tipo.startsWith('quarterly')) {
+      out.trimestre[tipo.slice(9)] = raw(ultimo.reportedValue);
+      if (tipo === 'quarterlyTotalAssets') out.fechaTrimestre = ultimo.asOfDate;
+    } else {
+      out.ttm[tipo.slice(8)] = raw(ultimo.reportedValue);
+    }
+  }
+  return out;
+}
+
 async function opiniones(sym) {
   const j = await yahooJson(`https://query2.finance.yahoo.com/ws/insights/v2/finance/insights?symbol=${encodeURIComponent(sym)}`);
   const r = j?.finance?.result;
@@ -108,7 +139,11 @@ async function historico(sym) {
       volumenes.push(q.volume?.[i] ?? null);
     }
   });
-  return { cierres, volumenes };
+  // Sesión en curso: el volumen de la última barra aún no está completo
+  const regular = r.meta?.currentTradingPeriod?.regular;
+  const ahora = Date.now() / 1000;
+  const sesionAbierta = !!regular && ahora >= regular.start && ahora < regular.end;
+  return { cierres, volumenes, sesionAbierta };
 }
 
 const seguro = (p) => p.then((v) => v, () => null);
@@ -118,14 +153,15 @@ export default async function handler(req, res) {
   if (!symbol) return res.status(400).json({ error: 'Falta el parámetro symbol' });
   const sym = simboloYahoo(symbol, currency);
 
-  const [r, cuentas, ops, hist] = await Promise.all([
+  const [r, cuentas, reciente, ops, hist] = await Promise.all([
     seguro(resumen(sym)),
     seguro(cuentasAnuales(sym)),
+    seguro(cuentasRecientes(sym)),
     seguro(opiniones(sym)),
     seguro(historico(sym)),
   ]);
 
   // Datos de empresa y de mercado: caché de 1 hora en Vercel
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=600');
-  return res.status(200).json({ symbol, resumen: r, cuentas, opiniones: ops, historico: hist });
+  return res.status(200).json({ symbol, resumen: r, cuentas, reciente, opiniones: ops, historico: hist });
 }

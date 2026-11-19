@@ -3,7 +3,7 @@ import PeriodChart from './PeriodChart';
 import { obtenerFicha, listarFundamentales, leerParamsValoracion, listarAjustesValoracion } from '../lib/api';
 import { valorar, PARAMS_DEF } from '../lib/valoracionFCF';
 import { tecnico, saludFinanciera, diagnostico, textoRecomendacion } from '../lib/diagnostico';
-import { fmtCotizacion, fmtNumber } from '../lib/format';
+import { fmtCotizacion, fmtNumber, fmtDate } from '../lib/format';
 
 // Resumen › Vistazo de la ficha de valor: cotización con rangos, diagnóstico
 // rápido, analistas, salud financiera y análisis técnico.
@@ -59,8 +59,9 @@ export default function FichaVistazo({ symbol, currency, q, ajuste, lotes, esBan
   const resumen = datos?.resumen;
   const cuentas = datos?.cuentas;
   const tec = datos?.historico ? tecnico(datos.historico, precio, { min: q?.week52Low, max: q?.week52High }) : null;
-  const salud = resumen || cuentas ? saludFinanciera(resumen, cuentas, { esBanco }) : null;
-  const diag = resumen || cuentas ? diagnostico({ resumen, cuentas, esBanco, rentFCF, argus: datos?.opiniones?.argus }) : null;
+  const reciente = datos?.reciente;
+  const salud = resumen || cuentas ? saludFinanciera(resumen, cuentas, { esBanco, reciente }) : null;
+  const diag = resumen || cuentas ? diagnostico({ resumen, cuentas, reciente, esBanco, rentFCF, argus: datos?.opiniones?.argus }) : null;
   const cargando = !datos && !error;
 
   return (
@@ -331,7 +332,8 @@ function Salud({ s, currency }) {
       <p className="panel-fuente">
         {s.esBanco
           ? 'En un banco la deuda es su materia prima: Altman Z, Piotroski y los ratios de liquidez no aplican. '
-          : 'Altman Z y Piotroski F calculados con las cuentas anuales. '}
+          : 'Deuda financiera sin alquileres; resultados de los últimos 12 meses. Piotroski F con las cuentas anuales. '}
+        {s.fechaBalance && `Balance a ${fmtDate(s.fechaBalance)}. `}
         Fuente: Yahoo Finance.
       </p>
     </>
@@ -353,7 +355,7 @@ function Tecnico({ t, tc }) {
         <Fila label="Distancia al máximo 52 s." clase={signo(t.distMax52)}>{pct(t.distMax52)}</Fila>
         <Fila label="Distancia al mínimo 52 s." clase={signo(t.distMin52)}>{pct(t.distMin52)}</Fila>
         <Fila label="Volatilidad 30 días (anual)">{esNum(t.volatilidad30) ? pct(t.volatilidad30).replace('+', '') : '—'}</Fila>
-        <Fila label="Volumen hoy vs media 90 días" titulo="Durante la sesión, el volumen de hoy aún no está completo">
+        <Fila label="Volumen último día vs media 90 d." titulo="Volumen de la última sesión completa frente a la media de las 90 anteriores">
           {esNum(t.volumenVsMedia) ? `${fmtNumber(t.volumenVsMedia * 100, 0)} %` : '—'}
         </Fila>
         <Fila label="Variación 1 mes / 3 meses">
@@ -373,7 +375,7 @@ function Tecnico({ t, tc }) {
           )}
       </div>
       <p className="panel-fuente">
-        Calculado con los cierres diarios de Yahoo Finance (RSI de Wilder){tc ? '. Perspectivas: Trading Central, vía Yahoo' : ''}.
+        Calculado con los cierres diarios de Yahoo Finance (RSI con medias simples de 14 sesiones){tc ? '. Perspectivas: Trading Central, vía Yahoo' : ''}.
       </p>
     </>
   );
