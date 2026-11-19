@@ -2087,3 +2087,102 @@ tr.ficha-row > td { padding: 0 !important; }
 }
 .tp-margen-aviso > div { margin-top: 2px; }
 .tp-margen-nota { color: var(--ink-faint); font-weight: 400; font-size: 11.5px; }
+
+/* --- Menú: grupos (Empresa) --- */
+.nav-grupo {
+  margin: 14px 10px 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+@media (max-width: 720px) {
+  .nav-grupo { display: none; }
+}
+
+/* --- Buscador global y valores consultados hace poco --- */
+.buscador-valor { margin-bottom: 18px; max-width: 520px; }
+.buscador-valor input { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; background: var(--bg); color: var(--ink); }
+.recientes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.reciente {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-dim);
+}
+.reciente:hover { color: var(--ink); border-color: var(--ink-faint); }
+.reciente.is-on { color: var(--accent); border-color: var(--accent); }
+@media (max-width: 720px) {
+  .buscador-valor { max-width: none; }
+  .buscador-valor input { font-size: 16px; } /* 16 px: el iPhone no hace zoom al escribir */
+}
+
+/* --- Ficha de valor --- */
+.ficha-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.ficha-titulo { min-width: 0; }
+.ficha-symbol { font-family: var(--font-mono); font-size: 13px; color: var(--accent); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.ficha-bolsa { font-family: var(--font-body); color: var(--ink-faint); font-size: 12px; }
+.ficha-nombre { margin: 4px 0 2px; overflow-wrap: anywhere; }
+.ficha-precio { text-align: right; flex-shrink: 0; }
+.ficha-precio-valor { font-family: var(--font-mono); font-size: 22px; font-variant-numeric: tabular-nums; }
+.ficha-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+
+/* Secciones: fila de pestañas que se desplaza en horizontal si no cabe */
+.ficha-secciones {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ficha-secciones::-webkit-scrollbar { display: none; }
+.ficha-secciones button {
+  all: unset;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.ficha-secciones button:hover { color: var(--ink); }
+.ficha-secciones button.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* Subsecciones: pastillas */
+.ficha-subs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.ficha-subs button {
+  all: unset;
+  cursor: pointer;
+  font-size: 12.5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  color: var(--ink-dim);
+}
+.ficha-subs button.active { background: var(--ink); color: var(--bg); }
+
+.ficha-card { padding: 12px; margin-bottom: 14px; }
+.ficha-tabla { margin-bottom: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.stat-sub { font-size: 11px; color: var(--ink-faint); margin-top: 2px; font-family: var(--font-mono); }
+.ficha-pronto { border: 1px dashed var(--line); border-radius: 8px; padding: 18px; color: var(--ink-dim); }
+.ficha-pronto p { margin: 6px 0 0; }
+.ficha-pronto-titulo { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.ficha-notas { list-style: none; padding: 0; margin: 0 0 14px; }
+.ficha-notas li { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.ficha-nota-fecha { font-size: 11px; color: var(--ink-faint); margin-bottom: 3px; }
+
+@media (max-width: 720px) {
+  .ficha-head { flex-direction: column; gap: 6px; }
+  .ficha-precio { text-align: left; }
+  .ficha-secciones button { padding: 9px 10px; font-size: 13px; }
+}
+@media (min-width: 721px) {
+  .ficha-valor .stat-grid { grid-template-columns: repeat(4, 1fr); }
+}

@@ -4,18 +4,20 @@ import { EXCHANGES, exchangeById } from '../lib/exchanges';
 
 // Sirve para crear un seguimiento nuevo o editar uno existente: si se pasa
 // `initial`, arranca precargado y cambia a modo edición.
-export default function WatchForm({ onClose, onSubmit, initial }) {
+// `prefill`: seguimiento nuevo con el valor ya elegido (desde la ficha de valor).
+export default function WatchForm({ onClose, onSubmit, initial, prefill }) {
   const esEdicion = !!initial;
-  const exchangeInicial = initial?.exchangeId || (initial?.currency === 'USD' ? 'us' : 'es');
+  const base = initial || prefill;
+  const exchangeInicial = base?.exchangeId || (base?.currency === 'USD' ? 'us' : 'es');
 
   const [form, setForm] = useState({
     exchangeId: exchangeInicial,
-    symbol: initial?.symbol || '',
-    name: initial?.name || '',
-    comment: initial?.comment || '',
-    manualPrice: initial?.manualPrice ?? '',
-    entryLow: initial?.entryLow ?? '',
-    entryHigh: initial?.entryHigh ?? '',
+    symbol: base?.symbol || '',
+    name: base?.name || '',
+    comment: base?.comment || '',
+    manualPrice: base?.manualPrice ?? '',
+    entryLow: base?.entryLow ?? '',
+    entryHigh: base?.entryHigh ?? '',
   });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);

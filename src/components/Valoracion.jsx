@@ -522,6 +522,35 @@ function ParametrosModal({ params, onCambiar, onRestaurar, onClose }) {
 // ---------------------------------------------------------------------
 
 function Detalle({ f, P, onClose, onToggleFavorito }) {
+  const { r } = f;
+  return (
+    <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
+      <div className="modal sheet val-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Valoración de ${f.symbol}`}>
+        <div className="sheet-grip" aria-hidden="true" />
+        <div className="sheet-head">
+          <div>
+            <div className="qrow-title">
+              {f.watch && <Estrella activa={!!f.watch.favorite} onToggle={(v) => onToggleFavorito(f.watch.id, v)} />}
+              <span className="symbol sheet-symbol">{f.symbol}</span>
+            </div>
+            <div className="qrow-name">{f.name}</div>
+          </div>
+          <div className="qrow-right">
+            <div className="sheet-price">{esNum(f.precio) ? fmtPrecio(f.precio) : '—'} <small>{f.divisa}</small></div>
+            {r.estado === 'ok' && <div className="qrow-name">Objetivo 5 años {fmtPrecio(r.objetivo)}</div>}
+          </div>
+        </div>
+
+        <DetalleValoracionCuerpo f={f} P={P} />
+        <button className="btn btn-ghost sheet-close" onClick={onClose}>Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
+// Datos, pasos del cálculo, lista de control y avisos. Lo usan la hoja de
+// detalle de esta sección y la ficha de valor. `f` necesita { symbol, d, r, carga }.
+export function DetalleValoracionCuerpo({ f, P }) {
   const { d, r } = f;
   const p = r.pasos || {};
   const fuente = d?.source === 'edgar' ? 'SEC EDGAR' : d?.source === 'yahoo' ? 'Yahoo Finance' : '—';
@@ -559,23 +588,7 @@ function Detalle({ f, P, onClose, onToggleFavorito }) {
   ];
 
   return (
-    <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
-      <div className="modal sheet val-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Valoración de ${f.symbol}`}>
-        <div className="sheet-grip" aria-hidden="true" />
-        <div className="sheet-head">
-          <div>
-            <div className="qrow-title">
-              {f.watch && <Estrella activa={!!f.watch.favorite} onToggle={(v) => onToggleFavorito(f.watch.id, v)} />}
-              <span className="symbol sheet-symbol">{f.symbol}</span>
-            </div>
-            <div className="qrow-name">{f.name}</div>
-          </div>
-          <div className="qrow-right">
-            <div className="sheet-price">{esNum(f.precio) ? fmtPrecio(f.precio) : '—'} <small>{f.divisa}</small></div>
-            {r.estado === 'ok' && <div className="qrow-name">Objetivo 5 años {fmtPrecio(r.objetivo)}</div>}
-          </div>
-        </div>
-
+    <>
         {r.estado !== 'ok' && <div className="warn-box">{r.estado === 'no-valorable' ? 'No valorable por FCF' : 'No calculable'}: {r.motivo}</div>}
         {f.carga?.error && <div className="error-box">Última descarga fallida: {f.carga.error}</div>}
 
@@ -637,8 +650,6 @@ function Detalle({ f, P, onClose, onToggleFavorito }) {
         <a className="btn btn-ghost sheet-link" href={enlace} target="_blank" rel="noopener noreferrer">
           Ver en {d?.source === 'edgar' ? 'SEC EDGAR' : 'Yahoo Finance'} ↗
         </a>
-        <button className="btn btn-ghost sheet-close" onClick={onClose}>Cerrar</button>
-      </div>
-    </div>
+    </>
   );
 }

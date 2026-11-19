@@ -30,6 +30,14 @@ export function exchangeIdFromYahoo(symbol, exchangeCode) {
   return YAHOO_US.includes(exchangeCode) ? 'us' : null;
 }
 
+// Bolsa de un símbolo en formato Yahoo cuando solo se tiene el símbolo
+// (p. ej. al abrir la ficha desde una dirección): por el sufijo; sin sufijo, EE. UU.
+export function exchangeIdDeSimbolo(symbol) {
+  const punto = symbol.lastIndexOf('.');
+  const sufijo = punto > 0 ? symbol.slice(punto) : '';
+  return EXCHANGES.find((e) => e.yahooSuffix && e.yahooSuffix === sufijo)?.id ?? 'us';
+}
+
 export function yahooUrl(symbol) {
   return `https://es.finance.yahoo.com/quote/${encodeURIComponent(symbol)}/`;
 }

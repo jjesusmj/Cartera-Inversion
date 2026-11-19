@@ -4,7 +4,8 @@ import { exchangeById, exchangeIdFromYahoo } from '../lib/exchanges';
 // Campo de texto que busca en Yahoo (vía /api/search-symbol) mientras escribes.
 // Solo muestra valores de las bolsas que maneja la app. Al elegir uno, avisa
 // al formulario con el símbolo en formato Yahoo, el nombre y la bolsa.
-export default function SymbolSearch({ query, onQueryChange, onSelect, placeholder }) {
+// `inputRef` (opcional): para enfocar el campo desde fuera (atajo «/» del buscador global).
+export default function SymbolSearch({ query, onQueryChange, onSelect, placeholder, inputRef }) {
   const [resultados, setResultados] = useState([]);
   const [abierto, setAbierto] = useState(false);
   const [buscando, setBuscando] = useState(false);
@@ -48,12 +49,21 @@ export default function SymbolSearch({ query, onQueryChange, onSelect, placehold
   return (
     <div style={{ position: 'relative' }} ref={cajaRef}>
       <input
+        ref={inputRef}
         value={query}
         onChange={(e) => {
           onQueryChange(e.target.value);
           setAbierto(true);
         }}
         onFocus={() => resultados.length > 0 && setAbierto(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setAbierto(false);
+          if (e.key === 'Enter' && abierto && resultados.length > 0) {
+            e.preventDefault();
+            onSelect(resultados[0]);
+            setAbierto(false);
+          }
+        }}
         placeholder={placeholder || 'Escribe el nombre de la empresa…'}
         autoComplete="off"
       />

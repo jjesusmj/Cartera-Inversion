@@ -41,9 +41,72 @@ import { venderFIFO } from './lib/fifo';
 import { SIMBOLO_FX } from './lib/costes';
 import { SOLO_LECTURA, MENSAJE_SOLO_LECTURA } from './lib/modo';
 import CabeceraDatos from './components/CabeceraDatos';
+import FichaValor from './components/FichaValor';
+import BuscadorValor, { leerRecientes, guardarReciente } from './components/BuscadorValor';
+
+// Lo que se ve está en la dirección: ?v=ficha&t=MSFT&s=valoracion&sub=justo
+// Así se puede enlazar una ficha y el botón Atrás del navegador funciona.
+function leerDireccion() {
+  const p = new URLSearchParams(window.location.search);
+  return { view: p.get('v') || 'cartera', t: p.get('t') || '', s: p.get('s') || '', sub: p.get('sub') || '' };
+}
+
+function escribirDireccion(nav, reemplazar = false) {
+  const p = new URLSearchParams();
+  if (nav.view !== 'cartera') p.set('v', nav.view);
+  if (nav.view === 'ficha' && nav.t) {
+    p.set('t', nav.t);
+    if (nav.s) p.set('s', nav.s);
+    if (nav.sub) p.set('sub', nav.sub);
+  }
+  const url = `${window.location.pathname}${p.toString() ? `?${p}` : ''}`;
+  if (url === `${window.location.pathname}${window.location.search}`) return;
+  window.history[reemplazar ? 'replaceState' : 'pushState'](null, '', url);
+}
 
 export default function App() {
-  const [view, setView] = useState('cartera');
+  const [nav, setNav] = useState(leerDireccion);
+  const view = nav.view;
+  const [recientes, setRecientes] = useState(leerRecientes);
+
+  useEffect(() => {
+    const alVolver = () => setNav(leerDireccion());
+    window.addEventListener('popstate', alVolver);
+    return () => window.removeEventListener('popstate', alVolver);
+  }, []);
+
+  function navegar(cambios) {
+    setNav((prev) => {
+      const nuevo = { ...prev, ...cambios };
+      escribirDireccion(nuevo);
+      return nuevo;
+    });
+  }
+
+  // Menú lateral. «Ficha de valor» sin valor elegido abre el último consultado.
+  function setView(id) {
+    if (id === 'ficha' && !nav.t && recientes[0]) {
+      navegar({ view: 'ficha', t: recientes[0].symbol, s: '', sub: '' });
+    } else {
+      navegar({ view: id });
+    }
+  }
+
+  function abrirFicha(valor) {
+    setRecientes(guardarReciente(valor));
+    navegar({ view: 'ficha', t: valor.symbol, s: '', sub: '' });
+  }
+
+  // Ficha abierta desde una dirección o con Atrás: también cuenta como consultada
+  useEffect(() => {
+    if (view !== 'ficha' || !nav.t) return;
+    setRecientes((prev) => {
+      if (prev[0]?.symbol === nav.t) return prev;
+      return guardarReciente(prev.find((r) => r.symbol === nav.t) || { symbol: nav.t });
+    });
+  }, [view, nav.t]);
+
+  const [prefillSeguimiento, setPrefillSeguimiento] = useState(null); // seguimiento nuevo desde la ficha
   const [owner, setOwnerState] = useState(() => localStorage.getItem('cartera_owner') || OWNERS[0]);
   function setOwner(o) {
     localStorage.setItem('cartera_owner', o);
@@ -223,7 +286,7 @@ export default function App() {
     obtenerPerfiles(clavesSimbolos.split(',')).then(setPerfiles);
   }, [clavesSimbolos]);
 
-  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen' || view === 'valoracion' || view === 'tamano';
+  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen' || view === 'valoracion' || view === 'tamano' || view === 'ficha';
   const pull = usePullToRefresh(() => {
     if (!pricesLoading) refreshPrices();
   }, vistaConPrecios);
@@ -248,6 +311,7 @@ export default function App() {
   async function handleAddWatch(data) {
     await crearWatch({ ...data, owner });
     setShowWatchForm(false);
+    setPrefillSeguimiento(null);
     cargarTodo();
   }
 
@@ -436,6 +500,11 @@ export default function App() {
           </div>
         )}
         <CabeceraDatos prices={prices} ultimaActualizacion={ultimaActualizacion} />
+        <BuscadorValor
+          onAbrir={abrirFicha}
+          recientes={view === 'ficha' ? recientes : null}
+          actual={view === 'ficha' ? nav.t : null}
+        />
         {error && <div className="error-box">{error}</div>}
         {aviso && <div className="aviso-toast" role="status">{aviso}</div>}
 
@@ -464,6 +533,7 @@ export default function App() {
                 onGuardarCosteEUR={ro(handleGuardarCosteEUR)}
                 comisionVentaObjetivo={ajustes.comisionVentaObjetivo ?? 0}
                 onCambiarComisionObjetivo={ro(handleCambiarComisionObjetivo)}
+                onAbrirFicha={abrirFicha}
               />
             )}
             {view === 'watchlist' && (
@@ -484,6 +554,7 @@ export default function App() {
                 onToggleFavorito={ro(handleToggleFavorito)}
                 onAbrirNotas={abrirNotasWatch}
                 onBorrar={ro(handleBorrarWatch)}
+                onAbrirFicha={abrirFicha}
               />
             )}
             {view === 'resumen' && (
@@ -528,6 +599,32 @@ export default function App() {
               />
             )}
             {view === 'renta' && <Renta sales={sales} />}
+            {view === 'ficha' && !nav.t && (
+              <div className="ficha-vacia">
+                <h1 className="page-title">Ficha de valor</h1>
+                <p className="page-sub">Busca una empresa o un ticker arriba para ver su ficha.</p>
+              </div>
+            )}
+            {view === 'ficha' && nav.t && (
+              <FichaValor
+                key={nav.t}
+                symbol={nav.t}
+                info={recientes.find((r) => r.symbol === nav.t)}
+                s={nav.s}
+                sub={nav.sub}
+                onNavegar={navegar}
+                openLots={openLots}
+                watchlist={watchlist}
+                positionSettings={positionSettings}
+                perfiles={perfiles}
+                prices={prices}
+                owner={owner}
+                onNuevaCompra={ro((datos) => setPrefillCompra(datos))}
+                onNuevoSeguimiento={ro((datos) => setPrefillSeguimiento(datos))}
+                onAbrirNotasLote={abrirNotasLote}
+                onAbrirNotasWatch={abrirNotasWatch}
+              />
+            )}
           </>
         )}
 
@@ -547,6 +644,9 @@ export default function App() {
         <BuyForm initial={editLote} onClose={() => setEditLote(null)} onSubmit={handleEditarLote} />
       )}
       {showWatchForm && <WatchForm onClose={() => setShowWatchForm(false)} onSubmit={handleAddWatch} />}
+      {prefillSeguimiento && (
+        <WatchForm prefill={prefillSeguimiento} onClose={() => setPrefillSeguimiento(null)} onSubmit={handleAddWatch} />
+      )}
       {editWatch && (
         <WatchForm initial={editWatch} onClose={() => setEditWatch(null)} onSubmit={handleEditarWatch} />
       )}

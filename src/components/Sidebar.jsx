@@ -10,6 +10,24 @@ const ITEMS = [
   { id: 'renta', label: 'Declaración' },
 ];
 
+// Grupo «Empresa»: lo que se consulta de un valor concreto
+const EMPRESA = [{ id: 'ficha', label: 'Ficha de valor', corto: 'Ficha' }];
+
+function BotonNav({ item, view, setView }) {
+  return (
+    <button className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)}>
+      {item.corto ? (
+        <>
+          <span className="nav-largo">{item.label}</span>
+          <span className="nav-corto">{item.corto}</span>
+        </>
+      ) : (
+        item.label
+      )}
+    </button>
+  );
+}
+
 export default function Sidebar({ view, setView, owner, setOwner }) {
   return (
     <aside className="sidebar">
@@ -29,20 +47,11 @@ export default function Sidebar({ view, setView, owner, setOwner }) {
 
       <nav className="nav">
         {ITEMS.map((item) => (
-          <button
-            key={item.id}
-            className={view === item.id ? 'active' : ''}
-            onClick={() => setView(item.id)}
-          >
-            {item.corto ? (
-              <>
-                <span className="nav-largo">{item.label}</span>
-                <span className="nav-corto">{item.corto}</span>
-              </>
-            ) : (
-              item.label
-            )}
-          </button>
+          <BotonNav key={item.id} item={item} view={view} setView={setView} />
+        ))}
+        <div className="nav-grupo">Empresa</div>
+        {EMPRESA.map((item) => (
+          <BotonNav key={item.id} item={item} view={view} setView={setView} />
         ))}
       </nav>
     </aside>

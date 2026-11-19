@@ -3,7 +3,7 @@ import { fmtMoney, fmtCotizacion, fmtPercent, fmtSigned, fmtNumber } from '../li
 import { useFxToday } from '../lib/useFxToday';
 import { tiposValoracion, tipoEsEnVivo } from '../lib/costes';
 import { useSort } from '../lib/useSort';
-import { yahooUrl } from '../lib/exchanges';
+import { yahooUrl, exchangeIdOf } from '../lib/exchanges';
 import { sectorDe } from '../lib/sectors';
 import { nivelMasCercano, numNotas } from '../lib/niveles';
 import PeriodChart from './PeriodChart';
@@ -142,7 +142,7 @@ function marcas(w) {
   ];
 }
 
-export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onSectorManual, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada, margenTR = 0, onCambiarMargenTR, onToggleFavorito }) {
+export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onSectorManual, onNuevo, onEditar, onBorrar, onAbrirNotas, onActualizarEntrada, margenTR = 0, onCambiarMargenTR, onToggleFavorito, onAbrirFicha }) {
   const [detalle, setDetalle] = useState(null);
   const [vista, setVistaState] = useState(() => {
     try { return localStorage.getItem('seguimiento_vista') || 'todos'; } catch { return 'todos'; }
@@ -389,6 +389,15 @@ export default function Watchlist({ watchlist, todaLaWatchlist, exchangeFilter, 
                 Cuaderno{filaDetalle.notas.length ? ` (${filaDetalle.notas.length})` : ''}
               </button>
               <button className="btn" onClick={() => { setDetalle(null); onEditar(filaDetalle); }}>Editar</button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setDetalle(null);
+                  onAbrirFicha({ symbol: filaDetalle.symbol, name: filaDetalle.name, exchangeId: exchangeIdOf(filaDetalle) });
+                }}
+              >
+                Ficha completa
+              </button>
               <button
                 className="btn"
                 onClick={() => {

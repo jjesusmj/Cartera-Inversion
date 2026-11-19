@@ -3,7 +3,7 @@ import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtSigned, fmtPercent, fmtNumb
 import { useFxToday } from '../lib/useFxToday';
 import { costeLoteEUR, costeEsAproximado, tipoImplicito, tiposValoracion } from '../lib/costes';
 import { useSort } from '../lib/useSort';
-import { yahooUrl } from '../lib/exchanges';
+import { yahooUrl, exchangeIdOf } from '../lib/exchanges';
 import { sectorDe } from '../lib/sectors';
 import { nivelMasCercano, numNotas } from '../lib/niveles';
 import PeriodChart from './PeriodChart';
@@ -32,7 +32,7 @@ function claseSigno(v) {
   return v >= 0 ? 'gain' : 'loss';
 }
 
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, comisionVentaObjetivo = 0, onCambiarComisionObjetivo }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, comisionVentaObjetivo = 0, onCambiarComisionObjetivo, onAbrirFicha }) {
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
   const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
@@ -391,6 +391,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           onEditarLote={(l) => { setDetalle(null); onEditarLote(l); }}
           onBorrarLote={onBorrarLote}
           onGuardarCosteEUR={onGuardarCosteEUR}
+          onAbrirFicha={(f) => { setDetalle(null); onAbrirFicha({ symbol: f.symbol, name: f.name, exchangeId: exchangeIdOf(f.lotes[0]) }); }}
         />
       )}
     </div>
@@ -442,7 +443,7 @@ function FilaLote({ lote, symbol, onEditarLote, onBorrarLote, onGuardarCosteEUR 
 }
 
 // Hoja de detalle de una posición (se abre al tocar una fila en el iPhone)
-function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
+function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote, onGuardarCosteEUR, onAbrirFicha }) {
   return (
     <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
       <div className="modal sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Detalle de ${f.symbol}`}>
@@ -542,6 +543,7 @@ function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorMan
         <div className="card-actions">
           <button className="btn" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
           <button className="btn" onClick={() => onVender(f.symbol)}>Vender</button>
+          <button className="btn" onClick={() => onAbrirFicha(f)}>Ficha completa</button>
         </div>
         <a className="btn btn-ghost sheet-link" href={yahooUrl(f.symbol)} target="_blank" rel="noopener noreferrer">
           Ver en Yahoo Finance
