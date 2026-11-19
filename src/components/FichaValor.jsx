@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import PeriodChart from './PeriodChart';
+import FichaVistazo from './FichaVistazo';
 import { DetalleValoracionCuerpo } from './Valoracion';
 import {
   obtenerCotizaciones,
@@ -24,7 +24,6 @@ export const SECCIONES = [
     label: 'Resumen',
     subs: [
       { id: 'vistazo', label: 'Vistazo' },
-      { id: 'diagnostico', label: 'Diagnóstico', pronto: 'Una nota por aspecto: valoración, crecimiento, rentabilidad del negocio y salud financiera.' },
       { id: 'empresa', label: 'La empresa' },
     ],
   },
@@ -267,7 +266,15 @@ export default function FichaValor({
         {subsec.pronto ? (
           <Pronto subsec={subsec} />
         ) : subsec.id === 'vistazo' ? (
-          <Vistazo symbol={symbol} currency={currency} q={q} ajuste={ajuste} lotes={lotes} />
+          <FichaVistazo
+            symbol={symbol}
+            currency={currency}
+            q={q}
+            ajuste={ajuste}
+            lotes={lotes}
+            esBanco={esBancoOAseguradora(perfil)}
+            owner={owner}
+          />
         ) : subsec.id === 'empresa' ? (
           <LaEmpresa symbol={symbol} name={name} perfil={perfil} exchangeId={exchangeId} currency={currency} />
         ) : subsec.id === 'lotes' ? (
@@ -293,44 +300,6 @@ export default function FichaValor({
 // ---------------------------------------------------------------------
 // Resumen
 // ---------------------------------------------------------------------
-
-function Vistazo({ symbol, currency, q, ajuste, lotes }) {
-  const cantidad = lotes.reduce((s, l) => s + l.remainingQuantity, 0);
-  const precioMedio = cantidad ? lotes.reduce((s, l) => s + l.price * l.remainingQuantity, 0) / cantidad : null;
-  return (
-    <>
-      <div className="card ficha-card">
-        <PeriodChart
-          symbol={symbol}
-          currency={currency}
-          dia={q}
-          levels={[
-            { value: precioMedio, label: 'Precio medio', tipo: 'neutral' },
-            { value: ajuste.stopPrice, label: 'Stop', tipo: 'loss' },
-            { value: ajuste.targetPrice, label: 'Objetivo', tipo: 'gain' },
-          ]}
-          compras={lotes.map((l) => ({ date: l.buyDate, price: l.price }))}
-        />
-      </div>
-      <div className="stat-grid">
-        <Dato label="Cierre anterior" value={q?.previousClose != null ? fmtCotizacion(q.previousClose, currency) : '—'} />
-        <Dato
-          label="Rango del día"
-          value={q?.dayLow != null && q?.dayHigh != null ? `${fmtCotizacion(q.dayLow, currency)} – ${fmtCotizacion(q.dayHigh, currency)}` : '—'}
-        />
-        <Dato
-          label="Rango 52 semanas"
-          value={q?.week52Low != null && q?.week52High != null ? `${fmtCotizacion(q.week52Low, currency)} – ${fmtCotizacion(q.week52High, currency)}` : '—'}
-        />
-        <Dato
-          label="Desde el máximo de 52 semanas"
-          value={q?.price != null && q?.week52High ? fmtPercent(((q.price - q.week52High) / q.week52High) * 100) : '—'}
-          clase={q?.price != null && q?.week52High && q.price < q.week52High ? 'loss' : ''}
-        />
-      </div>
-    </>
-  );
-}
 
 function LaEmpresa({ symbol, name, perfil, exchangeId, currency }) {
   return (

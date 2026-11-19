@@ -7,6 +7,7 @@ const RANGOS = {
   '1d': { interval: '5m', cache: 20 },
   '5d': { interval: '15m', cache: 60 },
   '1mo': { interval: '60m', cache: 600 },
+  '3mo': { interval: '1d', cache: 3600 },
   '6mo': { interval: '1d', cache: 3600 },
   ytd: { interval: '1d', cache: 3600 },
   '1y': { interval: '1d', cache: 3600 },

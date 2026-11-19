@@ -292,6 +292,20 @@ export async function obtenerGrafico(symbol, currency, range) {
   return data;
 }
 
+// ---------- Resumen de la ficha de valor (analistas, salud, técnico) ----------
+
+const fichaCache = new Map();
+
+export async function obtenerFicha(symbol, currency) {
+  const guardado = fichaCache.get(symbol);
+  if (guardado && Date.now() - guardado.at < 30 * 60e3) return guardado.data;
+  const res = await fetch(`/api/ficha?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency || '')}`);
+  if (!res.ok) throw new Error('No se pudieron cargar los datos de la empresa.');
+  const data = await res.json();
+  fichaCache.set(symbol, { at: Date.now(), data });
+  return data;
+}
+
 // ---------- Valoración por FCF ----------
 // Fundamentales: compartidos por titulares (son datos de la empresa), uno por símbolo.
 // Ajustes manuales y parámetros globales: por titular.

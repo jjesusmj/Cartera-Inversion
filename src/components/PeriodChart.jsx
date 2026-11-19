@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { obtenerGrafico } from '../lib/api';
-import { fmtCotizacion, fmtPercent, fmtSigned, fmtPrecio } from '../lib/format';
+import { fmtCotizacion, fmtPercent, fmtSigned, fmtPrecio, fmtNumber } from '../lib/format';
 
 const PERIODOS = [
   { id: '1d', label: '1D', nombre: 'Hoy' },
   { id: '5d', label: '5D', nombre: '5 días' },
   { id: '1mo', label: '1M', nombre: '1 mes' },
+  { id: '3mo', label: '3M', nombre: '3 meses' },
   { id: '6mo', label: '6M', nombre: '6 meses' },
   { id: 'ytd', label: 'ACU', nombre: 'En el año' },
   { id: '1y', label: '1A', nombre: '1 año' },
@@ -15,6 +16,7 @@ const PERIODOS = [
 
 const ALTO = 190;
 const PAD_Y = 12;
+const EJE_Y = 52; // ancho reservado a la derecha para los precios cuando hay ejes
 
 function fmtFecha(ts, range) {
   const d = new Date(ts * 1000);
@@ -28,10 +30,44 @@ function fmtFecha(ts, range) {
 function fmtEje(ts, range) {
   const d = new Date(ts * 1000);
   if (range === '1d') return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(d);
-  if (range === '5d' || range === '1mo' || range === '6mo' || range === 'ytd') {
+  if (range === '5d' || range === '1mo' || range === '3mo' || range === '6mo' || range === 'ytd') {
     return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(d);
   }
   return new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' }).format(d);
+}
+
+// Precios redondos para el eje vertical: unos 6 entre min y max
+function marcasY(min, max) {
+  const bruto = (max - min) / 6;
+  const pot = 10 ** Math.floor(Math.log10(bruto));
+  const paso = [1, 2, 2.5, 5, 10].map((m) => m * pot).find((p) => p >= bruto);
+  const out = [];
+  for (let v = Math.ceil(min / paso) * paso; v <= max + 1e-9; v += paso) out.push(Math.round(v / paso) * paso);
+  return out;
+}
+
+// Instantes para el eje horizontal: en 5 días, el inicio de cada día; si no, n repartidos
+function marcasX(pts, t0, t1, range, n) {
+  if (range === '5d') {
+    const out = [];
+    let dia = null;
+    for (const [t] of pts) {
+      const d = new Date(t * 1000).toDateString();
+      if (d !== dia) {
+        out.push(t);
+        dia = d;
+      }
+    }
+    return out;
+  }
+  return Array.from({ length: n }, (_, i) => t0 + ((t1 - t0) * i) / (n - 1));
+}
+
+// Sin fechas montadas: cada una al menos 48 px después de la anterior
+function separar(ts, x) {
+  const out = [];
+  for (const t of ts) if (!out.length || x(t) - x(out[out.length - 1]) >= 48) out.push(t);
+  return out;
 }
 
 // Punto más cercano a un instante (los puntos van ordenados por tiempo)
@@ -50,7 +86,9 @@ function indiceCercano(points, t) {
 // compras: [{ date: 'YYYY-MM-DD', price }]
 // zonas: [{ desde, hasta, tipo }] franjas sombreadas entre dos precios
 // nivelesSiempre: los niveles y zonas entran siempre en la escala (calculadora)
-export default function PeriodChart({ symbol, currency, dia, levels = [], compras = [], zonas = [], rangoInicial = '1d', nivelesSiempre = false }) {
+// periodos: ids de PERIODOS a mostrar (por defecto, todos)
+// ejes: rejilla, precios a la derecha y fechas debajo (ficha de valor)
+export default function PeriodChart({ symbol, currency, dia, levels = [], compras = [], zonas = [], rangoInicial = '1d', nivelesSiempre = false, periodos = null, ejes = false }) {
   const [range, setRange] = useState(rangoInicial);
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -114,7 +152,8 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
       min -= 1;
     }
 
-    const x = (t) => Math.min(ancho, Math.max(0, ((t - t0) / (t1 - t0 || 1)) * ancho));
+    const anchoG = ejes ? ancho - EJE_Y : ancho;
+    const x = (t) => Math.min(anchoG, Math.max(0, ((t - t0) / (t1 - t0 || 1)) * anchoG));
     const y = (v) => PAD_Y + (1 - (v - min) / (max - min)) * (ALTO - 2 * PAD_Y);
     const linea = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join('');
     const yRef = y(data.reference);
@@ -132,18 +171,20 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
     }
 
     return {
-      pts, t0, t1, x, y, linea, area, yRef, ultimo, sube,
+      pts, t0, t1, x, y, linea, area, yRef, ultimo, sube, anchoG,
+      marcasY: ejes ? marcasY(min, max) : [],
+      marcasX: ejes ? separar(marcasX(pts, t0, t1, range, ancho < 500 ? 4 : 6), x) : [],
       nivelesDentro, nivelesFuera, comprasDentro, zonasValidas, posEtiqueta,
       nivelesArriba: nivelesFuera.filter((l) => l.value > max),
       nivelesAbajo: nivelesFuera.filter((l) => l.value < min),
     };
-  }, [data, range, ancho, levels, compras, zonas, nivelesSiempre]);
+  }, [data, range, ancho, levels, compras, zonas, nivelesSiempre, ejes]);
 
   function onPointer(e) {
     if (!g) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const px = Math.min(ancho, Math.max(0, e.clientX - rect.left));
-    const t = g.t0 + (px / ancho) * (g.t1 - g.t0);
+    const px = Math.min(g.anchoG, Math.max(0, e.clientX - rect.left));
+    const t = g.t0 + (px / g.anchoG) * (g.t1 - g.t0);
     setHover(indiceCercano(g.pts, t));
   }
 
@@ -169,7 +210,7 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
   return (
     <div className="pchart">
       <div className="pchart-tabs" role="tablist" aria-label="Periodo del gráfico">
-        {PERIODOS.map((p) => (
+        {PERIODOS.filter((p) => !periodos || periodos.includes(p.id)).map((p) => (
           <button key={p.id} role="tab" aria-selected={range === p.id} className={range === p.id ? 'active' : ''} onClick={() => setRange(p.id)}>
             {p.label}
           </button>
@@ -203,6 +244,20 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
                 const y2 = g.y(Math.min(z.desde, z.hasta));
                 return <rect key={`z${i}`} x="0" width={ancho} y={y1} height={Math.max(0, y2 - y1)} className={`pchart-zona ${z.tipo}`} />;
               })}
+              {ejes && (
+                <g className="pchart-rejilla">
+                  {g.marcasY.map((v) => (
+                    <g key={`y${v}`}>
+                      <line x1="0" x2={g.anchoG} y1={g.y(v)} y2={g.y(v)} />
+                      <text x={g.anchoG + 6} y={g.y(v) + 4}>{fmtNumber(v, 2)}</text>
+                    </g>
+                  ))}
+                  {g.marcasX.map((t) => (
+                    <line key={`x${t}`} x1={g.x(t)} x2={g.x(t)} y1="0" y2={ALTO} />
+                  ))}
+                  <line x1={g.anchoG} x2={g.anchoG} y1="0" y2={ALTO} />
+                </g>
+              )}
               <path d={g.area} style={{ fill: color, fillOpacity: 0.1 }} />
               <line x1="0" x2={ancho} y1={g.yRef} y2={g.yRef} style={{ stroke: 'var(--ink-faint)' }} strokeWidth="0.8" strokeDasharray="2 3" />
 
@@ -239,10 +294,20 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
                 {g.nivelesAbajo.map((l) => `${l.label} ${fmtPrecio(l.value)} ↓`).join('   ')}
               </div>
             )}
-            <div className="pchart-axis">
-              <span>{fmtEje(g.pts[0][0], range)}</span>
-              <span>{fmtEje(g.ultimo[0], range)}</span>
-            </div>
+            {ejes ? (
+              <div className="pchart-axis-x" style={{ width: g.anchoG }}>
+                {g.marcasX.map((t, i) => (
+                  <span key={t} style={{ left: g.x(t) }} className={i === 0 ? 'is-first' : i === g.marcasX.length - 1 ? 'is-last' : ''}>
+                    {fmtEje(t, range)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="pchart-axis">
+                <span>{fmtEje(g.pts[0][0], range)}</span>
+                <span>{fmtEje(g.ultimo[0], range)}</span>
+              </div>
+            )}
           </>
         ) : (
           <div className="pchart-placeholder" style={{ height: ALTO }}>
