@@ -2693,3 +2693,17 @@ tr.ficha-row > td { padding: 0 !important; }
 @media (max-width: 720px) {
   .ideas-tab { font-size: 12.5px; padding: 5px 10px; }
 }
+
+/* Dinero inteligente › Insiders y Ficha › Directivos */
+.insiders-quien { display: flex; flex-direction: column; white-space: normal; min-width: 150px; max-width: 220px; }
+.insiders-quien small { color: var(--ink-dim); font-size: 11px; }
+.insiders-resumen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 4px 0 12px; }
+.insiders-resumen > div { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.insiders-resumen span, .insiders-resumen small { font-size: 12px; color: var(--ink-dim); }
+.insiders-resumen b { font-size: 18px; }
+.insiders-mas { margin: 10px 16px 0; }
+@media (max-width: 720px) {
+  .insiders-resumen { gap: 6px; }
+  .insiders-resumen > div { padding: 6px 8px; }
+  .insiders-resumen b { font-size: 15px; }
+}

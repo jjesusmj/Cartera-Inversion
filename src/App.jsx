@@ -46,6 +46,7 @@ import Mercado from './components/Mercado';
 import MiedoCodicia from './components/MiedoCodicia';
 import Radar from './components/Radar';
 import Ideas from './components/Ideas';
+import Insiders from './components/Insiders';
 import BuscadorValor, { leerRecientes, guardarReciente } from './components/BuscadorValor';
 
 // Lo que se ve está en la dirección: ?v=ficha&t=MSFT&s=valoracion&sub=justo
@@ -608,6 +609,7 @@ export default function App() {
             {view === 'mercado' && <Mercado openLots={openLots} prices={prices} onAbrirFicha={abrirFicha} />}
             {view === 'miedo' && <MiedoCodicia />}
             {view === 'radar' && <Radar openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
+            {view === 'insiders' && <Insiders openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
             {view === 'ideas' && <Ideas watchlist={watchlist} onAbrirFicha={abrirFicha} onNuevoSeguimiento={ro((datos) => setPrefillSeguimiento(datos))} />}
             {view === 'ficha' && !nav.t && (
               <div className="ficha-vacia">

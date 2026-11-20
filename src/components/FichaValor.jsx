@@ -4,6 +4,7 @@ import FichaTecnico from './FichaTecnico';
 import FichaMensual from './FichaMensual';
 import FichaAnalistas from './FichaAnalistas';
 import { FichaResultados, FichaDividendos } from './FichaFinanzas';
+import { FichaDirectivos } from './Insiders';
 import { DetalleValoracionCuerpo } from './Valoracion';
 import FichaDCF from './FichaDCF';
 import {
@@ -66,6 +67,11 @@ export const SECCIONES = [
     id: 'analistas',
     label: 'Analistas',
     subs: [{ id: 'consenso', label: 'Consenso' }],
+  },
+  {
+    id: 'directivos',
+    label: 'Directivos',
+    subs: [{ id: 'operaciones', label: 'Operaciones de directivos' }],
   },
 ];
 
@@ -248,6 +254,8 @@ export default function FichaValor({
           <FichaDividendos symbol={symbol} currency={currency} />
         ) : subsec.id === 'consenso' ? (
           <FichaAnalistas symbol={symbol} currency={currency} q={q} />
+        ) : subsec.id === 'operaciones' ? (
+          <FichaDirectivos symbol={symbol} currency={currency} />
         ) : subsec.id === 'empresa' ? (
           <LaEmpresa symbol={symbol} name={name} perfil={perfil} exchangeId={exchangeId} currency={currency} />
         ) : subsec.id === 'lotes' ? (

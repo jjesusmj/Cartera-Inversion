@@ -424,6 +424,13 @@ export const obtenerFinanzas = (symbol, currency) => pedirFichaExtra('finanzas',
 export const obtenerDCF = (symbol, currency) => pedirFichaExtra('dcf', symbol, currency);
 
 // Mercado › Mapa: 'us' o 'es'. Sin caché aquí: la función ya cachea 2 minutos.
+// lista: 'SYM:CUR,...' o null para las mayores compras del mercado
+export async function obtenerInsiders(lista) {
+  const res = await fetch(lista ? `/api/insiders?s=${encodeURIComponent(lista)}` : '/api/insiders?mayores=1');
+  if (!res.ok) throw new Error('Yahoo no ha devuelto las operaciones de directivos.');
+  return res.json();
+}
+
 export async function obtenerIdeas(mercado, dcf = false) {
   const res = await fetch(`/api/ideas?mercado=${encodeURIComponent(mercado)}${dcf ? '&dcf=1' : ''}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos de ideas.');
