@@ -26,7 +26,7 @@ const TIPOS = {
 const MONEDAS = ['USD', 'EUR'];
 const raw = (x) => (x && typeof x === 'object' && 'raw' in x ? x.raw : typeof x === 'number' ? x : null);
 
-async function cuentas(sym) {
+export async function cuentas(sym) {
   const ahora = Math.floor(Date.now() / 1000);
   const url = `https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(sym)}` +
     `?symbol=${encodeURIComponent(sym)}&type=${Object.values(TIPOS).join(',')}&period1=${ahora - 8 * 365 * 86400}&period2=${ahora}&merge=false&padTimeSeries=true`;
@@ -51,7 +51,7 @@ async function cuentas(sym) {
   return { anos, moneda };
 }
 
-async function ultimoCierre(sym) {
+export async function ultimoCierre(sym) {
   const j = await yahooJson(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=5d&interval=1d`, false);
   const m = j?.chart?.result?.[0]?.meta;
   return m?.regularMarketPrice != null ? { valor: m.regularMarketPrice, fecha: new Date(m.regularMarketTime * 1000).toISOString().slice(0, 10) } : null;
@@ -64,7 +64,7 @@ async function bund() {
   return { valor: parseFloat(v) / 100, fecha, fuente: 'Bund alemán a 10 años (OCDE, vía FRED, media mensual)' };
 }
 
-async function tipoLibre(monedaPrecio) {
+export async function tipoLibre(monedaPrecio) {
   if (monedaPrecio === 'EUR') return bund();
   const t = await ultimoCierre('^TNX');
   return t ? { valor: t.valor / 100, fecha: t.fecha, fuente: 'Bono de EE. UU. a 10 años (^TNX)' } : null;
