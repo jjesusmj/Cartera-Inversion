@@ -570,6 +570,7 @@ export default function App() {
                 sales={salesFiltradas}
                 filtrado={exchangeFilter.length > 0}
                 onAbrirFicha={abrirFicha}
+                owner={owner}
               />
             )}
             {view === 'valoracion' && (

@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import EvolucionVista from './EvolucionVista';
 import ResumenHoy from './ResumenHoy';
 import ResumenDividendos from './ResumenDividendos';
+import ResumenIndice from './ResumenIndice';
+import ResumenMetas from './ResumenMetas';
 import { fmtMoney, fmtPercent, fmtNumber } from '../lib/format';
 import { claseTono } from '../lib/tonos';
 import { useFxToday } from '../lib/useFxToday';
@@ -17,7 +19,7 @@ import { exchangeById, exchangeIdOf } from '../lib/exchanges';
 
 const UMBRAL_SECTOR = 0.4;
 
-export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, sales, filtrado, onAbrirFicha }) {
+export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, sales, filtrado, onAbrirFicha, owner }) {
   const [vista, setVista] = useState(() => {
     try { return localStorage.getItem('resumen_vista') || 'resumen'; } catch { return 'resumen'; }
   });
@@ -149,11 +151,13 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
 
       <ExchangeFilter items={todosLosLotes} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
-      <div className="segmented segmented-global val-filtro" role="tablist" aria-label="Vista de Resumen">
+      <div className="segmented segmented-global val-filtro resumen-tabs" role="tablist" aria-label="Vista de Resumen">
         <button role="tab" aria-selected={vista === 'resumen'} className={vista === 'resumen' ? 'active' : ''} onClick={() => cambiarVista('resumen')}>Resumen</button>
         <button role="tab" aria-selected={vista === 'evolucion'} className={vista === 'evolucion' ? 'active' : ''} onClick={() => cambiarVista('evolucion')}>Evolución</button>
         <button role="tab" aria-selected={vista === 'hoy'} className={vista === 'hoy' ? 'active' : ''} onClick={() => cambiarVista('hoy')}>Hoy</button>
         <button role="tab" aria-selected={vista === 'dividendos'} className={vista === 'dividendos' ? 'active' : ''} onClick={() => cambiarVista('dividendos')}>Dividendos</button>
+        <button role="tab" aria-selected={vista === 'indice'} className={vista === 'indice' ? 'active' : ''} onClick={() => cambiarVista('indice')}>Índice</button>
+        <button role="tab" aria-selected={vista === 'metas'} className={vista === 'metas' ? 'active' : ''} onClick={() => cambiarVista('metas')}>Metas</button>
       </div>
 
       {vista === 'evolucion' ? (
@@ -162,6 +166,10 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
         <ResumenHoy filas={filasSinOrdenar} onAbrirFicha={onAbrirFicha} />
       ) : vista === 'dividendos' ? (
         <ResumenDividendos filas={filasSinOrdenar} onAbrirFicha={onAbrirFicha} />
+      ) : vista === 'indice' ? (
+        <ResumenIndice lots={lots} sales={sales} />
+      ) : vista === 'metas' ? (
+        <ResumenMetas owner={owner} filas={filasSinOrdenar} totalValor={totalValor} xirr={xirr} filtrado={filtrado} />
       ) : (
       <>
 

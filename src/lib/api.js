@@ -95,6 +95,18 @@ export async function guardarAjustes(datos) {
   return setDoc(doc(db, 'settings', 'general'), datos, { merge: true });
 }
 
+// ---------- Metas (un documento por perfil: metas/{owner}) ----------
+
+export async function leerMetas(owner) {
+  const snap = await getDoc(doc(db, 'metas', owner));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function guardarMetas(owner, datos) {
+  comprobarEscritura();
+  return setDoc(doc(db, 'metas', owner), { owner, ...datos }, { merge: true });
+}
+
 // ---------- Ventas (aplica el resultado ya calculado por fifo.js) ----------
 
 export async function registrarVentaEnFirestore({ ventaData, updatedLots }) {

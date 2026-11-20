@@ -10,7 +10,9 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 const fecha = (t) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(t * 1000));
 const pctTxt = (x, dec = 2) => `${fmtNumber(x, dec)} %`;
 
-export default function ResumenDividendos({ filas, onAbrirFicha }) {
+// Carga los dividendos de Yahoo de cada posición y calcula los cobros de los próximos 12 meses.
+// Mientras carga devuelve { listo: false, cargadas }. También lo usa Resumen › Metas.
+export function useCobros(filas) {
   const [datos, setDatos] = useState({});
   const clave = filas.map((f) => `${f.symbol}:${f.currency}`).sort().join(',');
 
@@ -26,9 +28,8 @@ export default function ResumenDividendos({ filas, onAbrirFicha }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave]);
 
-  const cargadas = filas.filter((f) => datos[f.symbol]);
-  if (!filas.length) return <p className="hint">No hay posiciones abiertas.</p>;
-  if (cargadas.length < filas.length) return <p className="hint">Cargando dividendos… ({cargadas.length} de {filas.length})</p>;
+  const cargadas = filas.filter((f) => datos[f.symbol]).length;
+  if (cargadas < filas.length) return { listo: false, cargadas };
 
   const ahora = Date.now() / 1000;
   const fallidas = filas.filter((f) => datos[f.symbol].error).map((f) => f.symbol);
@@ -42,9 +43,17 @@ export default function ResumenDividendos({ filas, onAbrirFicha }) {
     return { ...f, cobros: conEur, pagosAno, porAccion, ingreso };
   });
   const total = posiciones.reduce((s, p) => s + (p.ingreso || 0), 0);
+  const calendario = posiciones.flatMap((p) => p.cobros).sort((a, b) => a.fecha - b.fecha);
+  return { listo: true, cargadas, ahora, datos, fallidas, posiciones, total, calendario };
+}
+
+export default function ResumenDividendos({ filas, onAbrirFicha }) {
+  const cobros = useCobros(filas);
+  if (!filas.length) return <p className="hint">No hay posiciones abiertas.</p>;
+  if (!cobros.listo) return <p className="hint">Cargando dividendos… ({cobros.cargadas} de {filas.length})</p>;
+  const { ahora, datos, fallidas, posiciones, total, calendario } = cobros;
   const valor = filas.reduce((s, f) => s + (f.valorEUR || 0), 0);
   const coste = filas.reduce((s, f) => s + (f.costeEUR || 0), 0);
-  const calendario = posiciones.flatMap((p) => p.cobros).sort((a, b) => a.fecha - b.fecha);
   const meses = cobrosPorMes(calendario, ahora);
   const maxMes = Math.max(1, ...meses.map((m) => m.anunciado + m.estimado));
   const tabla = [...posiciones].sort((a, b) => (b.ingreso || 0) - (a.ingreso || 0));

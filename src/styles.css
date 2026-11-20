@@ -2515,3 +2515,55 @@ tr.ficha-row > td { padding: 0 !important; }
   .divs-cal, .divs-tabla { font-size: 12px; }
   .divs-cal td, .divs-cal th, .divs-tabla td, .divs-tabla th { padding-left: 3px; padding-right: 3px; }
 }
+
+/* Resumen: 6 pestañas; en el móvil se desplazan dentro de su barra */
+@media (max-width: 720px) {
+  .segmented.resumen-tabs { overflow-x: auto; scrollbar-width: none; }
+  .segmented.resumen-tabs::-webkit-scrollbar { display: none; }
+  .segmented.resumen-tabs button { flex: 0 0 auto; padding: 7px 12px; }
+}
+
+/* Resumen › Índice */
+.indice-controles { margin-bottom: 12px; }
+.indice .card.panel { margin-bottom: 16px; }
+.indice-tabla td, .indice-tabla th { white-space: nowrap; }
+.indice-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.indice-cabecera .panel-titulo { margin: 0; }
+.indice-periodos { margin-bottom: 0; }
+.indice-grafico { width: 100%; height: 200px; display: block; margin-top: 10px; }
+.indice-cien { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 4 4; }
+.indice-linea-cart, .indice-linea-idx { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.indice-linea-cart { stroke: var(--prim); }
+.indice-linea-idx { stroke: var(--ink-faint); }
+.indice-ejes { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--ink-dim); margin-top: 4px; flex-wrap: wrap; }
+.indice-leyenda i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 3px; }
+.indice-leyenda .l-cart { background: var(--prim); }
+.indice-leyenda .l-idx { background: var(--ink-faint); }
+.indice-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.indice-grid .card.panel { margin-bottom: 0; }
+.indice-explica { margin: 10px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--ink-dim); line-height: 1.5; }
+.aport { display: grid; gap: 2px; }
+.aport-fila { display: grid; grid-template-columns: 64px minmax(0, 1fr) 76px; gap: 8px; align-items: center; padding: 4px; font-size: 13px; }
+.aport-fila .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 900px) {
+  .indice-grid { grid-template-columns: 1fr; }
+  .indice-grid .card.panel { margin-bottom: 16px; }
+}
+@media (max-width: 480px) {
+  .indice-grafico { height: 170px; }
+  .indice-leyenda { order: -1; width: 100%; }
+  .aport-fila { grid-template-columns: 54px minmax(0, 1fr) 70px; gap: 6px; font-size: 12px; }
+}
+
+/* Resumen › Metas */
+.metas-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+.meta-cifras { font-size: 15px; margin: 4px 0 10px; }
+.meta-barra { height: 12px; background: var(--bg-inset); border-radius: 999px; overflow: hidden; }
+.meta-barra span { display: block; height: 100%; background: var(--prim); border-radius: 999px; }
+.meta-pct { font-size: 12.5px; color: var(--ink-dim); margin: 6px 0 8px; }
+.meta-cuando { font-size: 14px; font-weight: 600; margin: 0; }
+.metas-form { max-width: 520px; }
+.metas-acciones { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+@media (max-width: 720px) {
+  .metas-grid { grid-template-columns: 1fr; }
+}
