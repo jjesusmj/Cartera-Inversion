@@ -17,7 +17,7 @@ const MERCADO = [{ id: 'mercado', label: 'Mapa' }, { id: 'miedo', label: 'Miedo 
 const IDEAS = [{ id: 'radar', label: 'Radar técnico' }, { id: 'ideas', label: 'Ideas' }];
 
 // Grupo «Dinero inteligente»
-const DINERO = [{ id: 'insiders', label: 'Insiders' }];
+const DINERO = [{ id: 'insiders', label: 'Insiders' }, { id: 'superinversores', label: 'Superinversores' }];
 
 // Grupo «Empresa»: lo que se consulta de un valor concreto
 const EMPRESA = [{ id: 'ficha', label: 'Ficha de valor', corto: 'Ficha' }];

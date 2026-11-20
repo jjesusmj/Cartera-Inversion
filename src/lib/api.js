@@ -431,6 +431,13 @@ export async function obtenerInsiders(lista) {
   return res.json();
 }
 
+// Dinero inteligente › Superinversores: lista (id null) o detalle de un gestor
+export async function obtenerSuperinversores(id) {
+  const res = await fetch(id ? `/api/superinversores?id=${encodeURIComponent(id)}` : '/api/superinversores');
+  if (!res.ok) throw new Error('La SEC no ha devuelto los 13F.');
+  return res.json();
+}
+
 export async function obtenerIdeas(mercado, dcf = false) {
   const res = await fetch(`/api/ideas?mercado=${encodeURIComponent(mercado)}${dcf ? '&dcf=1' : ''}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos de ideas.');

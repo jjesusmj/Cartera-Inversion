@@ -1,5 +1,10 @@
 {
   "functions": {
-    "api/fundamentals.js": { "maxDuration": 30 }
+    "api/fundamentals.js": {
+      "maxDuration": 30
+    },
+    "api/superinversores.js": {
+      "maxDuration": 60
+    }
   }
 }

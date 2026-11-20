@@ -2707,3 +2707,17 @@ tr.ficha-row > td { padding: 0 !important; }
   .insiders-resumen > div { padding: 6px 8px; }
   .insiders-resumen b { font-size: 15px; }
 }
+
+/* Dinero inteligente › Superinversores */
+.super-buscar { display: block; width: 100%; max-width: 360px; margin: 4px 0 12px; box-sizing: border-box; }
+.super-nombre { display: block; white-space: normal; text-align: left; min-width: 150px; max-width: 220px; }
+.super-tabla td.super-ancha { white-space: normal; min-width: 260px; font-size: 12px; color: var(--ink-dim); }
+.super-volver { margin: 0 0 10px; }
+.super-titulo { font-size: 20px; margin: 4px 0 2px; }
+.super-filer { margin-top: 0; }
+.super-fecha { font-size: 15px !important; }
+@media (max-width: 720px) {
+  .super-nombre { min-width: 120px; max-width: 150px; }
+  .super-tabla td.super-ancha { min-width: 200px; }
+  .super-titulo { font-size: 17px; }
+}
