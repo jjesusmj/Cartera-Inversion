@@ -4,7 +4,7 @@
 //  - fundamentals-timeseries: cuentas anuales (Piotroski y crecimientos), balance del
 //    último trimestre y resultados de los últimos 12 meses (salud financiera y Altman Z)
 //  - insights: nota de Argus Research y perspectiva técnica de Trading Central (solo algunos valores)
-//  - chart: 2 años de cierres y volúmenes diarios (para el análisis técnico)
+//  - chart: 2 años de cierres, máximos, mínimos y volúmenes diarios (para el análisis técnico)
 // Cada bloque puede fallar por separado: se devuelve null y la ficha lo indica.
 
 import { yahooJson, pedir, UA_NAVEGADOR } from './_yahoo.js';
@@ -133,17 +133,21 @@ async function historico(sym) {
   if (!r || !q) throw new Error('sin histórico');
   const cierres = [];
   const volumenes = [];
+  const maximos = [];
+  const minimos = [];
   (r.timestamp || []).forEach((t, i) => {
     if (q.close?.[i] != null) {
       cierres.push(q.close[i]);
       volumenes.push(q.volume?.[i] ?? null);
+      maximos.push(q.high?.[i] ?? null);
+      minimos.push(q.low?.[i] ?? null);
     }
   });
   // Sesión en curso: el volumen de la última barra aún no está completo
   const regular = r.meta?.currentTradingPeriod?.regular;
   const ahora = Date.now() / 1000;
   const sesionAbierta = !!regular && ahora >= regular.start && ahora < regular.end;
-  return { cierres, volumenes, sesionAbierta };
+  return { cierres, volumenes, maximos, minimos, sesionAbierta };
 }
 
 const seguro = (p) => p.then((v) => v, () => null);

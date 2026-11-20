@@ -358,6 +358,29 @@ function Tecnico({ t, tc }) {
         <Fila label="Volumen último día vs media 90 d." titulo="Volumen de la última sesión completa frente a la media de las 90 anteriores">
           {esNum(t.volumenVsMedia) ? `${fmtNumber(t.volumenVsMedia * 100, 0)} %` : '—'}
         </Fila>
+        {t.bollinger && (
+          <Fila label="Bollinger (20, 2σ) inferior / superior" titulo="Media de 20 sesiones ± 2 desviaciones típicas">
+            {fmtNumber(t.bollinger.inferior, 2)} / {fmtNumber(t.bollinger.superior, 2)}
+          </Fila>
+        )}
+        {t.bollinger && esNum(t.bollinger.pctB) && (
+          <Fila
+            label="% Bollinger"
+            clase={t.bollinger.pctB >= 1 ? 'loss' : t.bollinger.pctB <= 0 ? 'gain' : ''}
+            titulo="Posición del precio en la banda: 0 % en la inferior, 100 % en la superior"
+          >
+            {fmtNumber(t.bollinger.pctB * 100, 0)} %
+          </Fila>
+        )}
+        <Fila label="ATR (14)" titulo="Rango verdadero medio de las últimas 14 sesiones: cuánto se mueve el precio en un día normal">
+          {esNum(t.atr14) ? `${fmtNumber(t.atr14, 2)} (${fmtNumber(t.atrPct * 100, 1)} %)` : '—'}
+        </Fila>
+        <Fila label="Resistencias" titulo="Máximos relevantes (pivotes) de los últimos 120 días por encima del precio">
+          {t.resistencias.length ? t.resistencias.map((v) => fmtNumber(v, 2)).join(' · ') : '—'}
+        </Fila>
+        <Fila label="Soportes" titulo="Mínimos relevantes (pivotes) de los últimos 120 días por debajo del precio">
+          {t.soportes.length ? t.soportes.map((v) => fmtNumber(v, 2)).join(' · ') : '—'}
+        </Fila>
         <Fila label="Variación 1 mes / 3 meses">
           <span className={signo(t.var1m)}>{pct(t.var1m)}</span> / <span className={signo(t.var3m)}>{pct(t.var3m)}</span>
         </Fila>
@@ -375,7 +398,7 @@ function Tecnico({ t, tc }) {
           )}
       </div>
       <p className="panel-fuente">
-        Calculado con los cierres diarios de Yahoo Finance (RSI con medias simples de 14 sesiones){tc ? '. Perspectivas: Trading Central, vía Yahoo' : ''}.
+        Calculado con las cotizaciones diarias de Yahoo Finance (RSI y ATR con medias simples de 14 sesiones; soportes y resistencias: pivotes de 120 días){tc ? '. Perspectivas: Trading Central, vía Yahoo' : ''}.
       </p>
     </>
   );

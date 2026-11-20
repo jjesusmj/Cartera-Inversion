@@ -1,7 +1,7 @@
 // Análisis técnico, Altman Z, Piotroski F y notas del diagnóstico. Ejecutar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sma, rsi, volatilidad, tecnico, crecimientosAnuales, altmanZ, piotroski, roic, escala, diagnostico, saludFinanciera } from '../src/lib/diagnostico.js';
+import { sma, rsi, volatilidad, bollinger, atr, soportesResistencias, tecnico, crecimientosAnuales, altmanZ, piotroski, roic, escala, diagnostico, saludFinanciera } from '../src/lib/diagnostico.js';
 
 const cerca = (real, esperado, msg, tol = 0.01) => assert.ok(Math.abs(real - esperado) < tol, `${msg}: ${real} frente a ${esperado}`);
 const serie = (...valores) => valores.map((valor, i) => ({ fecha: `${2022 + i}-12-31`, valor }));
@@ -161,4 +161,35 @@ test('diagnóstico con los datos de NFLX de AITerminal: 72, 81, 94 y 84', () => 
   cerca(nota('crecimiento'), 81, 'crecimiento', 1.01);
   cerca(nota('calidad'), 94, 'calidad', 1.01);
   cerca(nota('salud'), 84, 'salud', 1.01);
+});
+
+test('Bollinger: banda nula con precio constante y %B 0,5 en la media', () => {
+  const b = bollinger(Array(20).fill(10), 10);
+  assert.equal(b.superior, 10);
+  assert.equal(b.pctB, null);
+  const alterna = Array.from({ length: 20 }, (_, i) => (i % 2 ? 12 : 8)); // media 10, desviación 2
+  const b2 = bollinger(alterna, 10);
+  cerca(b2.superior, 14, 'superior');
+  cerca(b2.inferior, 6, 'inferior');
+  cerca(b2.pctB, 0.5, '%B');
+});
+
+test('ATR: usa el hueco con el cierre anterior si es mayor que el rango del día', () => {
+  const cierres = Array.from({ length: 15 }, () => 10);
+  const maximos = cierres.map(() => 11);
+  const minimos = cierres.map(() => 9);
+  assert.equal(atr(maximos, minimos, cierres, 14), 2);
+  // último día abre con hueco: rango 1 (20-21) pero 11 sobre el cierre anterior
+  const c2 = [...cierres, 20.5];
+  assert.equal(atr([...maximos, 21], [...minimos, 20], c2, 14), (13 * 2 + 11) / 14);
+  assert.equal(atr(maximos.slice(0, 5), minimos.slice(0, 5), cierres.slice(0, 5), 14), null);
+});
+
+test('soportes y resistencias: pivotes más cercanos por encima y por debajo del precio', () => {
+  // dientes de sierra: picos en 15 y 13, valles en 5 y 7, separados más de 5 sesiones
+  const h = [10, 10, 10, 10, 10, 10, 15, 10, 10, 10, 10, 10, 10, 13, 10, 10, 10, 10, 10, 10, 10, 10];
+  const l = [8, 8, 8, 8, 8, 8, 8, 8, 8, 5, 8, 8, 8, 8, 8, 8, 7, 8, 8, 8, 8, 8];
+  const r = soportesResistencias(h, l, 9.5);
+  assert.deepEqual(r.resistencias, [13, 15]);
+  assert.deepEqual(r.soportes, [7, 5]);
 });

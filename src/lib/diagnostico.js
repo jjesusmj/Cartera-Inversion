@@ -41,9 +41,54 @@ export function volatilidad(cierres, n = 30) {
   return Math.sqrt(varianza) * Math.sqrt(252);
 }
 
+// Bandas de Bollinger (n sesiones, k desviaciones) y %B del precio dentro de la banda
+export function bollinger(cierres, precio, n = 20, k = 2) {
+  if (cierres.length < n) return null;
+  const tramo = cierres.slice(-n);
+  const m = media(tramo);
+  const sd = Math.sqrt(tramo.reduce((s, x) => s + (x - m) ** 2, 0) / n);
+  const sup = m + k * sd;
+  const inf = m - k * sd;
+  return { media: m, superior: sup, inferior: inf, pctB: sup > inf ? (precio - inf) / (sup - inf) : null };
+}
+
+// ATR: media simple del rango verdadero de las últimas n sesiones
+export function atr(maximos, minimos, cierres, n = 14) {
+  const tr = [];
+  for (let i = 1; i < cierres.length; i++) {
+    const h = maximos[i];
+    const l = minimos[i];
+    const c0 = cierres[i - 1];
+    if (!esNum(h) || !esNum(l) || !esNum(c0)) continue;
+    tr.push(Math.max(h - l, Math.abs(h - c0), Math.abs(l - c0)));
+  }
+  return tr.length >= n ? media(tr.slice(-n)) : null;
+}
+
+// Soportes y resistencias: pivotes de las últimas `dias` sesiones. Un pivote alto es un máximo
+// mayor que los `lado` máximos de antes y de después (el bajo, igual con los mínimos).
+// Devuelve los `cuantos` más cercanos por encima (resistencias) y por debajo (soportes) del precio.
+export function soportesResistencias(maximos, minimos, precio, { dias = 120, lado = 5, cuantos = 2 } = {}) {
+  const h = maximos.slice(-dias);
+  const l = minimos.slice(-dias);
+  const altos = [];
+  const bajos = [];
+  for (let i = lado; i < h.length - lado; i++) {
+    const vh = h.slice(i - lado, i + lado + 1);
+    const vl = l.slice(i - lado, i + lado + 1);
+    if (esNum(h[i]) && vh.every((x) => !esNum(x) || x <= h[i])) altos.push(h[i]);
+    if (esNum(l[i]) && vl.every((x) => !esNum(x) || x >= l[i])) bajos.push(l[i]);
+  }
+  const unicos = (v) => [...new Set(v)];
+  return {
+    resistencias: unicos(altos.filter((x) => x > precio)).sort((a, b) => a - b).slice(0, cuantos),
+    soportes: unicos(bajos.filter((x) => x < precio)).sort((a, b) => b - a).slice(0, cuantos),
+  };
+}
+
 // precio: cotización actual (si no, el último cierre); rango52: { min, max } de la cotización
 // sesionAbierta: el último volumen es de hoy y aún no está completo; se usa el del día anterior
-export function tecnico({ cierres = [], volumenes = [], sesionAbierta = false } = {}, precio = null, rango52 = null) {
+export function tecnico({ cierres = [], volumenes = [], maximos = [], minimos = [], sesionAbierta = false } = {}, precio = null, rango52 = null) {
   if (cierres.length < 30) return null;
   const p = esNum(precio) ? precio : cierres[cierres.length - 1];
   const s20 = sma(cierres, 20);
@@ -56,6 +101,10 @@ export function tecnico({ cierres = [], volumenes = [], sesionAbierta = false } 
   const vols = (sesionAbierta ? volumenes.slice(0, -1) : volumenes).filter(esNum);
   const volMedia90 = vols.length > 90 ? media(vols.slice(-91, -1)) : null;
   const volDia = vols.length ? vols[vols.length - 1] : null;
+  // ATR sin la sesión en curso, que aún no tiene su rango completo
+  const fin = sesionAbierta ? -1 : undefined;
+  const atr14 = maximos.length === cierres.length ? atr(maximos.slice(0, fin), minimos.slice(0, fin), cierres.slice(0, fin), 14) : null;
+  const niveles = maximos.length === cierres.length ? soportesResistencias(maximos, minimos, p) : null;
   return {
     rsi: rsi(cierres, 14),
     sma20: s20,
@@ -70,6 +119,11 @@ export function tecnico({ cierres = [], volumenes = [], sesionAbierta = false } 
     volumenVsMedia: volMedia90 && esNum(volDia) ? volDia / volMedia90 : null,
     var1m: hace(21) ? p / hace(21) - 1 : null,
     var3m: hace(63) ? p / hace(63) - 1 : null,
+    bollinger: bollinger(cierres, p, 20, 2),
+    atr14,
+    atrPct: esNum(atr14) ? atr14 / p : null,
+    soportes: niveles?.soportes || [],
+    resistencias: niveles?.resistencias || [],
   };
 }
 
