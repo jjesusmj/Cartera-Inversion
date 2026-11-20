@@ -5,12 +5,14 @@ import { claseTono } from '../lib/tonos';
 import { fmtCotizacion, fmtNumber } from '../lib/format';
 
 // Búsqueda de ideas › Ideas: subidas, bajadas, más activos, cerca de máximos y mínimos de
-// 52 semanas e infravaloradas por DCF, de EE. UU. o España. Datos de /api/ideas.
+// 52 semanas e infravaloradas por DCF, de EE. UU. o España; solo EE. UU.: subidas de rating y acceso a
+// las compras de insiders. Datos de /api/ideas.
 
 const MERCADOS = [['us', 'EE. UU.'], ['es', 'España']];
 const PESTANAS = [
   ['subidas', 'Subidas'], ['bajadas', 'Bajadas'], ['activos', 'Más activos'],
   ['maximos', 'Cerca de máximos'], ['minimos', 'Cerca de mínimos'], ['dcf', 'Infravaloradas (DCF)'],
+  ['rating', 'Subidas de rating', 'us'], ['insiders', 'Compras de insiders', 'us'],
 ];
 const esNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const SIMBOLO = { USD: '$', EUR: '€' };
@@ -52,6 +54,21 @@ const COLUMNAS = [
   { id: 'cap', txt: 'Capitalización', v: (f) => f.cap, c: (f) => grande(f.cap, f.currency) },
   { id: 'per', txt: 'PER', v: (f) => f.per, c: (f) => (esNum(f.per) ? fmtNumber(f.per, 1) : '—') },
 ];
+const fechaCorta = (t) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(new Date(t * 1000));
+const COLUMNAS_RATING = [
+  {
+    id: 'fecha', txt: 'Fecha', v: (f) => f.fecha,
+    c: (f) => <>{fechaCorta(f.fecha)}{f.hoy && <span className="chip-tono tono-verde-f ideas-hoy">Hoy</span>}</>,
+  },
+  { id: 'firma', txt: 'Firma', v: (f) => f.firma, c: (f) => f.firma || '—', texto: true },
+  { id: 'cambio', txt: 'Recomendación', v: (f) => f.nueva, c: (f) => `${f.anterior || '—'} → ${f.nueva || '—'}`, texto: true },
+  {
+    id: 'objetivo', txt: 'Precio objetivo', v: (f) => f.objetivo,
+    c: (f) => (esNum(f.objetivo) ? `${esNum(f.objetivoAnterior) ? `${fmtNumber(f.objetivoAnterior, 2)} → ` : ''}${fmtCotizacion(f.objetivo, f.currency)}` : '—'),
+  },
+  { id: 'precio', txt: 'Precio', v: (f) => f.precio, c: (f) => fmtCotizacion(f.precio, f.currency) },
+  { id: 'potencial', txt: 'Potencial', v: (f) => f.potencial, c: (f) => <span className={f.potencial > 0 ? 'gain' : f.potencial < 0 ? 'loss' : ''}>{pct(f.potencial, 1)}</span> },
+];
 const COLUMNAS_DCF = [
   { id: 'justo', txt: 'Valor justo', v: (f) => f.valorJusto, c: (f) => fmtCotizacion(f.valorJusto, f.currency) },
   { id: 'margen', txt: 'Margen', v: (f) => f.margen, c: (f) => <span className="gain">{pct(f.margen, 0)}</span> },
@@ -60,31 +77,34 @@ const COLUMNAS_DCF = [
 const leer = (k, def) => { try { return localStorage.getItem(k) || def; } catch { return def; } };
 const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
 
-function useDatos(mercado, dcf) {
+function useDatos(mercado, extra) {
   const [estado, setEstado] = useState({ datos: null, error: null });
   useEffect(() => {
     let vivo = true;
     setEstado({ datos: null, error: null });
-    obtenerIdeas(mercado, dcf)
+    obtenerIdeas(mercado, extra)
       .then((d) => vivo && setEstado({ datos: d, error: null }))
       .catch((e) => vivo && setEstado({ datos: null, error: e.message }));
     return () => { vivo = false; };
-  }, [mercado, dcf]);
+  }, [mercado, extra]);
   return estado;
 }
 
-export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento }) {
+export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento, onIrInsiders }) {
   const [mercado, setMercadoState] = useState(() => leer('ideas_mercado', 'us'));
   const [tab, setTabState] = useState(() => leer('ideas_tab', 'subidas'));
   const setMercado = (v) => { guardar('ideas_mercado', v); setMercadoState(v); };
   const setTab = (v) => { guardar('ideas_tab', v); setTabState(v); };
+  // Las pestañas de solo EE. UU. no existen en España
+  const pestanas = PESTANAS.filter(([, , m]) => !m || m === mercado);
+  const activa = pestanas.some(([id]) => id === tab) ? tab : 'subidas';
 
   return (
     <div>
       <div className="page-head">
         <div>
           <div className="page-title">Ideas</div>
-          <div className="page-sub">Valores que destacan hoy o que el DCF ve baratos. Pulsa un ticker para abrir su ficha.</div>
+          <div className="page-sub">Valores que destacan hoy, que el DCF ve baratos o que suben de recomendación. Pulsa un ticker para abrir su ficha.</div>
         </div>
       </div>
       <div className="segmented segmented-global val-filtro" role="tablist" aria-label="Mercado">
@@ -93,13 +113,24 @@ export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento }) {
         ))}
       </div>
       <div className="ideas-tabs" role="tablist" aria-label="Lista">
-        {PESTANAS.map(([id, txt]) => (
-          <button key={id} role="tab" aria-selected={tab === id} className={`ideas-tab${tab === id ? ' active' : ''}`} onClick={() => setTab(id)}>{txt}</button>
+        {pestanas.map(([id, txt]) => (
+          <button key={id} role="tab" aria-selected={activa === id} className={`ideas-tab${activa === id ? ' active' : ''}`} onClick={() => setTab(id)}>{txt}</button>
         ))}
       </div>
-      {tab === 'dcf'
-        ? <ListaDCF key={`dcf-${mercado}`} mercado={mercado} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />
-        : <ListaDia key={mercado} mercado={mercado} tab={tab} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />}
+      {activa === 'dcf' && <ListaDCF key={`dcf-${mercado}`} mercado={mercado} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />}
+      {activa === 'rating' && <ListaRating watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />}
+      {activa === 'insiders' && (
+        <section className="card panel">
+          <p className="frase-cartera">
+            Las compras en mercado de directivos de los últimos 90 días (Dow Jones, Nasdaq 100, España y tus valores) están en
+            Dinero inteligente › Insiders.
+          </p>
+          <button className="btn btn-primary" onClick={() => { guardar('insiders_tab', 'mayores'); onIrInsiders(); }}>Ver mayores compras de insiders →</button>
+        </section>
+      )}
+      {!['dcf', 'rating', 'insiders'].includes(activa) && (
+        <ListaDia key={mercado} mercado={mercado} tab={activa} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />
+      )}
     </div>
   );
 }
@@ -117,7 +148,7 @@ const UNIVERSO = {
 };
 
 function ListaDia({ mercado, tab, ...resto }) {
-  const { datos, error } = useDatos(mercado, false);
+  const { datos, error } = useDatos(mercado, '');
   if (error) return <p className="hint">{error}</p>;
   if (!datos) return <p className="hint">Cargando…</p>;
   const filas = datos[tab] || [];
@@ -139,7 +170,7 @@ function ListaDia({ mercado, tab, ...resto }) {
 }
 
 function ListaDCF({ mercado, ...resto }) {
-  const { datos, error } = useDatos(mercado, true);
+  const { datos, error } = useDatos(mercado, 'dcf');
   if (error) return <p className="hint">{error}</p>;
   if (!datos) return <p className="hint">Calculando el DCF de cada valor… (la primera vez del día tarda unos segundos)</p>;
   const fuera = Object.entries(datos.fuera || {});
@@ -176,21 +207,44 @@ function ListaDCF({ mercado, ...resto }) {
   );
 }
 
-function Tabla({ filas, mercado, dcf = false, watchlist, onAbrirFicha, onNuevoSeguimiento }) {
+function ListaRating(props) {
+  const { datos, error } = useDatos('us', 'rating');
+  if (error) return <p className="hint">{error}</p>;
+  if (!datos) return <p className="hint">Leyendo los cambios de recomendación de unos 120 valores… (la primera vez tarda unos segundos)</p>;
+  const hoy = datos.rating.filter((f) => f.hoy).length;
+  return (
+    <>
+      <p className="frase-cartera">
+        {datos.rating.length} subidas de recomendación en las últimas 7 sesiones{hoy ? `, ${hoy} de hoy` : ''}. De la más reciente a la más antigua.
+      </p>
+      <Tabla filas={datos.rating} mercado="us" columnas={COLUMNAS_RATING} {...props} />
+      <p className="hint">
+        Valores: Dow Jones y Nasdaq 100 ({datos.valores}), con los filtros de las otras listas. Solo subidas de recomendación de un analista
+        (de mantener a comprar, por ejemplo); no cuenta las subidas de precio objetivo sin cambio de recomendación. Potencial: precio
+        objetivo nuevo frente al precio actual. Datos de Yahoo; se recalcula cada 6 horas
+        {datos.calculado ? ` (último cálculo: ${horaTxt(datos.calculado / 1000)})` : ''}.
+        {datos.fallidos?.length > 0 && ` Sin datos: ${datos.fallidos.join(', ')}.`}
+      </p>
+    </>
+  );
+}
+
+function Tabla({ filas, mercado, dcf = false, columnas: propias, watchlist, onAbrirFicha, onNuevoSeguimiento }) {
   const [orden, setOrden] = useState(null); // null = orden de la lista
   if (!filas.length) return <p className="hint">Ningún valor cumple hoy esta condición.</p>;
-  const columnas = dcf ? [...COLUMNAS_DCF, ...COLUMNAS] : COLUMNAS;
+  const columnas = propias || (dcf ? [...COLUMNAS_DCF, ...COLUMNAS] : COLUMNAS);
   const col = orden && columnas.find((c) => c.id === orden.col);
   const ordenadas = col
     ? [...filas].sort((a, b) => {
         const x = col.v(a);
         const y = col.v(b);
+        if (col.texto) return String(x || '').localeCompare(String(y || '')) * orden.dir;
         if (!esNum(x)) return 1;
         if (!esNum(y)) return -1;
         return (x - y) * orden.dir;
       })
     : orden?.col === 'ticker' ? [...filas].sort((a, b) => a.symbol.localeCompare(b.symbol) * orden.dir) : filas;
-  const ordenar = (id) => setOrden((o) => ({ col: id, dir: o?.col === id ? -o.dir : id === 'ticker' ? 1 : -1 }));
+  const ordenar = (id) => setOrden((o) => ({ col: id, dir: o?.col === id ? -o.dir : id === 'ticker' || columnas.find((c) => c.id === id)?.texto ? 1 : -1 }));
   const flecha = (id) => (orden?.col === id ? (orden.dir > 0 ? ' ▲' : ' ▼') : '');
   const enLista = new Set(watchlist.map((w) => w.symbol));
   const exchangeId = (s) => (mercado === 'us' ? 'us' : exchangeIdDeSimbolo(s));
@@ -203,21 +257,21 @@ function Tabla({ filas, mercado, dcf = false, watchlist, onAbrirFicha, onNuevoSe
             <tr>
               <th className="radar-fija"><button className="radar-th" onClick={() => ordenar('ticker')}>Valor{flecha('ticker')}</button></th>
               {columnas.map((c) => (
-                <th key={c.id} className={c.id === 'rango' ? '' : 'num'}><button className="radar-th" onClick={() => ordenar(c.id)}>{c.txt}{flecha(c.id)}</button></th>
+                <th key={c.id} className={c.id === 'rango' || c.texto ? '' : 'num'}><button className="radar-th" onClick={() => ordenar(c.id)}>{c.txt}{flecha(c.id)}</button></th>
               ))}
               <th><span className="sr-solo">Seguimiento</span></th>
             </tr>
           </thead>
           <tbody>
-            {ordenadas.map((f) => (
-              <tr key={f.symbol}>
+            {ordenadas.map((f, i) => (
+              <tr key={`${f.symbol}-${f.fecha || ''}-${f.firma || ''}-${i}`}>
                 <td className="radar-fija">
                   <button className="ideas-ticker" onClick={() => onAbrirFicha({ symbol: f.symbol, name: f.name, exchangeId: exchangeId(f.symbol) })}>
                     <b>{f.symbol}</b>
                     <span className="radar-nombre">{f.name}</span>
                   </button>
                 </td>
-                {columnas.map((c) => <td key={c.id} className={c.id === 'rango' ? '' : 'num'}>{c.c(f)}</td>)}
+                {columnas.map((c) => <td key={c.id} className={c.id === 'rango' || c.texto ? '' : 'num'}>{c.c(f)}</td>)}
                 <td>
                   {enLista.has(f.symbol)
                     ? <span className="hint-inline">En seguimiento</span>

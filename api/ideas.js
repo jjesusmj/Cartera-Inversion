@@ -5,11 +5,13 @@
 //    España: IBEX 35 + mercado continuo, cotizaciones en lote. Caché de 2 minutos.
 //  - Con dcf=1: DCF estándar con hipótesis por defecto de cada valor del universo (Dow + Nasdaq 100
 //    o España) y los que tienen un margen del 15 % o más. Caché de 24 horas.
+//  - Con rating=1 (solo us): subidas de recomendación de analistas de las últimas 7 sesiones en
+//    Dow Jones + Nasdaq 100 (Yahoo, upgradeDowngradeHistory valor a valor). Caché de 6 horas.
 
 import { yahooJson } from './_yahoo.js';
 import { cuentas, ultimoCierre, tipoLibre } from './dcf.js';
 import { DOW, NASDAQ100, ESPANA } from './_listas.js';
-import { normalizar, pasaFiltros, subidas, bajadas, activos, cercaMaximos, cercaMinimos, dcfAutomatico, infravaloradas, CUANTOS } from '../src/lib/ideas.js';
+import { normalizar, pasaFiltros, subidas, bajadas, activos, cercaMaximos, cercaMinimos, dcfAutomatico, infravaloradas, CUANTOS, subidasRating } from '../src/lib/ideas.js';
 
 const CAMPOS = 'shortName,longName,quoteType,currency,regularMarketPrice,regularMarketChange,regularMarketChangePercent,' +
   'fiftyTwoWeekLow,fiftyTwoWeekHigh,regularMarketVolume,marketCap,trailingPE,regularMarketTime';
@@ -93,10 +95,52 @@ async function dcf(mercado) {
   return { dcf: infravaloradas(out), calculados: out.filter((f) => !f.motivo).length, total: out.length, fuera, tipoLibre: libre };
 }
 
+// Subidas de rating: historial de cambios de recomendación de cada valor, de 10 en 10
+let cacheRating = null;
+async function rating() {
+  if (cacheRating && Date.now() - cacheRating.at < 6 * 3600e3) return cacheRating.datos;
+  const crudo = await cotizaciones(UNIVERSO.us);
+  const filas = crudo.map((q) => ({ q, f: normalizar(q, 'us') })).filter(({ f }) => pasaFiltros(f, 'us'));
+  const valores = [];
+  const fallidos = [];
+  for (let i = 0; i < filas.length; i += 10) {
+    valores.push(...(await Promise.all(filas.slice(i, i + 10).map(async ({ q, f }) => {
+      try {
+        const j = await yahooJson(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(q.symbol)}?modules=upgradeDowngradeHistory`);
+        const h = j?.quoteSummary?.result?.[0]?.upgradeDowngradeHistory?.history || [];
+        return {
+          ...f,
+          historial: h.map((x) => ({
+            fecha: x.epochGradeDate,
+            firma: x.firm,
+            anterior: x.fromGrade || '',
+            nueva: x.toGrade || '',
+            accion: x.action,
+            objetivo: x.currentPriceTarget > 0 ? x.currentPriceTarget : null,
+            objetivoAnterior: x.priorPriceTarget > 0 ? x.priorPriceTarget : null,
+          })),
+        };
+      } catch {
+        fallidos.push(f.symbol);
+        return { ...f, historial: [] };
+      }
+    }))));
+  }
+  const datos = { rating: subidasRating(valores), valores: valores.length, fallidos, calculado: Date.now() };
+  cacheRating = { at: Date.now(), datos };
+  return datos;
+}
+
 export default async function handler(req, res) {
   const mercado = req.query.mercado;
   if (!UNIVERSO[mercado]) return res.status(400).json({ error: 'mercado debe ser us o es' });
   try {
+    if (req.query.rating) {
+      if (mercado !== 'us') return res.status(400).json({ error: 'Subidas de rating: solo EE. UU.' });
+      const datos = await rating();
+      res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=3600');
+      return res.status(200).json(datos);
+    }
     if (req.query.dcf) {
       const datos = await dcf(mercado);
       res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=3600');

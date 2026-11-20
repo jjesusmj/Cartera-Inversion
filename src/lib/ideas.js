@@ -72,3 +72,46 @@ export function dcfAutomatico(d) {
 
 // Infravaloradas: margen de 15 % o más, de mayor a menor
 export const infravaloradas = (filas) => filas.filter((f) => !f.motivo && esNum(f.margen) && f.margen >= MARGEN_DCF).sort((a, b) => b.margen - a.margen);
+
+// --- Subidas de rating (solo EE. UU.) ---
+export const SESIONES_RATING = 7;
+
+// Inicio (segundos, 00:00 UTC) de la n-ésima sesión hacia atrás contando hoy, solo días laborables
+export function inicioSesiones(ahora = Date.now() / 1000, n = SESIONES_RATING) {
+  const d = new Date(ahora * 1000);
+  d.setUTCHours(0, 0, 0, 0);
+  let cuenta = 0;
+  for (;;) {
+    const dia = d.getUTCDay();
+    if (dia !== 0 && dia !== 6) cuenta += 1;
+    if (cuenta >= n) return d.getTime() / 1000;
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+}
+
+// valores: [{ symbol, name, currency, precio, historial: [{ fecha, firma, anterior, nueva, accion, objetivo, objetivoAnterior }] }]
+// → subidas («up») de las últimas sesiones, de la más reciente a la más antigua, con el potencial hasta el objetivo
+export function subidasRating(valores, ahora = Date.now() / 1000, sesiones = SESIONES_RATING) {
+  const corte = inicioSesiones(ahora, sesiones);
+  const hoy = Math.floor(ahora / 86400) * 86400; // 00:00 UTC de hoy (en fin de semana no hay «hoy»)
+  const vistas = new Set();
+  return valores
+    .flatMap((v) => (v.historial || [])
+      .filter((h) => h.accion === 'up' && esNum(h.fecha) && h.fecha >= corte && h.fecha <= ahora)
+      .map((h) => ({
+        symbol: v.symbol,
+        name: v.name,
+        currency: v.currency,
+        precio: v.precio,
+        ...h,
+        hoy: h.fecha >= hoy,
+        potencial: esNum(h.objetivo) && esNum(v.precio) && v.precio > 0 ? h.objetivo / v.precio - 1 : null,
+      })))
+    .filter((f) => {
+      const k = `${f.symbol}|${f.fecha}|${f.firma}`;
+      if (vistas.has(k)) return false;
+      vistas.add(k);
+      return true;
+    })
+    .sort((a, b) => b.fecha - a.fecha || a.symbol.localeCompare(b.symbol));
+}

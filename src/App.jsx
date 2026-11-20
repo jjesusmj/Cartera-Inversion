@@ -612,7 +612,7 @@ export default function App() {
             {view === 'radar' && <Radar openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
             {view === 'insiders' && <Insiders openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
             {view === 'superinversores' && <Superinversores onAbrirFicha={abrirFicha} />}
-            {view === 'ideas' && <Ideas watchlist={watchlist} onAbrirFicha={abrirFicha} onNuevoSeguimiento={ro((datos) => setPrefillSeguimiento(datos))} />}
+            {view === 'ideas' && <Ideas watchlist={watchlist} onAbrirFicha={abrirFicha} onNuevoSeguimiento={ro((datos) => setPrefillSeguimiento(datos))} onIrInsiders={() => setView('insiders')} />}
             {view === 'ficha' && !nav.t && (
               <div className="ficha-vacia">
                 <h1 className="page-title">Ficha de valor</h1>

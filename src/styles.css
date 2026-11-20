@@ -2721,3 +2721,4 @@ tr.ficha-row > td { padding: 0 !important; }
   .super-tabla td.super-ancha { min-width: 200px; }
   .super-titulo { font-size: 17px; }
 }
+.ideas-hoy { margin-left: 6px; font-size: 10.5px; padding: 1px 6px; }

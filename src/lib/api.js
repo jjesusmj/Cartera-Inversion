@@ -438,8 +438,9 @@ export async function obtenerSuperinversores(id) {
   return res.json();
 }
 
-export async function obtenerIdeas(mercado, dcf = false) {
-  const res = await fetch(`/api/ideas?mercado=${encodeURIComponent(mercado)}${dcf ? '&dcf=1' : ''}`);
+// extra: '' (listas del día), 'dcf' o 'rating' (solo us)
+export async function obtenerIdeas(mercado, extra = '') {
+  const res = await fetch(`/api/ideas?mercado=${encodeURIComponent(mercado)}${extra ? `&${extra}=1` : ''}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos de ideas.');
   return res.json();
 }

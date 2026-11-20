@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizar, pasaFiltros, subidas, bajadas, activos, cercaMaximos, cercaMinimos, dcfAutomatico, infravaloradas, CUANTOS } from '../src/lib/ideas.js';
+import { normalizar, pasaFiltros, subidas, bajadas, activos, cercaMaximos, cercaMinimos, dcfAutomatico, infravaloradas, CUANTOS, inicioSesiones, subidasRating } from '../src/lib/ideas.js';
 import { hipotesisPorDefecto, calcularDCF } from '../src/lib/dcf.js';
 
 const q = (o) => ({ symbol: 'X', quoteType: 'EQUITY', currency: 'USD', regularMarketPrice: 10, marketCap: 5e9, regularMarketChangePercent: 1, ...o });
@@ -75,4 +75,32 @@ test('DCF automático: bancos, flujo negativo, sin cuentas y poco fiable quedan 
 test('infravaloradas: margen de 15 % o más, sin las que tienen motivo, de mayor a menor', () => {
   const v = [{ symbol: 'A', margen: 0.2 }, { symbol: 'B', margen: 0.5 }, { symbol: 'C', margen: 0.1 }, { symbol: 'D', margen: 2, motivo: 'DCF poco fiable' }];
   assert.deepEqual(infravaloradas(v).map((f) => f.symbol), ['B', 'A']);
+});
+
+test('inicio de las últimas sesiones: cuenta solo días laborables', () => {
+  const vie = Date.UTC(2026, 10, 20, 15) / 1000; // viernes 20-11-2026
+  assert.equal(inicioSesiones(vie, 1), Date.UTC(2026, 10, 20) / 1000);
+  assert.equal(inicioSesiones(vie, 7), Date.UTC(2026, 10, 12) / 1000); // jueves 12
+  const dom = Date.UTC(2026, 10, 22, 10) / 1000; // domingo: la 1.ª sesión es el viernes
+  assert.equal(inicioSesiones(dom, 1), Date.UTC(2026, 10, 20) / 1000);
+});
+
+test('subidas de rating: solo «up» recientes, sin repetir, con potencial y marca de hoy', () => {
+  const ahora = Date.UTC(2026, 10, 20, 18) / 1000;
+  const dia = (d, h = 12) => Date.UTC(2026, 10, d, h) / 1000;
+  const valores = [
+    { symbol: 'AAA', name: 'A', currency: 'USD', precio: 100, historial: [
+      { fecha: dia(20), firma: 'X', anterior: 'Hold', nueva: 'Buy', accion: 'up', objetivo: 125 },
+      { fecha: dia(20), firma: 'X', anterior: 'Hold', nueva: 'Buy', accion: 'up', objetivo: 125 },
+      { fecha: dia(19), firma: 'Y', accion: 'down', objetivo: 80 },
+      { fecha: dia(11), firma: 'Z', accion: 'up', objetivo: 150 },
+    ] },
+    { symbol: 'BBB', name: 'B', currency: 'USD', precio: 50, historial: [
+      { fecha: dia(13), firma: 'W', accion: 'up', objetivo: null },
+    ] },
+  ];
+  const r = subidasRating(valores, ahora);
+  assert.deepEqual(r.map((f) => [f.symbol, f.firma, f.hoy, f.potencial]), [['AAA', 'X', true, 0.25], ['BBB', 'W', false, null]]);
+  // El sábado siguiente ninguna es de hoy
+  assert.equal(subidasRating(valores, Date.UTC(2026, 10, 21, 10) / 1000).filter((f) => f.hoy).length, 0);
 });
