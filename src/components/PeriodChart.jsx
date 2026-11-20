@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { obtenerGrafico } from '../lib/api';
 import { fmtCotizacion, fmtPercent, fmtSigned, fmtPrecio, fmtNumber } from '../lib/format';
+import { POR_SESIONES, SUAVIZADOS, inicioSesiones, posicionIndice, trazo } from '../lib/grafico';
 
 const PERIODOS = [
   { id: '1d', label: '1D', nombre: 'Hoy' },
@@ -21,7 +22,7 @@ const EJE_Y = 52; // ancho reservado a la derecha para los precios cuando hay ej
 function fmtFecha(ts, range) {
   const d = new Date(ts * 1000);
   if (range === '1d') return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(d);
-  if (range === '5d' || range === '1mo') {
+  if (range === '5d' || range === '1mo' || range === '3mo') {
     return new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
   }
   return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
@@ -36,6 +37,8 @@ function fmtEje(ts, range) {
   return new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' }).format(d);
 }
 
+const diaUTC = (t) => new Date(t * 1000).toISOString().slice(0, 10);
+
 // Precios redondos para el eje vertical: unos 6 entre min y max
 function marcasY(min, max) {
   const bruto = (max - min) / 6;
@@ -46,20 +49,11 @@ function marcasY(min, max) {
   return out;
 }
 
-// Instantes para el eje horizontal: en 5 días, el inicio de cada día; si no, n repartidos
+// Instantes para el eje horizontal: en 5D, el inicio de cada sesión; si no, n repartidos
 function marcasX(pts, t0, t1, range, n) {
-  if (range === '5d') {
-    const out = [];
-    let dia = null;
-    for (const [t] of pts) {
-      const d = new Date(t * 1000).toDateString();
-      if (d !== dia) {
-        out.push(t);
-        dia = d;
-      }
-    }
-    return out;
-  }
+  if (range === '5d') return inicioSesiones(pts).map((i) => pts[i][0]);
+  // 1M y 3M: n repartidos por orden de punto, porque el eje no es de tiempo
+  if (POR_SESIONES.includes(range)) return Array.from({ length: n }, (_, i) => pts[Math.round(((pts.length - 1) * i) / (n - 1))][0]);
   return Array.from({ length: n }, (_, i) => t0 + ((t1 - t0) * i) / (n - 1));
 }
 
@@ -141,7 +135,10 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
     const nivelesFuera = levels.filter((l) => l.value != null && !cerca(l.value));
     const comprasDentro = compras
       .map((c) => ({ ...c, t: Date.parse(`${c.date}T12:00:00Z`) / 1000 }))
-      .filter((c) => c.t >= t0 && c.t <= t1 && cerca(c.price));
+      // Por día, no por hora: una compra del primer día del gráfico también sale
+      .filter((c) => c.date >= diaUTC(t0) && c.date <= diaUTC(t1) && cerca(c.price))
+      // Por sesiones, cada compra va al punto más cercano (la sesión de su fecha)
+      .map((c) => (POR_SESIONES.includes(range) ? { ...c, t: pts[Math.round(posicionIndice(pts, c.t))][0] } : c));
     const zonasValidas = zonas.filter((z) => z.desde != null && z.hasta != null && (nivelesSiempre || (cerca(z.desde) && cerca(z.hasta))));
     for (const v of [...nivelesDentro.map((l) => l.value), ...comprasDentro.map((c) => c.price), ...zonasValidas.flatMap((z) => [z.desde, z.hasta])]) {
       min = Math.min(min, v);
@@ -153,9 +150,13 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
     }
 
     const anchoG = ejes ? ancho - EJE_Y : ancho;
-    const x = (t) => Math.min(anchoG, Math.max(0, ((t - t0) / (t1 - t0 || 1)) * anchoG));
+    // En 5D, 1M y 3M el eje va por orden de punto: las horas con la bolsa cerrada no ocupan sitio
+    const sesiones = POR_SESIONES.includes(range);
+    const x = sesiones
+      ? (t) => (posicionIndice(pts, t) / (pts.length - 1)) * anchoG
+      : (t) => Math.min(anchoG, Math.max(0, ((t - t0) / (t1 - t0 || 1)) * anchoG));
     const y = (v) => PAD_Y + (1 - (v - min) / (max - min)) * (ALTO - 2 * PAD_Y);
-    const linea = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join('');
+    const linea = trazo(pts.map((p) => [x(p[0]), y(p[1])]), SUAVIZADOS.includes(range));
     const yRef = y(data.reference);
     const ultimo = pts[pts.length - 1];
     const area = `${linea}L${x(ultimo[0]).toFixed(1)},${yRef.toFixed(1)}L${x(pts[0][0]).toFixed(1)},${yRef.toFixed(1)}Z`;
@@ -171,7 +172,7 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
     }
 
     return {
-      pts, t0, t1, x, y, linea, area, yRef, ultimo, sube, anchoG,
+      pts, t0, t1, x, y, linea, sesiones, area, yRef, ultimo, sube, anchoG,
       marcasY: ejes ? marcasY(min, max) : [],
       marcasX: ejes ? separar(marcasX(pts, t0, t1, range, ancho < 500 ? 4 : 6), x) : [],
       nivelesDentro, nivelesFuera, comprasDentro, zonasValidas, posEtiqueta,
@@ -184,6 +185,7 @@ export default function PeriodChart({ symbol, currency, dia, levels = [], compra
     if (!g) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const px = Math.min(g.anchoG, Math.max(0, e.clientX - rect.left));
+    if (g.sesiones) return setHover(Math.round((px / g.anchoG) * (g.pts.length - 1)));
     const t = g.t0 + (px / g.anchoG) * (g.t1 - g.t0);
     setHover(indiceCercano(g.pts, t));
   }

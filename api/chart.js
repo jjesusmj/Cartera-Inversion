@@ -7,7 +7,7 @@ const RANGOS = {
   '1d': { interval: '5m', cache: 20 },
   '5d': { interval: '15m', cache: 60 },
   '1mo': { interval: '60m', cache: 600 },
-  '3mo': { interval: '1d', cache: 3600 },
+  '3mo': { interval: '60m', cache: 600, max: 700 },
   '6mo': { interval: '1d', cache: 3600 },
   ytd: { interval: '1d', cache: 3600 },
   '1y': { interval: '1d', cache: 3600 },
@@ -20,10 +20,10 @@ function simboloYahoo(symbol, divisa) {
   return divisa === 'USD' ? symbol.replace('.', '-') : symbol;
 }
 
-function reducir(puntos) {
-  if (puntos.length <= MAX_PUNTOS) return puntos;
-  const paso = (puntos.length - 1) / (MAX_PUNTOS - 1);
-  return Array.from({ length: MAX_PUNTOS }, (_, i) => puntos[Math.round(i * paso)]);
+function reducir(puntos, max = MAX_PUNTOS) {
+  if (puntos.length <= max) return puntos;
+  const paso = (puntos.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => puntos[Math.round(i * paso)]);
 }
 
 export default async function handler(req, res) {
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       reference: referencia ?? null,
       start: sesionCompleta ? regular.start : primero ?? null,
       end: sesionCompleta ? regular.end : ultimo ?? null,
-      points: reducir(puntos),
+      points: reducir(puntos, conf.max),
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
