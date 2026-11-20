@@ -424,6 +424,12 @@ export const obtenerFinanzas = (symbol, currency) => pedirFichaExtra('finanzas',
 export const obtenerDCF = (symbol, currency) => pedirFichaExtra('dcf', symbol, currency);
 
 // Mercado › Mapa: 'us' o 'es'. Sin caché aquí: la función ya cachea 2 minutos.
+export async function obtenerMiedo() {
+  const res = await fetch('/api/miedo');
+  if (!res.ok) throw new Error('No se han podido descargar los datos del índice de miedo y codicia.');
+  return res.json();
+}
+
 export async function obtenerMapa(lista) {
   const res = await fetch(`/api/mapa?lista=${encodeURIComponent(lista)}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos del mapa.');

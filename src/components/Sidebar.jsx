@@ -11,7 +11,7 @@ const ITEMS = [
 ];
 
 // Grupo «Mercado»: el mercado en general, no tu cartera
-const MERCADO = [{ id: 'mercado', label: 'Mapa' }];
+const MERCADO = [{ id: 'mercado', label: 'Mapa' }, { id: 'miedo', label: 'Miedo y codicia' }];
 
 // Grupo «Empresa»: lo que se consulta de un valor concreto
 const EMPRESA = [{ id: 'ficha', label: 'Ficha de valor', corto: 'Ficha' }];
