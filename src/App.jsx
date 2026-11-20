@@ -44,6 +44,7 @@ import CabeceraDatos from './components/CabeceraDatos';
 import FichaValor from './components/FichaValor';
 import Mercado from './components/Mercado';
 import MiedoCodicia from './components/MiedoCodicia';
+import Radar from './components/Radar';
 import BuscadorValor, { leerRecientes, guardarReciente } from './components/BuscadorValor';
 
 // Lo que se ve está en la dirección: ?v=ficha&t=MSFT&s=valoracion&sub=justo
@@ -605,6 +606,7 @@ export default function App() {
             {view === 'renta' && <Renta sales={sales} />}
             {view === 'mercado' && <Mercado openLots={openLots} prices={prices} onAbrirFicha={abrirFicha} />}
             {view === 'miedo' && <MiedoCodicia />}
+            {view === 'radar' && <Radar openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
             {view === 'ficha' && !nav.t && (
               <div className="ficha-vacia">
                 <h1 className="page-title">Ficha de valor</h1>

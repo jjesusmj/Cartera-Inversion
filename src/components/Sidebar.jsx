@@ -13,12 +13,15 @@ const ITEMS = [
 // Grupo «Mercado»: el mercado en general, no tu cartera
 const MERCADO = [{ id: 'mercado', label: 'Mapa' }, { id: 'miedo', label: 'Miedo y codicia' }];
 
+// Grupo «Búsqueda de ideas»
+const IDEAS = [{ id: 'radar', label: 'Radar técnico' }];
+
 // Grupo «Empresa»: lo que se consulta de un valor concreto
 const EMPRESA = [{ id: 'ficha', label: 'Ficha de valor', corto: 'Ficha' }];
 
 // En el móvil la barra de abajo solo tiene sitio para 4 pantallas y «Más»
 const MOVIL_FIJOS = ['cartera', 'resumen', 'watchlist', 'ficha'];
-const TODOS = [...ITEMS, ...MERCADO, ...EMPRESA];
+const TODOS = [...ITEMS, ...MERCADO, ...IDEAS, ...EMPRESA];
 const MOVIL_BARRA = MOVIL_FIJOS.map((id) => TODOS.find((x) => x.id === id));
 const MOVIL_MAS = TODOS.filter((x) => !MOVIL_FIJOS.includes(x.id));
 
@@ -94,6 +97,10 @@ export default function Sidebar({ view, setView, owner, setOwner }) {
         ))}
         <div className="nav-grupo">Mercado</div>
         {MERCADO.map((item) => (
+          <BotonNav key={item.id} item={item} view={view} setView={setView} />
+        ))}
+        <div className="nav-grupo">Búsqueda de ideas</div>
+        {IDEAS.map((item) => (
           <BotonNav key={item.id} item={item} view={view} setView={setView} />
         ))}
         <div className="nav-grupo">Empresa</div>

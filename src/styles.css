@@ -2645,3 +2645,33 @@ tr.ficha-row > td { padding: 0 !important; }
   .miedo-grid { grid-template-columns: 1fr; }
   .miedo-leyenda { order: 3; width: 100%; }
 }
+
+/* Búsqueda de ideas › Radar técnico */
+.radar-controles { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.radar-otros { display: flex; gap: 8px; margin-bottom: 14px; }
+.radar-otros-input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-raised); color: var(--ink); }
+.radar-panel { padding-left: 0; padding-right: 0; }
+.radar-panel .hint { padding: 0 16px; }
+.radar-tabla td, .radar-tabla th { vertical-align: middle; }
+.radar-th { all: unset; cursor: pointer; }
+.radar-th:focus-visible { outline: 2px solid var(--prim); }
+.radar-fija { position: sticky; left: 0; z-index: 1; background: var(--bg); min-width: 92px; max-width: 150px; box-shadow: 1px 0 0 var(--line-soft); }
+.radar-fija b { display: block; }
+.radar-nombre { display: block; font-size: 11px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.radar-fila { cursor: pointer; }
+.radar-fila:hover td { background: var(--bg-hover, rgba(0, 0, 0, 0.03)); }
+.radar-senales .senales { margin: 0; flex-wrap: nowrap; }
+.radar-senales .senales-vacio { margin: 0; }
+.radar-detalle { max-width: 640px; }
+.radar-punt { display: flex; gap: 12px; align-items: flex-start; margin: 4px 0 10px; font-size: 13px; }
+.radar-punt .chip-tono { font-size: 18px; padding: 4px 10px; }
+.radar-punt ul { margin: 0; padding-left: 18px; line-height: 1.5; }
+.radar-mini { margin-top: 10px; }
+.radar-mini-titulo { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+.radar-mini-svg { width: 100%; height: 80px; display: block; }
+.radar-mini-ref { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.radar-mini-linea { fill: none; stroke: var(--prim); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+@media (max-width: 720px) {
+  .radar-fija { min-width: 80px; max-width: 110px; }
+  .radar-nombre { max-width: 100px; }
+}
