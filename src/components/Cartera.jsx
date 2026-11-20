@@ -42,6 +42,22 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
     localStorage.setItem('cartera_modo', m);
     setModoState(m);
   }
+  // Vista Sencilla o Avanzada: por defecto Sencilla en el móvil y Avanzada en el ordenador;
+  // cada dispositivo recuerda la elegida
+  const [vista, setVistaState] = useState(() => {
+    try {
+      const v = localStorage.getItem('cartera_vista');
+      if (v === 'sencilla' || v === 'avanzada') return v;
+    } catch { /* sin almacenamiento */ }
+    return window.matchMedia?.('(max-width: 720px)').matches ? 'sencilla' : 'avanzada';
+  });
+  function setVista(v) {
+    try { localStorage.setItem('cartera_vista', v); } catch { /* sin almacenamiento */ }
+    setVistaState(v);
+  }
+  const sencilla = vista === 'sencilla';
+  const [eligiendoVenta, setEligiendoVenta] = useState(false);
+  const [desplegada, setDesplegada] = useState(null); // fila abierta en la lista simple
 
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
   const fxBce = useFxToday(grupos.map((g) => g.currency));
@@ -154,16 +170,42 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           <button className="btn btn-refresh" onClick={onRefreshPrices} disabled={pricesLoading}>
             {pricesLoading ? 'Actualizando…' : 'Actualizar cotizaciones'}
           </button>
-          <button className="btn btn-primary" onClick={onNuevaCompra}>
-            + Nueva compra
-          </button>
+          {!sencilla && (
+            <button className="btn btn-primary" onClick={onNuevaCompra}>
+              + Nueva compra
+            </button>
+          )}
         </div>
       </div>
 
-      <button className="fab" onClick={onNuevaCompra} aria-label="Nueva compra">+</button>
+      <div className="segmented segmented-global val-filtro vista-toggle" role="tablist" aria-label="Vista de la cartera">
+        <button role="tab" aria-selected={sencilla} className={sencilla ? 'active' : ''} onClick={() => setVista('sencilla')}>Sencilla</button>
+        <button role="tab" aria-selected={!sencilla} className={!sencilla ? 'active' : ''} onClick={() => setVista('avanzada')}>Avanzada</button>
+      </div>
+
+      {!sencilla && <button className="fab" onClick={onNuevaCompra} aria-label="Nueva compra">+</button>}
 
       <ExchangeFilter items={todosLosLotes} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
+      {sencilla ? (
+        <>
+          <p className="frase-cartera">
+            Tu cartera vale <b>{fmtMoney(totalValor)}</b>
+            {' · '}
+            <b className={claseSigno(totalPL)}>{fmtMoneySigned(totalPL)}</b> {totalPL >= 0 ? 'ganados' : 'perdidos'} sobre <b>{fmtMoney(totalCoste)}</b> invertidos
+            {conHoy.length > 0 && (
+              <>
+                {' · '}Hoy <b className={claseSigno(totalHoyEUR)}>{fmtMoneySigned(totalHoyEUR)}</b>{' '}
+                <span className={claseTono(totalHoyPct, 'dia')}>{fmtPercent(totalHoyPct)}</span>
+              </>
+            )}
+          </p>
+          <div className="botones-grandes">
+            <button className="btn btn-primary btn-grande" onClick={onNuevaCompra}>＋ Comprar</button>
+            <button className="btn btn-grande btn-suave" onClick={() => setEligiendoVenta(true)} disabled={!filas.length}>− Vender</button>
+          </div>
+        </>
+      ) : (
       <div className="kpi-row">
         <div className="kpi">
           <div className="kpi-label">Invertido</div>
@@ -194,6 +236,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           </div>
         </div>
       </div>
+      )}
 
       <ZonaBar lotes={todosLosLotes} prices={prices} fx={fx} exchangeFilter={exchangeFilter} onCambiarExchangeFilter={onCambiarExchangeFilter} />
 
@@ -222,6 +265,20 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           onCambiarComision={onCambiarComisionObjetivo}
           onAbrir={setDetalle}
         />
+      ) : sencilla ? (
+        <>
+          <div className="mobile-only">
+            <SelectorModo modo={modo} setModo={setModo} />
+          </div>
+          <ListaSimple
+            filas={[...filasSinOrdenar].sort((a, b) => (b.valorEUR ?? -1) - (a.valorEUR ?? -1))}
+            abierta={desplegada}
+            onAlternar={(s) => setDesplegada((d) => (d === s ? null : s))}
+            onDetalle={setDetalle}
+            onVender={onVender}
+            onFicha={(f) => onAbrirFicha({ symbol: f.symbol, name: f.name, exchangeId: exchangeIdOf(f.lotes[0]) })}
+          />
+        </>
       ) : (
         <>
           {/* --- Tabla (escritorio) --- */}
@@ -381,6 +438,26 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
         </>
       )}
 
+      {eligiendoVenta && (
+        <div className="modal-backdrop sheet-backdrop" onClick={() => setEligiendoVenta(false)}>
+          <div className="modal sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Elegir qué vender">
+            <div className="sheet-grip" aria-hidden="true" />
+            <h3>¿Qué quieres vender?</h3>
+            <div className="elegir-venta">
+              {filasAlfa.map((f) => (
+                <button key={f.symbol} className="elegir-venta-fila" onClick={() => { setEligiendoVenta(false); onVender(f.symbol); }}>
+                  <span><b>{f.symbol}</b> <span className="hint-inline">{f.name}</span></span>
+                  <span className="num">{fmtNumber(f.cantidad, 2)} acc. · {f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</span>
+                </button>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={() => setEligiendoVenta(false)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {filaDetalle && (
         <HojaPosicion
           f={filaDetalle}
@@ -396,6 +473,61 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           onAbrirFicha={(f) => { setDetalle(null); onAbrirFicha({ symbol: f.symbol, name: f.name, exchangeId: exchangeIdOf(f.lotes[0]) }); }}
         />
       )}
+    </div>
+  );
+}
+
+// Lista simple (vista Sencilla): valor, acciones, vale hoy y ganancia; se despliega al tocar
+function ListaSimple({ filas, abierta, onAlternar, onDetalle, onVender, onFicha }) {
+  return (
+    <div className="lista-simple" role="table" aria-label="Posiciones">
+      <div className="ls-cabecera" role="row">
+        <span role="columnheader">Valor</span>
+        <span role="columnheader" className="num">Acciones</span>
+        <span role="columnheader" className="num">Vale hoy</span>
+        <span role="columnheader" className="num">Ganancia</span>
+      </div>
+      {filas.map((f) => {
+        const abiertaEsta = abierta === f.symbol;
+        return (
+          <div key={f.symbol} className={`ls-item ${abiertaEsta ? 'is-open' : ''} ${f.conAlerta ? 'row-alert' : ''}`}>
+            <button className="ls-fila" role="row" aria-expanded={abiertaEsta} onClick={() => onAlternar(f.symbol)}>
+              <span className="ls-valor">
+                <b>{f.symbol}</b>
+                <span className="ls-nombre">{f.name}</span>
+              </span>
+              <span className="num">{fmtNumber(f.cantidad, f.cantidad % 1 ? 2 : 0)}</span>
+              <span className="num">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</span>
+              <span className={`num ${claseSigno(f.plEUR)}`}>
+                {f.plEUR != null ? fmtMoneySigned(f.plEUR) : '—'}
+                {f.plPct != null && <span className="ls-pct">{fmtPercent(f.plPct)}</span>}
+              </span>
+            </button>
+            {abiertaEsta && (
+              <div className="ls-detalle">
+                <div className="ls-datos">
+                  <span>Precio actual</span>
+                  <span className="num">
+                    {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}{' '}
+                    {f.hoyPct != null && <span className={claseTono(f.hoyPct, 'dia')}>{fmtPercent(f.hoyPct)}</span>}
+                  </span>
+                  <span>Hoy</span>
+                  <span className={`num ${claseSigno(f.hoyEUR)}`}>{f.hoyEUR != null ? fmtMoneySigned(f.hoyEUR) : '—'}</span>
+                  <span>Precio medio</span>
+                  <span className="num">{fmtCotizacion(f.precioMedio, f.currency)}</span>
+                  {f.stopPrice != null && (<><span>Stop</span><span className="num loss">{fmtCotizacion(f.stopPrice, f.currency)}</span></>)}
+                  {f.targetPrice != null && (<><span>Objetivo</span><span className="num gain">{fmtCotizacion(f.targetPrice, f.currency)}</span></>)}
+                </div>
+                <div className="btn-row">
+                  <button className="btn btn-ghost" onClick={() => onDetalle(f.symbol)}>Detalle</button>
+                  <button className="btn btn-ghost" onClick={() => onFicha(f)}>Ficha</button>
+                  <button className="btn btn-ghost" onClick={() => onVender(f.symbol)}>Vender</button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
