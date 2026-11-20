@@ -2474,3 +2474,44 @@ tr.ficha-row > td { padding: 0 !important; }
   .hoy-fila { grid-template-columns: 54px minmax(0, 1fr) 76px 70px; gap: 6px; font-size: 12px; }
   .hoy-fila .chip-tono { font-size: 11.5px; }
 }
+
+/* Resumen › Dividendos */
+.divs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+.divs-meses { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; height: 190px; }
+.divs-mes { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; min-width: 0; }
+.divs-mes-valor { font-size: 10.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; min-height: 14px; }
+.divs-mes-pista { flex: 1; width: 100%; max-width: 30px; display: flex; flex-direction: column; justify-content: flex-end; }
+.divs-mes-est { background: var(--prim-suave); border-radius: 3px 3px 0 0; }
+.divs-mes-anun { background: var(--prim); }
+.divs-mes-nombre { font-size: 11px; color: var(--ink-dim); }
+.divs-leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12px; align-items: center; }
+.divs-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+.etiqueta { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--bg-raised); color: var(--ink-dim); white-space: nowrap; }
+.etiqueta.etiqueta-fuerte { background: var(--prim-suave); color: var(--ink); font-weight: 600; }
+.fila-click { cursor: pointer; }
+.fila-click:hover { background: var(--bg-raised); }
+.divs-tabla td, .divs-tabla th { white-space: nowrap; }
+@media (max-width: 900px) {
+  .divs-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .divs-mes-valor { display: none; }
+  .divs-meses { height: 150px; gap: 3px; }
+}
+@media (max-width: 480px) {
+  .divs-cal td, .divs-cal th { padding-left: 4px; padding-right: 4px; }
+}
+.etq-corto { display: none; }
+@media (max-width: 480px) {
+  .etq-largo { display: none; }
+  .etq-corto { display: inline; }
+  .divs-tabla .divs-nombre { display: none; }
+}
+@media (max-width: 480px) {
+  .divs-tabla th { white-space: normal; vertical-align: bottom; }
+  .divs-tabla td, .divs-tabla th { padding-left: 5px; padding-right: 5px; }
+}
+@media (max-width: 480px) {
+  .divs-cal, .divs-tabla { font-size: 12px; }
+  .divs-cal td, .divs-cal th, .divs-tabla td, .divs-tabla th { padding-left: 3px; padding-right: 3px; }
+}

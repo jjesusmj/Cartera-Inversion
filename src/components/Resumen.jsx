@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import EvolucionVista from './EvolucionVista';
 import ResumenHoy from './ResumenHoy';
+import ResumenDividendos from './ResumenDividendos';
 import { fmtMoney, fmtPercent, fmtNumber } from '../lib/format';
 import { claseTono } from '../lib/tonos';
 import { useFxToday } from '../lib/useFxToday';
@@ -59,7 +60,7 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
       }, 0);
     }
     const sector = sectorDe(g.symbol, perfiles, positionSettings).nombre || SIN_SECTOR;
-    return { ...g, valorEUR, costeEUR, plEUR, plPct, hoyPct, hoyEUR, sector };
+    return { ...g, rate, valorEUR, costeEUR, plEUR, plPct, hoyPct, hoyEUR, sector };
   });
 
   function agrupar(clave) {
@@ -148,16 +149,19 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
 
       <ExchangeFilter items={todosLosLotes} value={exchangeFilter} onChange={onCambiarExchangeFilter} />
 
-      <div className="segmented segmented-global" role="tablist" aria-label="Vista de Resumen">
+      <div className="segmented segmented-global val-filtro" role="tablist" aria-label="Vista de Resumen">
         <button role="tab" aria-selected={vista === 'resumen'} className={vista === 'resumen' ? 'active' : ''} onClick={() => cambiarVista('resumen')}>Resumen</button>
         <button role="tab" aria-selected={vista === 'evolucion'} className={vista === 'evolucion' ? 'active' : ''} onClick={() => cambiarVista('evolucion')}>Evolución</button>
         <button role="tab" aria-selected={vista === 'hoy'} className={vista === 'hoy' ? 'active' : ''} onClick={() => cambiarVista('hoy')}>Hoy</button>
+        <button role="tab" aria-selected={vista === 'dividendos'} className={vista === 'dividendos' ? 'active' : ''} onClick={() => cambiarVista('dividendos')}>Dividendos</button>
       </div>
 
       {vista === 'evolucion' ? (
         <EvolucionVista openLots={openLots} />
       ) : vista === 'hoy' ? (
         <ResumenHoy filas={filasSinOrdenar} onAbrirFicha={onAbrirFicha} />
+      ) : vista === 'dividendos' ? (
+        <ResumenDividendos filas={filasSinOrdenar} onAbrirFicha={onAbrirFicha} />
       ) : (
       <>
 
