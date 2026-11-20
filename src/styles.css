@@ -2105,6 +2105,50 @@ tr.ficha-row > td { padding: 0 !important; }
 @media (max-width: 720px) {
   .nav-grupo { display: none; }
 }
+.nav-grupo-primero { margin-top: 0; }
+
+/* --- Menú en el móvil: 4 pantallas fijas y «Más» con el resto --- */
+.nav-movil, .nav-mas-panel, .nav-mas-fondo { display: none; }
+@media (max-width: 720px) {
+  .nav { display: none; }
+  .nav-movil { display: flex; width: 100%; justify-content: space-around; }
+  .nav-movil button {
+    all: unset;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    white-space: nowrap;
+    padding: 8px 4px;
+    font-size: 12px;
+    color: var(--ink-dim);
+    border-radius: 6px;
+  }
+  .nav-movil button.active { background: var(--bg-raised); color: var(--accent); }
+  .nav-mas-fondo { display: block; position: fixed; inset: 0; z-index: 29; }
+  .nav-mas-panel {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    right: 8px;
+    bottom: calc(60px + env(safe-area-inset-bottom));
+    min-width: 200px;
+    padding: 6px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 31;
+  }
+  .nav-mas-panel button {
+    all: unset;
+    cursor: pointer;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: var(--ink);
+    border-radius: 6px;
+  }
+  .nav-mas-panel button.active { color: var(--accent); background: var(--bg-raised); }
+}
 
 /* --- Buscador global y valores consultados hace poco --- */
 .buscador-valor { margin-bottom: 18px; max-width: 520px; }
@@ -2179,7 +2223,6 @@ tr.ficha-row > td { padding: 0 !important; }
 .stat-sub { font-size: 11px; color: var(--ink-faint); margin-top: 2px; font-family: var(--font-mono); }
 .ficha-pronto { border: 1px dashed var(--line); border-radius: 8px; padding: 18px; color: var(--ink-dim); }
 .ficha-pronto p { margin: 6px 0 0; }
-.ficha-pronto-titulo { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .ficha-notas { list-style: none; padding: 0; margin: 0 0 14px; }
 .ficha-notas li { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
 .ficha-nota-fecha { font-size: 11px; color: var(--ink-faint); margin-bottom: 3px; }

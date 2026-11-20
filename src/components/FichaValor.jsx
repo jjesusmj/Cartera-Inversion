@@ -16,8 +16,8 @@ import { useFxToday } from '../lib/useFxToday';
 import { valorar, PARAMS_DEF, esBancoOAseguradora } from '../lib/valoracionFCF';
 import { fmtCotizacion, fmtMoney, fmtMoneySigned, fmtNumber, fmtPercent, fmtSigned, fmtDate } from '../lib/format';
 
-// Secciones y subsecciones de la ficha. Las que llevan `pronto` aún no tienen
-// datos: se ve qué contendrán. Se irán llenando en fases.
+// Secciones y subsecciones de la ficha. Solo se listan las que ya tienen
+// contenido: cada sección nueva se añade cuando está hecha.
 export const SECCIONES = [
   {
     id: 'resumen',
@@ -33,67 +33,22 @@ export const SECCIONES = [
     subs: [
       { id: 'lotes', label: 'Lotes y P/L' },
       { id: 'stop', label: 'Stop y objetivo' },
-      { id: 'calculadora', label: 'Calculadora', pronto: 'La calculadora de tamaño de posición, ya rellena con este valor.' },
       { id: 'cuaderno', label: 'Cuaderno' },
-    ],
-  },
-  {
-    id: 'precio',
-    label: 'Precio',
-    subs: [
-      { id: 'grafico', label: 'Gráfico', pronto: 'Gráfico grande con más periodos y volumen.' },
-      { id: 'tecnico', label: 'Técnico y niveles', pronto: 'RSI, medias, soportes y resistencias.' },
-      { id: 'mensual', label: 'Rentabilidad mensual', pronto: 'Mapa de rentabilidad mes a mes frente al índice.' },
-      { id: 'sector', label: 'Frente al sector', pronto: 'La acción frente al ETF de su sector y al índice.' },
-    ],
-  },
-  {
-    id: 'finanzas',
-    label: 'Finanzas',
-    subs: [
-      { id: 'estados', label: 'Estados financieros', pronto: 'Cuenta de resultados, balance y flujo de caja; anual o trimestral.' },
-      { id: 'resultados', label: 'Resultados', pronto: 'BPA real frente al estimado y próxima fecha.' },
-      { id: 'evolucion', label: 'Evolución', pronto: 'Ventas, márgenes y número de acciones a lo largo de los años.' },
-      { id: 'dividendos', label: 'Dividendos', pronto: 'Historial de pagos y rentabilidad por dividendo.' },
     ],
   },
   {
     id: 'valoracion',
     label: 'Valoración',
-    subs: [
-      { id: 'justo', label: 'Valor justo' },
-      { id: 'competidores', label: 'Competidores', pronto: 'PER, crecimiento y rentabilidad frente a empresas parecidas.' },
-    ],
-  },
-  {
-    id: 'analistas',
-    label: 'Analistas y noticias',
-    corto: 'Analistas',
-    subs: [
-      { id: 'consenso', label: 'Consenso', pronto: 'Precio objetivo, recomendaciones y estimaciones.' },
-      { id: 'noticias', label: 'Noticias', pronto: 'Últimas noticias de la empresa.' },
-    ],
-  },
-  {
-    id: 'propiedad',
-    label: 'Propiedad',
-    subs: [
-      { id: 'accionistas', label: 'Accionistas', pronto: 'Quién posee las acciones.' },
-      { id: 'fondos', label: 'Fondos', pronto: 'Principales fondos e instituciones.' },
-      { id: 'directivos', label: 'Directivos', pronto: 'Compras y ventas de directivos (solo EE. UU.).' },
-    ],
-  },
-  {
-    id: 'documentos',
-    label: 'Documentos',
-    subs: [{ id: 'sec', label: 'SEC', pronto: 'Informes 10-K y 10-Q presentados ante la SEC (solo EE. UU.).' }],
+    subs: [{ id: 'justo', label: 'Valor justo' }],
   },
 ];
 
-// Sección y subsección válidas a partir de lo que venga en la dirección
+// Sección y subsección válidas a partir de lo que venga en la dirección.
+// Un enlace a una sección o subsección que ya no existe abre Resumen › Vistazo.
 export function resolverSeccion(s, sub) {
-  const seccion = SECCIONES.find((x) => x.id === s) || SECCIONES[0];
-  const subsec = seccion.subs.find((x) => x.id === sub) || seccion.subs[0];
+  const seccion = SECCIONES.find((x) => x.id === s);
+  const subsec = seccion && (sub ? seccion.subs.find((x) => x.id === sub) : seccion.subs[0]);
+  if (!seccion || !subsec) return { seccion: SECCIONES[0], subsec: SECCIONES[0].subs[0] };
   return { seccion, subsec };
 }
 
@@ -107,15 +62,6 @@ function Dato({ label, value, sub = null, clase = '' }) {
       <div className="stat-label">{label}</div>
       <div className={`stat-value ${clase}`}>{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
-    </div>
-  );
-}
-
-function Pronto({ subsec }) {
-  return (
-    <div className="ficha-pronto">
-      <div className="ficha-pronto-titulo">Próximamente</div>
-      <p>{subsec.pronto}</p>
     </div>
   );
 }
@@ -234,14 +180,7 @@ export default function FichaValor({
             className={x.id === seccion.id ? 'active' : ''}
             onClick={() => onNavegar({ s: x.id, sub: x.subs[0].id })}
           >
-            {x.corto ? (
-              <>
-                <span className="nav-largo">{x.label}</span>
-                <span className="nav-corto">{x.corto}</span>
-              </>
-            ) : (
-              x.label
-            )}
+            {x.label}
           </button>
         ))}
       </div>
@@ -263,9 +202,7 @@ export default function FichaValor({
       )}
 
       <div className="ficha-cuerpo">
-        {subsec.pronto ? (
-          <Pronto subsec={subsec} />
-        ) : subsec.id === 'vistazo' ? (
+        {subsec.id === 'vistazo' ? (
           <FichaVistazo
             symbol={symbol}
             currency={currency}
