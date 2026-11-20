@@ -83,16 +83,6 @@ const val = (cuentas, k, atras = 0) => {
   return s[s.length - 1 - atras].valor;
 };
 
-// Crecimiento anual compuesto de los últimos `anos` años (o los que haya)
-export function cagr(serie, anos = 3) {
-  if (!serie || serie.length < 2) return null;
-  const n = Math.min(anos, serie.length - 1);
-  const ini = serie[serie.length - 1 - n].valor;
-  const fin = serie[serie.length - 1].valor;
-  if (!(ini > 0) || !(fin > 0)) return null;
-  return { valor: (fin / ini) ** (1 / n) - 1, anos: n };
-}
-
 // Datos más recientes: balance del último trimestre y resultados de los últimos
 // 12 meses (reciente = { trimestre: { Cuenta: valor }, ttm: { Cuenta: valor } }).
 // Si Yahoo no los tiene, se usa la última cuenta anual.
@@ -142,14 +132,13 @@ export function piotroski(cuentas) {
   return { puntos: criterios.filter((c) => c.ok).length, evaluados, criterios };
 }
 
-// ROIC = EBIT × (1 − impuestos) / (patrimonio + deuda − caja)
+// ROIC = EBIT × (1 − impuestos) / (patrimonio + deuda)
 export function roic(cuentas) {
   const ebit = val(cuentas, 'EBIT');
   const pat = val(cuentas, 'StockholdersEquity');
   const deuda = val(cuentas, 'TotalDebt') ?? 0;
-  const caja = val(cuentas, 'CashAndCashEquivalents') ?? 0;
   const t = val(cuentas, 'TaxRateForCalcs');
-  const capital = (pat ?? 0) + deuda - caja;
+  const capital = (pat ?? 0) + deuda; // sin restar la caja, como AITerminal
   if (!esNum(ebit) || !esNum(pat) || capital <= 0) return null;
   return (ebit * (1 - (esNum(t) && t >= 0 && t < 0.6 ? t : 0.21))) / capital;
 }
@@ -196,14 +185,30 @@ export function saludFinanciera(resumen, cuentas, { esBanco = false, reciente = 
 }
 
 // ===================================================================
-// Diagnóstico rápido: notas de 0 a 100 con umbrales fijos
+// Diagnóstico rápido: notas de 0 a 100 con la fórmula de AITerminal
+// Cada nota es la media de varias partes; cada parte va en escala lineal
+// entre un valor malo (0) y uno bueno (100). Lectura: 67 o más, alta;
+// 34 o más, media; por debajo, baja.
 // ===================================================================
 
 // 0 en `malo`, 100 en `bueno` y lineal entre medias (vale en los dos sentidos)
 export function escala(v, malo, bueno) {
   if (!esNum(v)) return null;
   const t = (v - malo) / (bueno - malo);
-  return Math.round(Math.min(1, Math.max(0, t)) * 100);
+  return Math.min(1, Math.max(0, t)) * 100;
+}
+
+// Múltiplo de valoración: negativo (pérdidas, caja negativa) cuenta como el peor
+const multiplo = (v, malo, bueno) => (esNum(v) && v <= 0 ? 0 : escala(v, malo, bueno));
+
+// Crecimientos interanuales de una serie anual (se salta el año si el anterior es ≤ 0)
+export function crecimientosAnuales(serie) {
+  const out = [];
+  for (let i = 1; i < (serie?.length || 0); i++) {
+    const a = serie[i - 1].valor;
+    if (a > 0 && esNum(serie[i].valor)) out.push(serie[i].valor / a - 1);
+  }
+  return out;
 }
 
 const LECTURAS = {
@@ -217,7 +222,7 @@ const LECTURAS = {
 
 export function nivel(nota) {
   if (!esNum(nota)) return null;
-  return nota >= 70 ? 'alto' : nota >= 45 ? 'medio' : 'bajo';
+  return nota >= 67 ? 'alto' : nota >= 34 ? 'medio' : 'bajo';
 }
 
 function fila(id, aspecto, partes, dato, sinNota = null) {
@@ -231,7 +236,7 @@ function fila(id, aspecto, partes, dato, sinNota = null) {
     nivel: nv,
     lectura: n == null ? sinNota || 'Sin datos' : LECTURAS[id][nv === 'alto' ? 0 : nv === 'medio' ? 1 : 2],
     dato,
-    partes: partes.filter((p) => p.nota != null),
+    partes: partes.filter((p) => p.nota != null).map((p) => ({ ...p, nota: Math.round(p.nota) })),
   };
 }
 
@@ -242,82 +247,97 @@ const pct = (x, dec = 1) => (esNum(x) ? `${x >= 0 ? '+' : ''}${(x * 100).toFixed
 const num = (x, dec = 1) => (esNum(x) ? x.toFixed(dec).replace('.', ',') : null);
 const unir = (...t) => t.filter(Boolean).join(' · ') || '—';
 
-// rentFCF: rentabilidad anual a 5 años de la valoración por FCF de la app (si la hay guardada)
+// rentFCF: rentabilidad anual a 5 años de la valoración por FCF de la app (solo se muestra, no puntúa)
 export function diagnostico({ resumen, cuentas, reciente = null, esBanco = false, rentFCF = null, argus = null }) {
   const f = resumen?.financialData || {};
   const k = resumen?.keyStats || {};
   const s = resumen?.summary || {};
+  const sf = saludFinanciera(resumen, cuentas, { esBanco, reciente });
 
-  // Valoración
+  // Valoración: PER, EV/EBITDA, P/FCF y P/ventas (en bancos, solo PER y P/ventas)
   const per = s.trailingPE ?? null;
-  const peg = k.pegRatio ?? null;
+  const ebitda12 = doceMeses(cuentas, reciente, 'EBITDA');
+  const evEbitda = esNum(k.enterpriseValue) && esNum(ebitda12) && ebitda12 !== 0 ? k.enterpriseValue / ebitda12 : k.enterpriseToEbitda ?? null;
+  const fcf12 = reciente?.ttm?.FreeCashFlow;
+  const pFcf = esNum(s.marketCap) && esNum(fcf12) && fcf12 !== 0 ? s.marketCap / fcf12 : null;
+  const pVentas = s.priceToSalesTrailing12Months ?? null;
   const valoracion = fila(
     'valoracion',
     'Valoración',
     [
-      { nombre: 'PER (40 o más = 0; 10 o menos = 100)', nota: per > 0 ? escala(per, 40, 10) : per != null ? 0 : null },
-      { nombre: 'PEG (3 o más = 0; 1 o menos = 100)', nota: peg > 0 ? escala(peg, 3, 1) : null },
-      { nombre: 'Rentabilidad anual de la valoración FCF (−5 % = 0; +15 % = 100)', nota: escala(rentFCF, -0.05, 0.15) },
-    ],
-    unir(per != null && `PER ${num(per)}`, peg != null && `PEG ${num(peg, 2)}`, rentFCF != null && `FCF ${pct(rentFCF)}/año`)
+      { nombre: `PER ${num(per) ?? '—'} (40 o más = 0; 10 o menos = 100)`, nota: multiplo(per, 40, 10) },
+      !esBanco && { nombre: `EV/EBITDA ${num(evEbitda) ?? '—'} (25 = 0; 6 = 100)`, nota: multiplo(evEbitda, 25, 6) },
+      !esBanco && { nombre: `Precio/FCF ${num(pFcf) ?? '—'} (40 = 0; 10 = 100)`, nota: multiplo(pFcf, 40, 10) },
+      { nombre: `Precio/ventas ${num(pVentas) ?? '—'} (10 = 0; 1 = 100)`, nota: multiplo(pVentas, 10, 1) },
+    ].filter(Boolean),
+    unir(per != null && `PER ${num(per)}`, rentFCF != null && `FCF ${pct(rentFCF)}/año`)
   );
 
-  // Crecimiento
-  const ventas = cagr(cuentas?.TotalRevenue);
-  const bpa = cagr(cuentas?.DilutedEPS);
+  // Crecimiento: media de 3 años de ventas y de BPA, y ventas del último año
+  const cv = crecimientosAnuales(cuentas?.TotalRevenue);
+  const cb = crecimientosAnuales(cuentas?.DilutedEPS);
+  const ventas3 = cv.length ? media(cv.slice(-3)) : null;
+  const bpa3 = cb.length ? media(cb.slice(-3)) : null;
+  const ventas1 = cv.length ? cv[cv.length - 1] : null;
   const crecimiento = fila(
     'crecimiento',
     'Crecimiento',
     [
-      { nombre: 'Ventas, crecimiento anual (0 % = 0; 15 % = 100)', nota: escala(ventas?.valor, 0, 0.15) },
-      { nombre: 'BPA, crecimiento anual (0 % = 0; 20 % = 100)', nota: escala(bpa?.valor, 0, 0.2) },
+      { nombre: `Ventas, media 3 años ${pct(ventas3) ?? '—'} (0 % = 0; 20 % = 100)`, nota: escala(ventas3, 0, 0.2) },
+      { nombre: `BPA, media 3 años ${pct(bpa3) ?? '—'} (−5 % = 0; 25 % = 100)`, nota: escala(bpa3, -0.05, 0.25) },
+      { nombre: `Ventas último año ${pct(ventas1) ?? '—'} (0 % = 0; 20 % = 100)`, nota: escala(ventas1, 0, 0.2) },
     ],
-    unir(ventas && `Ventas ${ventas.anos}a ${pct(ventas.valor)}`, bpa && `BPA ${bpa.anos}a ${pct(bpa.valor)}`)
+    unir(ventas3 != null && `Ventas 3a ${pct(ventas3)}`, bpa3 != null && `BPA 3a ${pct(bpa3)}`)
   );
 
-  // Calidad del negocio
+  // Calidad del negocio: ROIC, margen bruto, margen neto y deuda neta / EBITDA (en bancos, ROE)
   const r = roic(cuentas);
+  const margenBruto = f.grossMargins > 0 ? f.grossMargins : null;
   const margenNeto = f.profitMargins ?? null;
   const roe = f.returnOnEquity ?? null;
   const calidad = esBanco
-    ? fila('calidad', 'Calidad del negocio', [{ nombre: 'ROE (5 % = 0; 15 % = 100)', nota: escala(roe, 0.05, 0.15) }], unir(roe != null && `ROE ${pct(roe)}`))
+    ? fila('calidad', 'Calidad del negocio', [{ nombre: `ROE ${pct(roe) ?? '—'} (5 % = 0; 15 % = 100)`, nota: escala(roe, 0.05, 0.15) }], unir(roe != null && `ROE ${pct(roe)}`))
     : fila(
         'calidad',
         'Calidad del negocio',
         [
-          { nombre: 'ROIC (5 % = 0; 20 % = 100)', nota: escala(r, 0.05, 0.2) },
-          { nombre: 'Margen neto (0 % = 0; 20 % = 100)', nota: escala(margenNeto, 0, 0.2) },
+          { nombre: `ROIC ${pct(r, 0) ?? '—'} (0 % = 0; 25 % = 100)`, nota: escala(r, 0, 0.25) },
+          { nombre: `Margen bruto ${pct(margenBruto, 0) ?? '—'} (15 % = 0; 60 % = 100)`, nota: escala(margenBruto, 0.15, 0.6) },
+          { nombre: `Margen neto ${pct(margenNeto, 0) ?? '—'} (0 % = 0; 20 % = 100)`, nota: escala(margenNeto, 0, 0.2) },
+          { nombre: `Deuda neta / EBITDA ${num(sf.deudaNetaEbitda, 2) ?? '—'} (4 = 0; 0 = 100)`, nota: escala(sf.deudaNetaEbitda, 4, 0) },
         ],
         unir(r != null && `ROIC ${pct(r, 0)}`, margenNeto != null && `M. neto ${pct(margenNeto, 0)}`)
       );
 
-  // Salud financiera
-  const sf = saludFinanciera(resumen, cuentas, { esBanco, reciente });
+  // Salud financiera: Altman Z, deuda neta / EBITDA, ratio corriente y cobertura de intereses
   const salud = esBanco
     ? fila('salud', 'Salud financiera', [], 'Altman y Piotroski no sirven para bancos', 'No aplica')
     : fila(
         'salud',
         'Salud financiera',
         [
-          { nombre: 'Altman Z (1,8 = 0; 3 o más = 100)', nota: escala(sf.altman, 1.8, 3) },
-          { nombre: 'Piotroski F (3 = 0; 8 o más = 100)', nota: sf.piotroski ? escala((sf.piotroski.puntos / sf.piotroski.evaluados) * 9, 3, 8) : null },
+          { nombre: `Altman Z ${num(sf.altman) ?? '—'} (1,8 = 0; 3 = 100)`, nota: escala(sf.altman, 1.8, 3) },
+          { nombre: `Deuda neta / EBITDA ${num(sf.deudaNetaEbitda, 2) ?? '—'} (4 = 0; 0 = 100)`, nota: escala(sf.deudaNetaEbitda, 4, 0) },
+          { nombre: `Ratio corriente ${num(sf.ratioCorriente, 2) ?? '—'} (0,8 = 0; 1,5 = 100)`, nota: escala(sf.ratioCorriente, 0.8, 1.5) },
+          { nombre: `Cobertura de intereses ${num(sf.coberturaIntereses) ?? '—'} (2 = 0; 10 = 100)`, nota: escala(sf.coberturaIntereses, 2, 10) },
         ],
         unir(sf.altman != null && `Altman ${num(sf.altman)}`, sf.piotroski && `Piotroski ${sf.piotroski.puntos}/${sf.piotroski.evaluados}`)
       );
 
-  // Sentimiento: consenso de analistas de Yahoo (1 = compra fuerte, 5 = venta)
+  // Sentimiento: consenso de analistas de Yahoo (1 = compra fuerte, 5 = venta).
+  // AITerminal usa la nota de FMP, que es de pago.
   const consenso = f.recommendationMean ?? null;
   const sentimiento = fila(
     'sentimiento',
     'Sentimiento',
-    [{ nombre: 'Consenso de analistas, Yahoo (3,5 = 0; 1,5 = 100)', nota: escala(consenso, 3.5, 1.5) }],
+    [{ nombre: `Consenso de analistas de Yahoo ${num(consenso) ?? '—'} (3,5 = 0; 1,5 = 100)`, nota: escala(consenso, 3.5, 1.5) }],
     unir(
       consenso != null && `Consenso ${num(consenso, 1)} (${textoRecomendacion(f.recommendationKey)})`,
       argus && `Argus: ${textoRecomendacion(argus.rating.toLowerCase())}`
     )
   );
 
-  // Dividendo
+  // Dividendo: rentabilidad y parte del beneficio que reparte
   const rentDiv = s.dividendYield ?? s.trailingAnnualDividendYield ?? null;
   const payout = s.payoutRatio ?? null;
   const dividendo = !(rentDiv > 0)
@@ -326,10 +346,10 @@ export function diagnostico({ resumen, cuentas, reciente = null, esBanco = false
         'dividendo',
         'Dividendo',
         [
-          { nombre: 'Rentabilidad por dividendo (0 % = 0; 5 % = 100)', nota: escala(rentDiv, 0, 0.05) },
-          { nombre: 'Parte del beneficio que reparte (90 % = 0; 40 % o menos = 100)', nota: payout > 0 ? escala(payout, 0.9, 0.4) : null },
+          { nombre: `Rentabilidad ${pct(rentDiv, 2)} (0 % = 0; 4 % = 100)`, nota: escala(rentDiv, 0, 0.04) },
+          { nombre: `Reparte ${pct(payout, 0)?.replace('+', '') ?? '—'} del beneficio (90 % = 0; 30 % = 100)`, nota: escala(payout, 0.9, 0.3) },
         ],
-        unir(`Rent. ${pct(rentDiv)}`, payout > 0 && `Reparte ${pct(payout, 0).replace('+', '')}`)
+        unir(`Rent. ${pct(rentDiv, 2)}`, payout > 0 && `Reparte ${pct(payout, 0).replace('+', '')}`)
       );
 
   return [valoracion, crecimiento, calidad, salud, sentimiento, dividendo];

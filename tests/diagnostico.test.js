@@ -1,7 +1,7 @@
 // Análisis técnico, Altman Z, Piotroski F y notas del diagnóstico. Ejecutar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sma, rsi, volatilidad, tecnico, cagr, altmanZ, piotroski, roic, escala, diagnostico, saludFinanciera } from '../src/lib/diagnostico.js';
+import { sma, rsi, volatilidad, tecnico, crecimientosAnuales, altmanZ, piotroski, roic, escala, diagnostico, saludFinanciera } from '../src/lib/diagnostico.js';
 
 const cerca = (real, esperado, msg, tol = 0.01) => assert.ok(Math.abs(real - esperado) < tol, `${msg}: ${real} frente a ${esperado}`);
 const serie = (...valores) => valores.map((valor, i) => ({ fecha: `${2022 + i}-12-31`, valor }));
@@ -37,10 +37,11 @@ test('técnico: medias, cruce, distancias y variaciones', () => {
   assert.equal(tecnico({ cierres: [1, 2, 3] }), null);
 });
 
-test('crecimiento anual compuesto a 3 años', () => {
-  cerca(cagr(serie(100, 110, 121, 133.1)).valor, 0.1, 'cagr');
-  assert.equal(cagr(serie(-5, 10, 20, 30)), null);
-  assert.equal(cagr(serie(100, 121)).anos, 1);
+test('crecimientos interanuales, saltando años con base negativa', () => {
+  const c = crecimientosAnuales(serie(100, 110, 121, 133.1));
+  assert.equal(c.length, 3);
+  c.forEach((x) => cerca(x, 0.1, 'crecimiento'));
+  assert.equal(crecimientosAnuales(serie(-5, 10, 20)).length, 1);
 });
 
 const empresa = {
@@ -79,8 +80,8 @@ test('Piotroski: sin datos suficientes no da nota', () => {
   assert.equal(piotroski({ NetIncome: serie(1, 2) }), null);
 });
 
-test('ROIC con impuestos y capital invertido', () => {
-  cerca(roic(empresa), (150 * 0.8) / (600 + 230 - 80), 'roic');
+test('ROIC con impuestos y capital invertido (sin restar la caja)', () => {
+  cerca(roic(empresa), (150 * 0.8) / (600 + 230), 'roic');
 });
 
 test('escala lineal en los dos sentidos', () => {
@@ -132,4 +133,32 @@ test('salud con el balance del último trimestre y resultados de 12 meses', () =
   cerca(s.ratioRapido, 1, 'ratio rápido');
   // Sin datos recientes se usa la cuenta anual
   cerca(saludFinanciera({}, empresa).deudaPatrimonio, 230 / 600, 'anual');
+});
+
+test('diagnóstico con los datos de NFLX de AITerminal: 72, 81, 94 y 84', () => {
+  // Datos de su captura: PER 17,0; EV/EBITDA 6,8; P/FCF 21,6; P/ventas 4,9; ventas +6,7/+15,6/+15,9 %;
+  // BPA +20,9/+64,8/+27,6 %; ROIC 26,6 %; márgenes 50,7 y 29,7 %; deuda neta/EBITDA 0,19;
+  // Altman 8,23; corriente 1,07; cobertura 18,2
+  const resumen = {
+    financialData: { grossMargins: 0.507, profitMargins: 0.297, recommendationMean: 2.3 },
+    keyStats: { enterpriseValue: 68 },
+    summary: { trailingPE: 17, marketCap: 216, priceToSalesTrailing12Months: 4.9 },
+  };
+  const cuentas = {
+    TotalRevenue: serie(100, 106.7, 123.345, 142.957),
+    DilutedEPS: serie(1, 1.209, 1.99243, 2.54234),
+    EBIT: serie(26.6), StockholdersEquity: serie(70), TotalDebt: serie(30), TaxRateForCalcs: serie(0),
+    TotalAssets: serie(100), CurrentAssets: serie(53.5), CurrentLiabilities: serie(50), RetainedEarnings: serie(400),
+    TotalLiabilitiesNetMinorityInterest: serie(10),
+  };
+  const reciente = {
+    trimestre: { TotalDebt: 1.9, CashCashEquivalentsAndShortTermInvestments: 0 },
+    ttm: { EBITDA: 10, FreeCashFlow: 10, OperatingIncome: 18.2, InterestExpense: 1 },
+  };
+  const nota = (id) => diagnostico({ resumen, cuentas, reciente }).find((f) => f.id === id).nota;
+  // Los datos de la captura están redondeados: se admite un punto de diferencia
+  cerca(nota('valoracion'), 72, 'valoración', 1.01);
+  cerca(nota('crecimiento'), 81, 'crecimiento', 1.01);
+  cerca(nota('calidad'), 94, 'calidad', 1.01);
+  cerca(nota('salud'), 84, 'salud', 1.01);
 });

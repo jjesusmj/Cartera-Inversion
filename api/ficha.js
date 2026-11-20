@@ -22,7 +22,7 @@ const TRIMESTRE = [
   'TotalAssets', 'CurrentAssets', 'CurrentLiabilities', 'Inventory', 'RetainedEarnings', 'StockholdersEquity',
   'TotalLiabilitiesNetMinorityInterest', 'TotalDebt', 'CashCashEquivalentsAndShortTermInvestments',
 ];
-const DOCE_MESES = ['EBIT', 'EBITDA', 'OperatingIncome', 'InterestExpense', 'TotalRevenue'];
+const DOCE_MESES = ['EBIT', 'EBITDA', 'OperatingIncome', 'InterestExpense', 'TotalRevenue', 'FreeCashFlow'];
 
 function simboloYahoo(symbol, divisa) {
   return divisa === 'USD' ? symbol.replace('.', '-') : symbol;

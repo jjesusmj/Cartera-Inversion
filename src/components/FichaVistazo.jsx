@@ -201,8 +201,8 @@ function Diagnostico({ filas }) {
         ))}
       </div>
       <p className="panel-fuente">
-        Notas propias de 0 a 100 con umbrales fijos (toca una fila para ver cómo sale). Datos de Yahoo Finance; el
-        sentimiento es el consenso de los analistas de Yahoo.
+        Notas de 0 a 100 con la misma fórmula que AITerminal (toca una fila para ver cómo sale), con datos de Yahoo
+        Finance. El sentimiento usa el consenso de los analistas de Yahoo en vez de la nota de FMP.
       </p>
     </>
   );
