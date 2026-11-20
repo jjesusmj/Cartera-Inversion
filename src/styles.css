@@ -201,6 +201,7 @@ th {
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--ink); }
 
+.row-alert, .val-table tr.val-fuerte { --ink-dim: var(--ink-dim-aviso); --ink-faint: var(--ink-faint-aviso); }
 tr.row-alert { background: var(--warn-bg); }
 tr.row-alert:hover { background: var(--warn-bg-fuerte); }
 
@@ -1229,6 +1230,9 @@ td.cell-link:hover .symbol { text-decoration: underline; }
   --warn-bg-fuerte: rgba(224, 168, 0, 0.24);
   --warn-borde: rgba(133, 92, 0, 0.35);
   --warn-bg-solido: #faf1d6;
+  /* Grises más oscuros dentro de las filas en ámbar (4,8:1 o más también con el hover) */
+  --ink-dim-aviso: #556275;
+  --ink-faint-aviso: #5a677a;
 }
 
 /* La columna de contenido no debe crecer con la tabla: así la tabla se desplaza dentro de su marco */
