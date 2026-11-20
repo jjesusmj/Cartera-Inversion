@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import PeriodChart from './PeriodChart';
 import { obtenerFicha, listarFundamentales, leerParamsValoracion, listarAjustesValoracion } from '../lib/api';
 import { valorar, PARAMS_DEF } from '../lib/valoracionFCF';
-import { tecnico, saludFinanciera, diagnostico, textoRecomendacion } from '../lib/diagnostico';
+import { saludFinanciera, diagnostico, textoRecomendacion } from '../lib/diagnostico';
+import { tecnicoAmpliado, senales } from '../lib/tecnico';
+import Senales from './Senales';
 import { fmtCotizacion, fmtNumber, fmtDate } from '../lib/format';
 
 // Resumen › Vistazo de la ficha de valor: cotización con rangos, diagnóstico
@@ -58,7 +60,7 @@ export default function FichaVistazo({ symbol, currency, q, ajuste, lotes, esBan
 
   const resumen = datos?.resumen;
   const cuentas = datos?.cuentas;
-  const tec = datos?.historico ? tecnico(datos.historico, precio, { min: q?.week52Low, max: q?.week52High }) : null;
+  const tec = datos?.historico ? tecnicoAmpliado(datos.historico, precio, { min: q?.week52Low, max: q?.week52High }) : null;
   const reciente = datos?.reciente;
   const salud = resumen || cuentas ? saludFinanciera(resumen, cuentas, { esBanco, reciente }) : null;
   const diag = resumen || cuentas ? diagnostico({ resumen, cuentas, reciente, esBanco, rentFCF, argus: datos?.opiniones?.argus }) : null;
@@ -344,6 +346,7 @@ function Tecnico({ t, tc }) {
   const rsiClase = esNum(t.rsi) ? (t.rsi >= 70 ? 'loss' : t.rsi <= 30 ? 'gain' : '') : '';
   return (
     <>
+      <Senales lista={senales(t)} />
       <div className="panel-filas">
         <Fila label="RSI (14)" clase={rsiClase} titulo="Más de 70: sobrecompra. Menos de 30: sobreventa.">{num(t.rsi, 1)}</Fila>
         <Fila label="Precio vs media 50 días" clase={signo(t.vsMedia50)}>{pct(t.vsMedia50)}</Fila>

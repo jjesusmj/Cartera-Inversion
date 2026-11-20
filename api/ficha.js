@@ -122,21 +122,26 @@ async function opiniones(sym) {
   };
 }
 
+// Unos 6 años de sesiones diarias: la sección Técnico dibuja la SMA 200 en todo el periodo de 5 años
 async function historico(sym) {
+  const fin = Math.floor(Date.now() / 1000);
+  const inicio = fin - Math.round(6.2 * 365.25 * 86400);
   const res = await pedir(
-    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d&includePrePost=false`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?period1=${inicio}&period2=${fin}&interval=1d&includePrePost=false`,
     { headers: { 'User-Agent': UA_NAVEGADOR } }
   );
   const j = await res.json();
   const r = j?.chart?.result?.[0];
   const q = r?.indicators?.quote?.[0];
   if (!r || !q) throw new Error('sin histórico');
+  const fechas = [];
   const cierres = [];
   const volumenes = [];
   const maximos = [];
   const minimos = [];
   (r.timestamp || []).forEach((t, i) => {
     if (q.close?.[i] != null) {
+      fechas.push(t);
       cierres.push(q.close[i]);
       volumenes.push(q.volume?.[i] ?? null);
       maximos.push(q.high?.[i] ?? null);
@@ -147,7 +152,7 @@ async function historico(sym) {
   const regular = r.meta?.currentTradingPeriod?.regular;
   const ahora = Date.now() / 1000;
   const sesionAbierta = !!regular && ahora >= regular.start && ahora < regular.end;
-  return { cierres, volumenes, maximos, minimos, sesionAbierta };
+  return { fechas, cierres, volumenes, maximos, minimos, sesionAbierta };
 }
 
 const seguro = (p) => p.then((v) => v, () => null);

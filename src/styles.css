@@ -2328,3 +2328,8 @@ tr.ficha-row > td { padding: 0 !important; }
 .tono-gris { background: var(--t-gris); }
 .tono-verde-a { background: var(--t-verde-a); }
 .tono-verde-f { background: var(--t-verde-f); }
+
+/* Señales técnicas */
+.tono-azul { background: var(--prim); }
+.senales { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.senales-vacio { margin: 2px 0 10px; }
