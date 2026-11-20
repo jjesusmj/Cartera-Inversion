@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import FichaVistazo from './FichaVistazo';
 import FichaTecnico from './FichaTecnico';
+import FichaMensual from './FichaMensual';
 import { DetalleValoracionCuerpo } from './Valoracion';
 import {
   obtenerCotizaciones,
@@ -40,7 +41,10 @@ export const SECCIONES = [
   {
     id: 'precio',
     label: 'Precio',
-    subs: [{ id: 'tecnico', label: 'Técnico y niveles' }],
+    subs: [
+      { id: 'tecnico', label: 'Técnico y niveles' },
+      { id: 'mensual', label: 'Rentabilidad mensual' },
+    ],
   },
   {
     id: 'valoracion',
@@ -220,6 +224,8 @@ export default function FichaValor({
           />
         ) : subsec.id === 'tecnico' ? (
           <FichaTecnico symbol={symbol} currency={currency} q={q} />
+        ) : subsec.id === 'mensual' ? (
+          <FichaMensual symbol={symbol} currency={currency} exchangeId={exchangeId} />
         ) : subsec.id === 'empresa' ? (
           <LaEmpresa symbol={symbol} name={name} perfil={perfil} exchangeId={exchangeId} currency={currency} />
         ) : subsec.id === 'lotes' ? (

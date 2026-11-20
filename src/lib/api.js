@@ -382,3 +382,15 @@ export async function guardarAjustesTamano(owner, datos) {
   comprobarEscritura();
   return setDoc(doc(db, 'settings', `tamano_${owner}`), datos, { merge: true });
 }
+
+// ---------- Rentabilidad mensual de la ficha (cierres mensuales desde 2013) ----------
+const mensualCache = new Map();
+export async function obtenerMensual(symbol, currency) {
+  const guardado = mensualCache.get(symbol);
+  if (guardado && Date.now() - guardado.at < 60 * 60e3) return guardado.data;
+  const res = await fetch(`/api/mensual?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency || '')}`);
+  if (!res.ok) throw new Error('No se pudieron cargar los cierres mensuales.');
+  const data = await res.json();
+  mensualCache.set(symbol, { at: Date.now(), data });
+  return data;
+}
