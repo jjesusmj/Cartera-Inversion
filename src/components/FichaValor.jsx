@@ -5,6 +5,7 @@ import FichaMensual from './FichaMensual';
 import FichaAnalistas from './FichaAnalistas';
 import { FichaResultados, FichaDividendos } from './FichaFinanzas';
 import { DetalleValoracionCuerpo } from './Valoracion';
+import FichaDCF from './FichaDCF';
 import {
   obtenerCotizaciones,
   obtenerPerfiles,
@@ -416,7 +417,27 @@ function Cuaderno({ notas, comentario, onAbrir }) {
 // Valoración: el mismo cálculo FCF de la sección Valoración
 // ---------------------------------------------------------------------
 
-function ValorJusto({ symbol, currency, exchangeId, precio, perfil, owner }) {
+// Valor justo: selector entre tu valoración por FCF y el DCF estándar
+function ValorJusto(props) {
+  const [modelo, setModeloState] = useState(() => {
+    try { return localStorage.getItem('justo_modelo') || 'fcf'; } catch { return 'fcf'; }
+  });
+  const setModelo = (m) => { try { localStorage.setItem('justo_modelo', m); } catch { /* sin almacenamiento */ } setModeloState(m); };
+  return (
+    <>
+      <div className="justo-modelo">
+        <span className="hint-inline">Modelo:</span>
+        <div className="segmented segmented-global val-filtro" role="tablist" aria-label="Modelo de valoración">
+          <button role="tab" aria-selected={modelo === 'fcf'} className={modelo === 'fcf' ? 'active' : ''} onClick={() => setModelo('fcf')}>Tu FCF</button>
+          <button role="tab" aria-selected={modelo === 'dcf'} className={modelo === 'dcf' ? 'active' : ''} onClick={() => setModelo('dcf')}>DCF estándar</button>
+        </div>
+      </div>
+      {modelo === 'dcf' ? <FichaDCF {...props} /> : <ValorJustoFCF {...props} />}
+    </>
+  );
+}
+
+function ValorJustoFCF({ symbol, currency, exchangeId, precio, perfil, owner }) {
   const [d, setD] = useState(null);
   const [carga, setCarga] = useState('cargando'); // 'cargando' | null | { error }
   const [params, setParams] = useState(PARAMS_DEF);

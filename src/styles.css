@@ -2567,3 +2567,39 @@ tr.ficha-row > td { padding: 0 !important; }
 @media (max-width: 720px) {
   .metas-grid { grid-template-columns: 1fr; }
 }
+
+/* Valor justo: selector de modelo y DCF */
+.justo-modelo { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.justo-modelo .segmented { margin-bottom: 0; }
+.dcf .card.panel { margin-bottom: 16px; }
+.dcf-cabecera { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.dcf-cabecera > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dcf-etq { font-size: 12px; color: var(--ink-dim); }
+.dcf-grande { font-size: 22px; font-variant-numeric: tabular-nums; }
+.dcf-chip { align-self: flex-start; font-size: 15px; padding: 4px 10px; }
+.dcf-avisos { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
+.dcf-avisos p { margin: 3px 0; }
+.dcf-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.dcf-barras { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.dcf-col { position: relative; height: 100%; }
+.dcf-pista { position: absolute; inset: 0; }
+.dcf-b { position: absolute; width: 42%; border-radius: 2px 2px 0 0; }
+.dcf-b.ventas { left: 6%; background: var(--prim); }
+.dcf-b.fcf { right: 6%; background: var(--gain); }
+.dcf-b.fcf.neg { background: var(--loss); border-radius: 0 0 2px 2px; }
+.dcf-col.proy .dcf-b { opacity: 0.45; }
+.dcf-anos { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; font-size: 10.5px; color: var(--ink-dim); text-align: center; margin-top: 4px; }
+.divs-leyenda i.dcf-b { position: static; display: inline-block; width: 10px; height: 10px; }
+.dcf-hip-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dcf-campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 14px; margin-top: 8px; }
+@media (max-width: 900px) {
+  .dcf-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .dcf-cabecera { grid-template-columns: 1fr 1fr; }
+  .dcf-cabecera > div:last-child { grid-column: 1 / -1; }
+  .dcf-grande { font-size: 19px; }
+  .dcf-campos { grid-template-columns: 1fr 1fr; }
+}
+.dcf .nw { white-space: nowrap; }
+.dcf-campos .field { display: flex; flex-direction: column; justify-content: flex-end; }

@@ -421,3 +421,4 @@ async function pedirFichaExtra(ruta, symbol, currency) {
 }
 export const obtenerConsenso = (symbol, currency) => pedirFichaExtra('analistas', symbol, currency);
 export const obtenerFinanzas = (symbol, currency) => pedirFichaExtra('finanzas', symbol, currency);
+export const obtenerDCF = (symbol, currency) => pedirFichaExtra('dcf', symbol, currency);
