@@ -394,3 +394,18 @@ export async function obtenerMensual(symbol, currency) {
   mensualCache.set(symbol, { at: Date.now(), data });
   return data;
 }
+
+// ---------- Analistas y Finanzas de la ficha (se piden al abrir cada pantalla) ----------
+const fichaExtraCache = new Map();
+async function pedirFichaExtra(ruta, symbol, currency) {
+  const key = `${ruta}_${symbol}`;
+  const guardado = fichaExtraCache.get(key);
+  if (guardado && Date.now() - guardado.at < 60 * 60e3) return guardado.data;
+  const res = await fetch(`/api/${ruta}?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency || '')}`);
+  if (!res.ok) throw new Error('Yahoo no ha devuelto estos datos.');
+  const data = await res.json();
+  fichaExtraCache.set(key, { at: Date.now(), data });
+  return data;
+}
+export const obtenerConsenso = (symbol, currency) => pedirFichaExtra('analistas', symbol, currency);
+export const obtenerFinanzas = (symbol, currency) => pedirFichaExtra('finanzas', symbol, currency);

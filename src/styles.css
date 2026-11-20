@@ -2379,3 +2379,37 @@ tr.ficha-row > td { padding: 0 !important; }
 .mensual-tabla th.mensual-ano { position: sticky; left: 0; background: var(--bg); z-index: 1; text-align: left; padding-right: 6px; }
 .mensual-tabla td.mensual-total .chip-tono { font-weight: 700; }
 .mensual-tabla .es-provisional { opacity: 0.7; outline: 1px dashed var(--ink-dim); outline-offset: -1px; }
+
+/* Analistas y Finanzas de la ficha */
+.analistas-grid, .finanzas-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 1000px) {
+  .analistas-grid, .finanzas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .analistas-ancho { grid-column: 1 / -1; }
+}
+.analistas-nota { margin: 0; }
+.barras { display: grid; gap: 6px; margin: 12px 0 4px; }
+.barra-fila { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 12px; }
+.barra-label { color: var(--ink-dim); }
+.barra-pista { height: 10px; background: var(--bg-inset); border-radius: 99px; overflow: hidden; }
+.barra-relleno { display: block; height: 100%; border-radius: 99px; background: var(--prim); }
+.barra-relleno.is-gain { background: var(--t-verde-f); }
+.barra-relleno.is-gain-suave { background: var(--t-verde-a); }
+.barra-relleno.is-gris { background: var(--t-gris); }
+.barra-relleno.is-loss-suave { background: var(--t-rojo-a); }
+.barra-relleno.is-loss { background: var(--t-rojo-f); }
+.barra-relleno.is-ink { background: var(--ink); }
+.barra-valor { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; min-width: 64px; }
+.analistas-plazos { margin-bottom: 12px; }
+.tabla-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tabla-simple { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tabla-simple th { text-align: left; font-weight: 600; color: var(--ink-dim); font-size: 11.5px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tabla-simple td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.tabla-simple td.num, .tabla-simple th.num { text-align: right; }
+.hint-inline { color: var(--ink-faint); font-size: 11.5px; }
+.obj-grafico { margin: 4px 0 12px; }
+.obj-grafico svg { display: block; }
+.obj-precio { fill: none; stroke: var(--ink-dim); stroke-width: 1.3; }
+.obj-punto { fill: var(--prim); fill-opacity: 0.75; stroke: var(--bg); stroke-width: 1; }
+.obj-leyenda-linea { display: inline-block; width: 14px; height: 2px; background: var(--ink-dim); vertical-align: middle; }
+.obj-leyenda-punto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--prim); vertical-align: middle; }
+.rango-sub { display: block; font-size: 11px; color: var(--ink-faint); font-weight: 400; }

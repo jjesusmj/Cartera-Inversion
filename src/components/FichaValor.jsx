@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import FichaVistazo from './FichaVistazo';
 import FichaTecnico from './FichaTecnico';
 import FichaMensual from './FichaMensual';
+import FichaAnalistas from './FichaAnalistas';
+import { FichaResultados, FichaDividendos } from './FichaFinanzas';
 import { DetalleValoracionCuerpo } from './Valoracion';
 import {
   obtenerCotizaciones,
@@ -47,9 +49,22 @@ export const SECCIONES = [
     ],
   },
   {
+    id: 'finanzas',
+    label: 'Finanzas',
+    subs: [
+      { id: 'resultados', label: 'Resultados' },
+      { id: 'dividendos', label: 'Dividendos' },
+    ],
+  },
+  {
     id: 'valoracion',
     label: 'Valoración',
     subs: [{ id: 'justo', label: 'Valor justo' }],
+  },
+  {
+    id: 'analistas',
+    label: 'Analistas',
+    subs: [{ id: 'consenso', label: 'Consenso' }],
   },
 ];
 
@@ -226,6 +241,12 @@ export default function FichaValor({
           <FichaTecnico symbol={symbol} currency={currency} q={q} />
         ) : subsec.id === 'mensual' ? (
           <FichaMensual symbol={symbol} currency={currency} exchangeId={exchangeId} />
+        ) : subsec.id === 'resultados' ? (
+          <FichaResultados symbol={symbol} currency={currency} />
+        ) : subsec.id === 'dividendos' ? (
+          <FichaDividendos symbol={symbol} currency={currency} />
+        ) : subsec.id === 'consenso' ? (
+          <FichaAnalistas symbol={symbol} currency={currency} q={q} />
         ) : subsec.id === 'empresa' ? (
           <LaEmpresa symbol={symbol} name={name} perfil={perfil} exchangeId={exchangeId} currency={currency} />
         ) : subsec.id === 'lotes' ? (
