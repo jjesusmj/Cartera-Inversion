@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { fmtMoney, fmtMoneySigned, fmtPercent } from '../lib/format';
+import { claseTono } from '../lib/tonos';
 
 // Reparto de la cartera por grupos (sector, bolsa): peso, ganancia total y
 // resultado de hoy. Al tocar un grupo se ven los valores que lo forman.
@@ -17,6 +18,7 @@ export default function Reparto({ titulo, grupos, total, umbral }) {
         {ordenados.map((g) => {
           const peso = g.valorEUR / total;
           const plPct = g.costeEUR ? (g.plEUR / g.costeEUR) * 100 : null;
+          const hoyPct = g.hoyEUR != null && g.valorEUR - g.hoyEUR > 0 ? (g.hoyEUR / (g.valorEUR - g.hoyEUR)) * 100 : null;
           const concentrado = umbral != null && peso > umbral;
           const esAbierto = abierto === g.nombre;
           return (
@@ -34,10 +36,16 @@ export default function Reparto({ titulo, grupos, total, umbral }) {
                 </div>
                 <div className="reparto-sub num">
                   <span>{fmtMoney(g.valorEUR)}</span>
-                  <span className={g.plEUR >= 0 ? 'gain' : 'loss'}>
-                    Total {fmtMoneySigned(g.plEUR)}{plPct != null ? ` (${fmtPercent(plPct)})` : ''}
+                  <span>
+                    Total <span className={g.plEUR >= 0 ? 'gain' : 'loss'}>{fmtMoneySigned(g.plEUR)}</span>
+                    {plPct != null && <> <span className={claseTono(plPct, 'total')}>{fmtPercent(plPct)}</span></>}
                   </span>
-                  {g.hoyEUR != null && <span className={g.hoyEUR >= 0 ? 'gain' : 'loss'}>Hoy {fmtMoneySigned(g.hoyEUR)}</span>}
+                  {g.hoyEUR != null && (
+                    <span>
+                      Hoy <span className={g.hoyEUR >= 0 ? 'gain' : 'loss'}>{fmtMoneySigned(g.hoyEUR)}</span>
+                      {hoyPct != null && <> <span className={claseTono(hoyPct, 'dia')}>{fmtPercent(hoyPct)}</span></>}
+                    </span>
+                  )}
                 </div>
               </button>
               {esAbierto && (
