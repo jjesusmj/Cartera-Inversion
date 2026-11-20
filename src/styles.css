@@ -2333,3 +2333,38 @@ tr.ficha-row > td { padding: 0 !important; }
 .tono-azul { background: var(--prim); }
 .senales { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
 .senales-vacio { margin: 2px 0 10px; }
+
+/* Precio › Técnico y niveles */
+.tecnico-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 1000px) {
+  .tecnico-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .tecnico-grid > .tecnico-grafico { grid-column: 1 / -1; }
+}
+.tec-sma20 { color: #d97706; }
+.tec-sma50 { color: #7c3aed; }
+.tec-sma200 { color: #0891b2; }
+.tec-boll { color: #64748b; }
+.tec-precio { color: var(--ink); }
+.tec-rsi { color: var(--prim); }
+.tec-linea { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linejoin: round; }
+.tec-linea.tec-precio { stroke-width: 1.6; }
+.tec-linea.tec-boll { stroke-dasharray: 3 3; stroke-width: 1; }
+.tec-casillas { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 8px; font-size: 12.5px; }
+.tec-casilla { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--ink); }
+.tec-casilla input { margin: 0; accent-color: var(--prim); }
+.tec-muestra { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
+.tec-casilla.tec-sma20 .tec-muestra { background: #d97706; }
+.tec-casilla.tec-sma50 .tec-muestra { background: #7c3aed; }
+.tec-casilla.tec-sma200 .tec-muestra { background: #0891b2; }
+.tec-casilla.tec-boll .tec-muestra { background: #64748b; }
+.tec-head { font-size: 12px; }
+.tec-cursor { stroke: var(--ink-dim); stroke-width: 0.8; }
+.tec-subtitulo { font-size: 11.5px; color: var(--ink-dim); margin: 10px 0 2px; }
+.tec-subtitulo b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tec-rsi-zona { fill: var(--bg-inset); opacity: 0.6; }
+.tec-rsi-limite { stroke-dasharray: 3 3; stroke: var(--ink-faint) !important; }
+.tec-vol-sube { fill: var(--gain); opacity: 0.55; }
+.tec-vol-baja { fill: var(--loss); opacity: 0.55; }
+.nivel-fecha { color: var(--ink-faint); font-size: 11.5px; }
+.nivel-precio { background: var(--bg-raised); font-weight: 600; }
+.nivel-valor { white-space: nowrap; }

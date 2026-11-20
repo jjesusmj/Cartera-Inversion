@@ -40,7 +40,7 @@ function fmtEje(ts, range) {
 const diaUTC = (t) => new Date(t * 1000).toISOString().slice(0, 10);
 
 // Precios redondos para el eje vertical: unos 6 entre min y max
-function marcasY(min, max) {
+export function marcasY(min, max) {
   const bruto = (max - min) / 6;
   const pot = 10 ** Math.floor(Math.log10(bruto));
   const paso = [1, 2, 2.5, 5, 10].map((m) => m * pot).find((p) => p >= bruto);
