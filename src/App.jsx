@@ -42,6 +42,7 @@ import { SIMBOLO_FX } from './lib/costes';
 import { SOLO_LECTURA, MENSAJE_SOLO_LECTURA } from './lib/modo';
 import CabeceraDatos from './components/CabeceraDatos';
 import FichaValor from './components/FichaValor';
+import Mercado from './components/Mercado';
 import BuscadorValor, { leerRecientes, guardarReciente } from './components/BuscadorValor';
 
 // Lo que se ve está en la dirección: ?v=ficha&t=MSFT&s=valoracion&sub=justo
@@ -286,7 +287,7 @@ export default function App() {
     obtenerPerfiles(clavesSimbolos.split(',')).then(setPerfiles);
   }, [clavesSimbolos]);
 
-  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen' || view === 'valoracion' || view === 'tamano' || view === 'ficha';
+  const vistaConPrecios = view === 'cartera' || view === 'watchlist' || view === 'resumen' || view === 'valoracion' || view === 'tamano' || view === 'ficha' || view === 'mercado';
   const pull = usePullToRefresh(() => {
     if (!pricesLoading) refreshPrices();
   }, vistaConPrecios);
@@ -601,6 +602,7 @@ export default function App() {
               />
             )}
             {view === 'renta' && <Renta sales={sales} />}
+            {view === 'mercado' && <Mercado openLots={openLots} prices={prices} onAbrirFicha={abrirFicha} />}
             {view === 'ficha' && !nav.t && (
               <div className="ficha-vacia">
                 <h1 className="page-title">Ficha de valor</h1>

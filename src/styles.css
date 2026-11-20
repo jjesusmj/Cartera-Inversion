@@ -2603,3 +2603,9 @@ tr.ficha-row > td { padding: 0 !important; }
 }
 .dcf .nw { white-space: nowrap; }
 .dcf-campos .field { display: flex; flex-direction: column; justify-content: flex-end; }
+
+/* Mercado › Mapa */
+.mapa-mercado .mapa { aspect-ratio: 16 / 9; }
+@media (max-width: 720px) {
+  .mapa-mercado .mapa { aspect-ratio: 1 / 1; }
+}

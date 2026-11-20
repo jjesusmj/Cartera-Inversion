@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { fmtMoneySigned, fmtPercent, fmtNumber } from '../lib/format';
-import { claseTono, tono } from '../lib/tonos';
-import { repartirMapa } from '../lib/mapa';
+import { claseTono } from '../lib/tonos';
+import MapaCasillas from './MapaCasillas';
 
 // Resumen › Hoy: cuánto ha ganado o perdido cada posición hoy, en € y en un mapa.
 // `filas` son las posiciones de Resumen (valorEUR, hoyEUR, hoyPct, symbol, name, exchangeId).
@@ -72,72 +72,21 @@ export default function ResumenHoy({ filas, onAbrirFicha }) {
   );
 }
 
-function MapaCartera({ filas, onAbrir }) {
-  const ref = useRef(null);
-  const [tam, setTam] = useState({ w: 0, h: 0 });
-  const [elegida, setElegida] = useState(null);
-  const tactil = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
-    const medir = () => setTam({ w: el.clientWidth, h: el.clientHeight });
-    medir();
-    const ro = new ResizeObserver(medir);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const casillas = repartirMapa(
-    filas.filter((f) => f.valorEUR > 0).map((f) => ({ ...f, valor: f.valorEUR })),
-    tam.w,
-    tam.h,
-  );
+export function MapaCartera({ filas, onAbrir }) {
   const total = filas.reduce((s, f) => s + (f.valorEUR || 0), 0);
-  const sel = filas.find((f) => f.symbol === elegida);
-
-  // Ratón: al pasar se ve el aviso y el clic abre la ficha.
-  // Dedo: el primer toque enseña el aviso y el segundo abre la ficha.
-  const pulsar = (f) => {
-    if (tactil.current && elegida !== f.symbol) setElegida(f.symbol);
-    else onAbrir(f);
-  };
-
   return (
-    <>
-      <div className="mapa" ref={ref} onMouseLeave={() => !tactil.current && setElegida(null)}>
-        {casillas.map(({ x, y, w, h, item: f }) => {
-          const t = tono(f.hoyPct, 'dia');
-          return (
-            <button
-              key={f.symbol}
-              className={`mapa-casilla ${t ? '' : 'sin-dato'} ${elegida === f.symbol ? 'activa' : ''}`}
-              style={{ left: x, top: y, width: w, height: h, ...(t ? { background: `var(--t-${t})` } : {}) }}
-              onPointerDown={(e) => { tactil.current = e.pointerType !== 'mouse'; }}
-              onMouseEnter={() => !tactil.current && setElegida(f.symbol)}
-              onClick={() => pulsar(f)}
-              aria-label={`${f.symbol}: ${f.hoyPct != null ? fmtPercent(f.hoyPct) : 'sin dato'} hoy`}
-            >
-              {w >= 34 && h >= 18 && <span className="mapa-ticker">{f.symbol}</span>}
-              {w >= 56 && h >= 36 && f.hoyPct != null && <span className="mapa-pct">{fmtPercent(f.hoyPct)}</span>}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mapa-aviso" aria-live="polite">
-        {sel ? (
-          <>
-            <b>{sel.symbol}</b> <span className="hint-inline">{sel.name}</span>
-            {' · '}
-            {total > 0 && sel.valorEUR != null && `${fmtNumber((sel.valorEUR / total) * 100, 1)} % de la cartera · `}
-            <span className={sel.hoyEUR >= 0 ? 'gain' : 'loss'}>{sel.hoyEUR != null ? fmtMoneySigned(sel.hoyEUR) : '—'}</span>{' '}
-            <span className={claseTono(sel.hoyPct, 'dia')}>{sel.hoyPct != null ? fmtPercent(sel.hoyPct) : '—'}</span>
-            {tactil.current && <span className="hint-inline"> · toca otra vez para abrir la ficha</span>}
-          </>
-        ) : (
-          <span className="hint-inline">Pasa el ratón o toca una casilla para ver el detalle; haz clic para abrir la ficha.</span>
-        )}
-      </div>
-    </>
+    <MapaCasillas
+      items={filas.map((f) => ({ ...f, valor: f.valorEUR, pct: f.hoyPct }))}
+      onAbrir={onAbrir}
+      detalle={(sel) => (
+        <>
+          <b>{sel.symbol}</b> <span className="hint-inline">{sel.name}</span>
+          {' · '}
+          {total > 0 && sel.valorEUR != null && `${fmtNumber((sel.valorEUR / total) * 100, 1)} % de la cartera · `}
+          <span className={sel.hoyEUR >= 0 ? 'gain' : 'loss'}>{sel.hoyEUR != null ? fmtMoneySigned(sel.hoyEUR) : '—'}</span>{' '}
+          <span className={claseTono(sel.hoyPct, 'dia')}>{sel.hoyPct != null ? fmtPercent(sel.hoyPct) : '—'}</span>
+        </>
+      )}
+    />
   );
 }

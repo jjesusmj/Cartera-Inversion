@@ -422,3 +422,10 @@ async function pedirFichaExtra(ruta, symbol, currency) {
 export const obtenerConsenso = (symbol, currency) => pedirFichaExtra('analistas', symbol, currency);
 export const obtenerFinanzas = (symbol, currency) => pedirFichaExtra('finanzas', symbol, currency);
 export const obtenerDCF = (symbol, currency) => pedirFichaExtra('dcf', symbol, currency);
+
+// Mercado › Mapa: 'us' o 'es'. Sin caché aquí: la función ya cachea 2 minutos.
+export async function obtenerMapa(lista) {
+  const res = await fetch(`/api/mapa?lista=${encodeURIComponent(lista)}`);
+  if (!res.ok) throw new Error('Yahoo no ha devuelto los datos del mapa.');
+  return res.json();
+}
