@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import EvolucionVista from './EvolucionVista';
+import ResumenHoy from './ResumenHoy';
 import { fmtMoney, fmtPercent, fmtNumber } from '../lib/format';
 import { claseTono } from '../lib/tonos';
 import { useFxToday } from '../lib/useFxToday';
@@ -15,7 +16,7 @@ import { exchangeById, exchangeIdOf } from '../lib/exchanges';
 
 const UMBRAL_SECTOR = 0.4;
 
-export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, sales, filtrado }) {
+export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, sales, filtrado, onAbrirFicha }) {
   const [vista, setVista] = useState(() => {
     try { return localStorage.getItem('resumen_vista') || 'resumen'; } catch { return 'resumen'; }
   });
@@ -150,10 +151,13 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
       <div className="segmented segmented-global" role="tablist" aria-label="Vista de Resumen">
         <button role="tab" aria-selected={vista === 'resumen'} className={vista === 'resumen' ? 'active' : ''} onClick={() => cambiarVista('resumen')}>Resumen</button>
         <button role="tab" aria-selected={vista === 'evolucion'} className={vista === 'evolucion' ? 'active' : ''} onClick={() => cambiarVista('evolucion')}>Evolución</button>
+        <button role="tab" aria-selected={vista === 'hoy'} className={vista === 'hoy' ? 'active' : ''} onClick={() => cambiarVista('hoy')}>Hoy</button>
       </div>
 
       {vista === 'evolucion' ? (
         <EvolucionVista openLots={openLots} />
+      ) : vista === 'hoy' ? (
+        <ResumenHoy filas={filasSinOrdenar} onAbrirFicha={onAbrirFicha} />
       ) : (
       <>
 

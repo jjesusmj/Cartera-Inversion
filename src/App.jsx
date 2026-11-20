@@ -569,6 +569,7 @@ export default function App() {
                 positionSettings={positionSettings}
                 sales={salesFiltradas}
                 filtrado={exchangeFilter.length > 0}
+                onAbrirFicha={abrirFicha}
               />
             )}
             {view === 'valoracion' && (
