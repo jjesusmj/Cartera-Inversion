@@ -111,7 +111,7 @@ export function fraseFrenteMedia(x) {
 // comprobadas con 2017-2026 (VIX, VIX3M y S&P 500 diarios de Yahoo).
 export const REGLAS = {
   tension: ['VIX por encima de 30', 'VIX/VIX3M por encima de 1'],
-  vigilancia: ['VIX/VIX3M de 0,95 o más con el S&P 500 por debajo de su media de 50 sesiones'],
+  vigilancia: ['VIX/VIX3M de 0,95 o más con el S&P 500 por debajo de su media de los últimos 50 días de bolsa'],
 };
 
 // Qué pasó después en cada fase, en % de las sesiones (S&P 500, septiembre de 2006 a agosto de 2026).
@@ -131,15 +131,17 @@ export const HISTORICO = {
 export function semaforo({ vix, ratio, sp, media50 }) {
   if (![vix, ratio].some(esNum)) return null;
   const rojo = [];
-  if (esNum(vix) && vix > 30) rojo.push(`El VIX está en ${coma(vix, 1)}, por encima de 30.`);
-  if (esNum(ratio) && ratio > 1) rojo.push(`VIX/VIX3M está en ${coma(ratio, 2)}, por encima de 1.`);
+  if (esNum(vix) && vix > 30) rojo.push(`El VIX, el miedo que se espera para el próximo mes, está en ${coma(vix, 1)}. Por encima de 30 es miedo fuerte.`);
+  if (esNum(ratio) && ratio > 1) rojo.push(`El miedo a 1 mes supera al de 3 meses (VIX/VIX3M: ${coma(ratio, 2)}). Preocupa más lo inmediato que lo que viene después.`);
   const bajoMedia = esNum(sp) && esNum(media50) && sp < media50;
-  const txtMedia = bajoMedia ? ` El S&P 500 está un ${coma((1 - sp / media50) * 100, 1)} % por debajo de su media de 50 sesiones.` : '';
-  if (rojo.length) return { fase: 'tension', motivos: txtMedia ? [...rojo, txtMedia.trim()] : rojo };
+  const txtMedia = bajoMedia
+    ? `El S&P 500 está un ${coma((1 - sp / media50) * 100, 1)} % por debajo de su media de los últimos 50 días de bolsa (unos dos meses y medio).`
+    : null;
+  if (rojo.length) return { fase: 'tension', motivos: txtMedia ? [...rojo, txtMedia] : rojo };
   if (esNum(ratio) && ratio >= 0.95 && bajoMedia) {
-    return { fase: 'vigilancia', motivos: [`VIX/VIX3M está en ${coma(ratio, 2)}, de 0,95 o más.${txtMedia}`] };
+    return { fase: 'vigilancia', motivos: [`El miedo a 1 mes está casi al nivel del de 3 meses (VIX/VIX3M: ${coma(ratio, 2)}; cuenta desde 0,95).`, txtMedia] };
   }
   const motivos = ['No se cumple ninguna regla de tensión ni de vigilancia.'];
-  if (esNum(ratio) && ratio >= 0.95) motivos.push(`VIX/VIX3M está en ${coma(ratio, 2)}, pero el S&P 500 sigue por encima de su media de 50 sesiones.`);
+  if (esNum(ratio) && ratio >= 0.95) motivos.push(`El miedo a 1 mes está casi al nivel del de 3 meses (VIX/VIX3M: ${coma(ratio, 2)}), pero la bolsa sigue por encima de su media de los últimos 50 días de bolsa.`);
   return { fase: 'calma', motivos };
 }

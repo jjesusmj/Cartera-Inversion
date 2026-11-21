@@ -13,9 +13,9 @@ const num = (x, dec = 1) => (esNum(x) ? fmtNumber(x, dec) : '—');
 const fechaLarga = (f) => { const [a, m, d] = f.split('-'); return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(+a, m - 1, +d)); };
 
 const FASES = [
-  { id: 'calma', txt: 'Calma', color: 'var(--mc-codicia-extrema)', lectura: 'Sin señales de tensión en la volatilidad. Es lo normal: el 78 % del tiempo.' },
-  { id: 'vigilancia', txt: 'Vigilancia', color: 'var(--mc-neutral)', lectura: 'Ojo: el miedo a corto plazo se acerca al de 3 meses y la bolsa ha perdido su media de 50 sesiones. Históricamente, el riesgo de una caída del 5 % o más en las 4 semanas siguientes ha sido mayor de lo normal (28 % frente a 18 %).' },
-  { id: 'tension', txt: 'Tensión', color: 'var(--mc-miedo-extremo)', lectura: 'Tormenta: el mercado ya está en plena tensión. Describe lo que pasa ahora: a partir de aquí ha habido tanto caídas como rebotes fuertes, y 60 sesiones después la bolsa estaba más arriba tantas veces como un día cualquiera.' },
+  { id: 'calma', txt: 'Calma', color: 'var(--mc-codicia-extrema)', lectura: 'No hay señales de tensión. Es lo habitual: el mercado está así casi 8 de cada 10 días.' },
+  { id: 'vigilancia', txt: 'Vigilancia', color: 'var(--mc-neutral)', lectura: 'Ojo: el miedo a corto plazo está subiendo y la bolsa ha perdido su tendencia de los últimos meses. Otras veces, en esta situación, la bolsa cayó un 5 % o más en el mes siguiente en el 28 % de los casos (lo normal es el 18 %).' },
+  { id: 'tension', txt: 'Tensión', color: 'var(--mc-miedo-extremo)', lectura: 'Tormenta: la bolsa está cayendo y el miedo está disparado. Esto describe lo que pasa ahora, no lo que vendrá: otras veces, desde aquí, unas veces siguió cayendo y otras rebotó con fuerza. Tres meses después, la bolsa estaba más arriba en 7 de cada 10 casos, igual que un día cualquiera.' },
 ];
 const PERIODOS = [['1d', '1 D'], ['5d', '5 D'], ['1mo', '1 M'], ['3mo', '3 M'], ['6mo', '6 M'], ['1y', '1 A'], ['5y', '5 A']];
 const C_SP = 'var(--accent)';
@@ -125,7 +125,7 @@ function Semaforo({ v }) {
         {s.motivos.map((m) => <li key={m}>{m}</li>)}
       </ul>
       <TablaHistorico actual={s.fase} />
-      <p className="hint">Datos del S&amp;P 500 de {HISTORICO.desde} a {HISTORICO.hasta}. Lo que pasó otras veces no asegura lo que pasará ahora. Las reglas y cómo se eligieron están al pie de la página.</p>
+      <p className="hint">Con datos del S&amp;P 500. Lo que pasó otras veces no asegura lo que pasará ahora. Las reglas y cómo se eligieron están al pie de la página.</p>
     </section>
   );
 }
@@ -136,12 +136,15 @@ function TablaHistorico({ actual }) {
   return (
     <div className="tabla-scroll">
       <table className="sen-historico">
-        <caption>
-          Qué pasó otras veces en cada fase
-          <span>% de las sesiones en las que, en las 20 siguientes, el S&amp;P 500 cayó o subió un 5 % o más, y en las que estaba más arriba 60 sesiones después</span>
-        </caption>
+        <caption>Qué pasó después otras veces, en cada fase ({HISTORICO.desde}-{HISTORICO.hasta})</caption>
         <thead>
-          <tr><th>Fase</th><th>Tiempo</th><th>Cayó ≥5 %</th><th>Subió ≥5 %</th><th>Arriba a 60 ses.</th></tr>
+          <tr>
+            <th>Fase</th>
+            <th><span className="sen-largo">Tiempo en esta fase</span><span className="sen-corto">Tiempo</span></th>
+            <th><span className="sen-largo">Cayó un 5 % o más en el mes siguiente</span><span className="sen-corto">Cae ≥5 % en 1 mes</span></th>
+            <th><span className="sen-largo">Subió un 5 % o más en el mes siguiente</span><span className="sen-corto">Sube ≥5 % en 1 mes</span></th>
+            <th><span className="sen-largo">Más arriba 3 meses después</span><span className="sen-corto">Arriba a 3 meses</span></th>
+          </tr>
         </thead>
         <tbody>
           {filas.map(([id, txt, color]) => {
@@ -176,7 +179,18 @@ function etiquetasSemanas(f, n = 6) {
     .map((i) => ({ i, txt: `${+f[i].slice(8, 10)}/${+f[i].slice(5, 7)}/${f[i].slice(2, 4)}` }));
 }
 
+// Series de la encuesta, de abajo arriba en la barra
+const SERIES_AAII = [
+  { id: 'alc', k: 1, txt: 'Alcistas', clase: 'sen-alc', color: 'var(--gain)' },
+  { id: 'neu', k: 2, txt: 'Neutrales', clase: 'sen-neu', color: 'var(--ink-faint)' },
+  { id: 'baj', k: 3, txt: 'Bajistas', clase: 'sen-baj', color: 'var(--loss)' },
+];
+
 function Barras({ semanas }) {
+  const [ocultas, setOcultas] = useState([]);
+  // Pulsar una serie la oculta o la vuelve a enseñar; siempre queda al menos una
+  const alternar = (id) => setOcultas((o) => (o.includes(id) ? o.filter((x) => x !== id) : o.length < SERIES_AAII.length - 1 ? [...o, id] : o));
+  const visibles = SERIES_AAII.filter((x) => !ocultas.includes(x.id));
   const n = semanas.length;
   const c = useCursor(n);
   const W = 1000, H = 260;
@@ -190,25 +204,27 @@ function Barras({ semanas }) {
       </p>
       <div className="miedo-lienzo sen-lienzo">
         <div className="miedo-eje-y" aria-hidden="true">
-          {[100, 75, 50, 25, 0].map((p) => <span key={p} style={{ top: `${100 - p}%` }}>{p}</span>)}
+          {[100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0].map((p) => <span key={p} style={{ top: `${100 - p}%` }}>{p}</span>)}
         </div>
         <div className="miedo-grafico-caja">
           <div className="sen-zona" ref={c.ref} {...c.props}>
-            <svg className="miedo-grafico" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Porcentaje de alcistas, neutrales y bajistas por semana">
-              {semanas.map(([f, al, ne, ba], k) => {
+            <svg className="miedo-grafico" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`Porcentaje por semana: ${visibles.map((x) => x.txt.toLowerCase()).join(', ')}`}>
+              {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((p) => <line key={p} x1="0" x2={W} y1={H - (p / 100) * H} y2={H - (p / 100) * H} className="sen-guia-clara" />)}
+              {semanas.map((fila, k) => {
                 const x = k * ancho + ancho * 0.12;
                 const w = ancho * 0.76;
-                const t = al + ne + ba || 1;
-                const hA = (al / t) * H, hN = (ne / t) * H, hB = (ba / t) * H;
+                const t = fila[1] + fila[2] + fila[3] || 1;
+                let base = H;
                 return (
-                  <g key={f} opacity={c.i == null || c.i === k ? 1 : 0.45}>
-                    <rect x={x} width={w} y={H - hA} height={hA} className="sen-alc" />
-                    <rect x={x} width={w} y={H - hA - hN} height={hN} className="sen-neu" />
-                    <rect x={x} width={w} y={0} height={hB} className="sen-baj" />
+                  <g key={fila[0]} opacity={c.i == null || c.i === k ? 1 : 0.45}>
+                    {visibles.map((sr) => {
+                      const h = (fila[sr.k] / t) * H;
+                      base -= h;
+                      return <rect key={sr.id} x={x} width={w} y={base} height={h} className={sr.clase} />;
+                    })}
                   </g>
                 );
               })}
-              {[25, 50, 75].map((p) => <line key={p} x1="0" x2={W} y1={H - (p / 100) * H} y2={H - (p / 100) * H} className="sen-guia-clara" />)}
             </svg>
           </div>
           <div className="miedo-eje-x" aria-hidden="true">
@@ -216,10 +232,17 @@ function Barras({ semanas }) {
           </div>
         </div>
       </div>
-      <div className="miedo-leyenda">
-        <span><i style={{ background: 'var(--gain)' }} />Alcistas</span>
-        <span><i style={{ background: 'var(--ink-faint)' }} />Neutrales</span>
-        <span><i style={{ background: 'var(--loss)' }} />Bajistas</span>
+      <div className="miedo-leyenda sen-filtro" role="group" aria-label="Series que se ven">
+        {SERIES_AAII.map((sr) => {
+          const oculta = ocultas.includes(sr.id);
+          return (
+            <button key={sr.id} type="button" aria-pressed={!oculta} className={oculta ? 'oculta' : ''} onClick={() => alternar(sr.id)}
+              title={oculta ? `Enseñar ${sr.txt.toLowerCase()}` : `Ocultar ${sr.txt.toLowerCase()}`}>
+              <i style={{ background: sr.color }} />{sr.txt}
+            </button>
+          );
+        })}
+        <span className="hint-inline">Pulsa para filtrar</span>
       </div>
     </section>
   );
@@ -469,7 +492,7 @@ function Explicacion() {
       <p>
         Se probaron varias reglas con 20 años de datos diarios del S&amp;P 500, el VIX y el VIX3M. Para no hacer trampa, la regla de
         vigilancia se eligió solo con los años 2006 a 2016 y después se comprobó, sin tocarla, con 2017 a 2026. En los dos periodos,
-        cuando salta, la probabilidad de una caída del 5 % o más en las 20 sesiones siguientes ha sido mayor que la de un día cualquiera
+        cuando salta, la probabilidad de una caída del 5 % o más en el mes siguiente (20 días de bolsa) ha sido mayor que la de un día cualquiera
         (29 % frente a 20 % en el primero; 22 % frente a 16 % en el segundo) y saltó antes de que la bolsa cayera un 5 % en 14 de las 18
         correcciones de más del 10 %.
       </p>

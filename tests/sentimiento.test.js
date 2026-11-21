@@ -86,11 +86,12 @@ test('semaforo: calma, vigilancia y tensión con sus motivos', () => {
   assert.equal(c.motivos.length, 2);
   const v = semaforo({ vix: 22, ratio: 0.97, sp: 100, media50: 104 });
   assert.equal(v.fase, 'vigilancia');
-  assert.match(v.motivos[0], /0,97.*3,8 % por debajo de su media de 50 sesiones/);
+  assert.match(v.motivos[0], /VIX\/VIX3M: 0,97/);
+  assert.match(v.motivos[1], /3,8 % por debajo de su media de los últimos 50 días/);
   const t = semaforo({ vix: 35.89, ratio: 1.16, sp: 6910, media50: 7600 });
   assert.equal(t.fase, 'tension');
-  assert.equal(t.motivos[0], 'El VIX está en 35,9, por encima de 30.');
-  assert.equal(t.motivos[1], 'VIX/VIX3M está en 1,16, por encima de 1.');
+  assert.equal(t.motivos[0], 'El VIX, el miedo que se espera para el próximo mes, está en 35,9. Por encima de 30 es miedo fuerte.');
+  assert.match(t.motivos[1], /supera al de 3 meses \(VIX\/VIX3M: 1,16\)/);
   assert.equal(t.motivos.length, 3);
   // Sin media de 50 sesiones no puede haber vigilancia, pero sí tensión
   assert.equal(semaforo({ vix: 18, ratio: 0.99 }).fase, 'calma');

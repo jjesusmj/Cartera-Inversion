@@ -2758,10 +2758,17 @@ tr.ficha-row > td { padding: 0 !important; }
 .sen-historico caption { text-align: left; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
 .sen-historico caption span { display: block; font-weight: 400; font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
 .sen-historico td { white-space: nowrap; }
+.sen-corto { display: none; }
+.sen-filtro { align-items: center; }
+.sen-filtro button { display: inline-flex; align-items: center; background: none; border: 0; padding: 4px 2px; font: inherit; font-size: 12px; color: var(--ink); cursor: pointer; }
+.sen-filtro button.oculta { color: var(--ink-faint); text-decoration: line-through; }
+.sen-filtro button.oculta i { opacity: 0.35; }
 @media (max-width: 720px) {
   .sen-historico { font-size: 12px; }
   .sen-historico th, .sen-historico td { padding: 4px 4px; }
   .sen-historico th:first-child, .sen-historico td:first-child { white-space: normal; }
+  .sen-largo { display: none; }
+  .sen-corto { display: inline; }
 }
 .sen-historico th { font-weight: 500; color: var(--ink-dim); font-size: 12px; text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--line); }
 .sen-historico th:first-child, .sen-historico td:first-child { text-align: left; white-space: nowrap; }
