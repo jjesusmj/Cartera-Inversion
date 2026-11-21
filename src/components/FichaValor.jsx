@@ -17,7 +17,11 @@ import {
   leerParamsValoracion,
 } from '../lib/api';
 import { exchangeById, exchangeIdOf, exchangeIdDeSimbolo, yahooUrl } from '../lib/exchanges';
-import { costeLoteEUR, costeEsAproximado, tiposValoracion } from '../lib/costes';
+import { tiposValoracion } from '../lib/costes';
+import { calcularPosicion } from '../lib/posicion';
+import { sectorDe } from '../lib/sectors';
+import { SectorEditor } from './DetailParts';
+import { FilaLote, StopObjetivoEditable } from './PosicionPartes';
 import { useFxToday } from '../lib/useFxToday';
 import { valorar, PARAMS_DEF, esBancoOAseguradora } from '../lib/valoracionFCF';
 import { fmtCotizacion, fmtMoney, fmtMoneySigned, fmtNumber, fmtPercent, fmtSigned, fmtDate } from '../lib/format';
@@ -77,10 +81,10 @@ export const SECCIONES = [
 
 // Sección y subsección válidas a partir de lo que venga en la dirección.
 // Un enlace a una sección o subsección que ya no existe abre Resumen › Vistazo.
-export function resolverSeccion(s, sub) {
-  const seccion = SECCIONES.find((x) => x.id === s);
+export function resolverSeccion(s, sub, secciones = SECCIONES) {
+  const seccion = secciones.find((x) => x.id === s);
   const subsec = seccion && (sub ? seccion.subs.find((x) => x.id === sub) : seccion.subs[0]);
-  if (!seccion || !subsec) return { seccion: SECCIONES[0], subsec: SECCIONES[0].subs[0] };
+  if (!seccion || !subsec) return { seccion: secciones[0], subsec: secciones[0].subs[0] };
   return { seccion, subsec };
 }
 
@@ -114,11 +118,19 @@ export default function FichaValor({
   onNuevoSeguimiento,
   onAbrirNotasLote,
   onAbrirNotasWatch,
+  comisionVentaObjetivo = 0,
+  onActualizarPosSettings,
+  onSectorManual,
+  onVender,
+  onEditarLote,
+  onBorrarLote,
+  onGuardarCosteEUR,
 }) {
-  const { seccion, subsec } = resolverSeccion(s, sub);
-
   const lotes = useMemo(() => openLots.filter((l) => l.symbol === symbol), [openLots, symbol]);
   const watch = useMemo(() => watchlist.find((w) => w.symbol === symbol) || null, [watchlist, symbol]);
+  // «Mi posición» solo para valores en cartera o en seguimiento
+  const secciones = SECCIONES.filter((x) => x.id !== 'posicion' || lotes.length > 0 || watch);
+  const { seccion, subsec } = resolverSeccion(s, sub, secciones);
   const base = lotes[0] || watch;
   const exchangeId = base ? exchangeIdOf(base) : info?.exchangeId || exchangeIdDeSimbolo(symbol);
   const currency = base?.currency || exchangeById(exchangeId).currency;
@@ -204,7 +216,7 @@ export default function FichaValor({
       </div>
 
       <div className="ficha-secciones" ref={pestanasRef} role="tablist" aria-label="Secciones de la ficha">
-        {SECCIONES.map((x) => (
+        {secciones.map((x) => (
           <button
             key={x.id}
             role="tab"
@@ -259,9 +271,24 @@ export default function FichaValor({
         ) : subsec.id === 'empresa' ? (
           <LaEmpresa symbol={symbol} name={name} perfil={perfil} exchangeId={exchangeId} currency={currency} />
         ) : subsec.id === 'lotes' ? (
-          <Lotes lotes={lotes} q={q} prices={prices} currency={currency} onNuevaCompra={() => onNuevaCompra({ symbol, name, exchangeId })} />
+          <Lotes
+            symbol={symbol}
+            lotes={lotes}
+            q={q}
+            prices={prices}
+            currency={currency}
+            ajuste={ajuste}
+            comision={comisionVentaObjetivo}
+            sectorInfo={sectorDe(symbol, perfiles, positionSettings)}
+            onNuevaCompra={() => onNuevaCompra({ symbol, name, exchangeId })}
+            onSectorManual={onSectorManual}
+            onVender={onVender}
+            onEditarLote={onEditarLote}
+            onBorrarLote={onBorrarLote}
+            onGuardarCosteEUR={onGuardarCosteEUR}
+          />
         ) : subsec.id === 'stop' ? (
-          <StopObjetivo ajuste={ajuste} watch={watch} q={q} currency={currency} enCartera={lotes.length > 0} />
+          <StopObjetivo symbol={symbol} ajuste={ajuste} watch={watch} q={q} currency={currency} enCartera={lotes.length > 0} onActualizarPosSettings={onActualizarPosSettings} />
         ) : subsec.id === 'cuaderno' ? (
           <Cuaderno
             notas={lotes[0]?.notes || watch?.notes || []}
@@ -304,7 +331,8 @@ function LaEmpresa({ symbol, name, perfil, exchangeId, currency }) {
 // Mi posición (mismos cálculos que la tabla de Cartera)
 // ---------------------------------------------------------------------
 
-function Lotes({ lotes, q, prices, currency, onNuevaCompra }) {
+// Lo tuyo (lotes, coste, notas) sale enseguida; lo que depende del precio, con «—» hasta que llega
+function Lotes({ symbol, lotes, q, prices, currency, ajuste, comision, sectorInfo, onNuevaCompra, onSectorManual, onVender, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
   const fxBce = useFxToday([currency]);
   if (lotes.length === 0) {
     return (
@@ -316,74 +344,71 @@ function Lotes({ lotes, q, prices, currency, onNuevaCompra }) {
   }
   const fx = tiposValoracion(fxBce, prices);
   const rate = fx[currency] ?? (currency === 'EUR' ? 1 : null);
-  const cantidad = lotes.reduce((s, l) => s + l.remainingQuantity, 0);
-  const costeOriginal = lotes.reduce((s, l) => s + l.price * l.remainingQuantity, 0);
-  const precioMedio = costeOriginal / cantidad;
-  const manual = lotes.find((l) => l.manualPrice != null)?.manualPrice ?? null;
-  const precioActual = q?.price ?? manual;
-  const costes = lotes.map((l) => costeLoteEUR(l));
-  const costeEUR = costes.every((c) => c != null) ? costes.reduce((s, c) => s + c, 0) : null;
-  const aproximado = lotes.some(costeEsAproximado);
-  const valorEUR = precioActual != null && rate != null ? precioActual * cantidad * rate : null;
-  const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
-  const plPct = plEUR != null && costeEUR ? (plEUR / costeEUR) * 100 : null;
+  const f = calcularPosicion({ currency, lotes, q, rate, ajuste, comision });
+  const enDivisa = currency !== 'EUR';
 
   return (
     <>
       <div className="stat-grid">
-        <Dato label="Cantidad" value={fmtNumber(cantidad, 2)} />
-        <Dato label="Precio medio" value={fmtCotizacion(precioMedio, currency)} />
-        <Dato label="Coste compra" value={`${aproximado ? '≈ ' : ''}${fmtMoney(costeEUR)}`} />
-        <Dato label="Valor mercado" value={fmtMoney(valorEUR)} />
+        <Dato label="Cantidad" value={fmtNumber(f.cantidad, 2)} />
         <Dato
-          label="Ganancia / pérdida"
-          value={plEUR != null ? `${fmtMoneySigned(plEUR)} (${fmtPercent(plPct)})` : '—'}
-          clase={claseSigno(plEUR)}
+          label="Precio medio"
+          value={fmtCotizacion(f.precioMedio, currency)}
+          sub={enDivisa && f.precioMedioEUR != null ? `${f.costeAproximado ? '≈ ' : ''}${fmtCotizacion(f.precioMedioEUR)} pagado` : null}
         />
+        <Dato label="Coste compra" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} />
+        <Dato label="Valor mercado" value={fmtMoney(f.valorEUR)} />
+        <Dato label="Hoy" value={f.hoyEUR != null ? `${fmtMoneySigned(f.hoyEUR)} (${fmtPercent(f.hoyPct)})` : '—'} clase={claseSigno(f.hoyEUR)} />
+        <Dato label="Total" value={f.plEUR != null ? `${fmtMoneySigned(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'} clase={claseSigno(f.plEUR)} />
+        {f.efectoAccion != null && (
+          <>
+            <Dato label="Efecto precio" value={fmtMoneySigned(f.efectoAccion)} clase={claseSigno(f.efectoAccion)} />
+            <Dato label="Efecto divisa y comisiones" value={fmtMoneySigned(f.efectoDivisa)} clase={claseSigno(f.efectoDivisa)} />
+          </>
+        )}
       </div>
-      <div className="table-wrap ficha-tabla">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Bróker</th>
-              <th className="num">Cantidad</th>
-              <th className="num">Precio</th>
-              <th className="num">Coste €</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...lotes]
-              .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
-              .map((l) => (
-                <tr key={l.id}>
-                  <td>{fmtDate(l.buyDate)}</td>
-                  <td>{l.broker}</td>
-                  <td className="num">{fmtNumber(l.remainingQuantity, 2)}</td>
-                  <td className="num">{fmtCotizacion(l.price, l.currency)}</td>
-                  <td className="num">{costeEsAproximado(l) ? '≈ ' : ''}{fmtMoney(costeLoteEUR(l))}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+      {f.obj?.brutoEUR != null && (
+        <div className="stat-grid" style={{ marginTop: 8 }}>
+          <Dato label="En objetivo" value={fmtMoneySigned(f.obj.brutoEUR)} clase={claseSigno(f.obj.brutoEUR)} sub={f.obj.impuesto > 0 ? `neto ${fmtMoneySigned(f.obj.netoEUR)}` : 'sin IRPF'} />
+          <Dato label={f.obj.faltaEUR < 0 ? 'Por encima del objetivo' : 'Falta para el objetivo'} value={`${fmtMoneySigned(Math.abs(f.obj.faltaEUR))} (${fmtPercent(Math.abs(f.obj.faltaPct))})`} />
+          {f.obj.stopEUR != null && <Dato label="Si salta el stop" value={fmtMoneySigned(f.obj.stopEUR)} clase={claseSigno(f.obj.stopEUR)} />}
+          {f.obj.ratioRB != null && <Dato label="Riesgo/beneficio" value={`1 : ${fmtNumber(f.obj.ratioRB, 1)}`} />}
+        </div>
+      )}
+      {f.costeAproximado && (
+        <p className="hint">Algún lote no tiene el € pagado: su coste usa el tipo del BCE de la fecha de compra. Añádelo en su lote.</p>
+      )}
+
+      <div className="sheet-section">
+        <div className="sheet-label">Lotes abiertos · FIFO</div>
+        {[...lotes]
+          .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
+          .map((lote) => (
+            <FilaLote key={lote.id} lote={lote} symbol={symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} onGuardarCosteEUR={onGuardarCosteEUR} />
+          ))}
       </div>
-      <p className="hint">Para editar, borrar o vender un lote, ve a Cartera.</p>
+
+      <SectorEditor sector={sectorInfo} onCambiar={(v) => onSectorManual(symbol, v)} />
+
+      <div className="btn-row" style={{ marginTop: 12 }}>
+        <button className="btn" onClick={() => onVender(symbol)}>Vender</button>
+      </div>
     </>
   );
 }
 
-function StopObjetivo({ ajuste, watch, q, currency, enCartera }) {
+function StopObjetivo({ symbol, ajuste, watch, q, currency, enCartera, onActualizarPosSettings }) {
   const precio = q?.price ?? null;
   const dist = (nivel) => (esNum(nivel) && esNum(precio) ? fmtPercent(((nivel - precio) / precio) * 100) : null);
+  const f = {
+    symbol, currency, precioActual: precio, stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null,
+    stopSaltado: esNum(ajuste.stopPrice) && esNum(precio) && precio <= ajuste.stopPrice,
+    objetivoSaltado: esNum(ajuste.targetPrice) && esNum(precio) && precio >= ajuste.targetPrice,
+  };
   return (
     <>
+      {enCartera && <StopObjetivoEditable f={f} onActualizarPosSettings={onActualizarPosSettings} />}
       <div className="stat-grid">
-        {enCartera && (
-          <>
-            <Dato label="Stop" value={esNum(ajuste.stopPrice) ? fmtCotizacion(ajuste.stopPrice, currency) : '—'} sub={dist(ajuste.stopPrice)} clase="loss" />
-            <Dato label="Objetivo" value={esNum(ajuste.targetPrice) ? fmtCotizacion(ajuste.targetPrice, currency) : '—'} sub={dist(ajuste.targetPrice)} clase="gain" />
-          </>
-        )}
         {watch && (
           <>
             <Dato label="Entrada (seguimiento)" value={esNum(watch.entryLow) ? fmtCotizacion(watch.entryLow, currency) : '—'} sub={dist(watch.entryLow)} />
@@ -392,7 +417,10 @@ function StopObjetivo({ ajuste, watch, q, currency, enCartera }) {
         )}
       </div>
       {!enCartera && !watch && <p className="hint">Este valor no está en tu cartera ni en seguimiento.</p>}
-      <p className="hint">Se cambian en Cartera (stop y objetivo) y en Seguimiento (entrada y ruptura).</p>
+      <p className="hint">
+        {enCartera ? 'Toca el stop o el objetivo para cambiarlo (también desde el desplegable de Cartera). ' : ''}
+        {watch ? 'La entrada y la ruptura se cambian en Seguimiento.' : ''}
+      </p>
     </>
   );
 }

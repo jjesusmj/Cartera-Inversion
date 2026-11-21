@@ -101,9 +101,9 @@ export default function App() {
     }
   }
 
-  function abrirFicha(valor) {
+  function abrirFicha({ s = '', sub = '', ...valor }) {
     setRecientes(guardarReciente(valor));
-    navegar({ view: 'ficha', t: valor.symbol, s: '', sub: '' });
+    navegar({ view: 'ficha', t: valor.symbol, s, sub });
   }
 
   // Ficha abierta desde una dirección o con Atrás: también cuenta como consultada
@@ -539,15 +539,11 @@ export default function App() {
                 perfiles={perfiles}
                 positionSettings={positionSettings}
                 onActualizarPosSettings={ro(handleActualizarPosSettings)}
-                onSectorManual={ro(handleSectorManual)}
                 pricesLoading={pricesLoading}
                 onRefreshPrices={refreshPrices}
                 onNuevaCompra={ro(() => setShowBuyForm(true))}
                 onVender={ro(abrirVenta)}
                 onAbrirNotas={abrirNotasLote}
-                onBorrarLote={ro(handleBorrarLote)}
-                onEditarLote={ro(setEditLote)}
-                onGuardarCosteEUR={ro(handleGuardarCosteEUR)}
                 comisionVentaObjetivo={ajustes.comisionVentaObjetivo ?? 0}
                 onCambiarComisionObjetivo={ro(handleCambiarComisionObjetivo)}
                 onAbrirFicha={abrirFicha}
@@ -649,6 +645,13 @@ export default function App() {
                 onNuevoSeguimiento={ro((datos) => setPrefillSeguimiento(datos))}
                 onAbrirNotasLote={abrirNotasLote}
                 onAbrirNotasWatch={abrirNotasWatch}
+                comisionVentaObjetivo={ajustes.comisionVentaObjetivo ?? 0}
+                onActualizarPosSettings={ro(handleActualizarPosSettings)}
+                onSectorManual={ro(handleSectorManual)}
+                onVender={ro(abrirVenta)}
+                onEditarLote={ro(setEditLote)}
+                onBorrarLote={ro(handleBorrarLote)}
+                onGuardarCosteEUR={ro(handleGuardarCosteEUR)}
               />
             )}
           </>

@@ -1,19 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtSigned, fmtPercent, fmtNumber, fmtDate, fmtAntiguedad } from '../lib/format';
+import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtPercent, fmtNumber } from '../lib/format';
 import { claseTono } from '../lib/tonos';
 import { useFxToday } from '../lib/useFxToday';
-import { costeLoteEUR, costeEsAproximado, tipoImplicito, tiposValoracion } from '../lib/costes';
+import { tiposValoracion } from '../lib/costes';
 import { useSort } from '../lib/useSort';
-import { yahooUrl, exchangeIdOf } from '../lib/exchanges';
+import { exchangeIdOf } from '../lib/exchanges';
 import { sectorDe } from '../lib/sectors';
 import { nivelMasCercano, numNotas } from '../lib/niveles';
-import PeriodChart from './PeriodChart';
-import { NotaBadge, NivelCercano, UltimaNota, SectorEditor } from './DetailParts';
+import { calcularPosicion, ordenHoy } from '../lib/posicion';
+import { NotaBadge, NivelCercano } from './DetailParts';
+import { DesplegablePosicion, EditableNumber, claseSigno, marcasDe } from './PosicionPartes';
 import { Sparkline, RangeBar } from './Charts';
 import ExchangeFilter from './ExchangeFilter';
 import ObjetivoVista from './ObjetivoVista';
 import AnalistasVista from './AnalistasVista';
-import { calcularObjetivo } from '../lib/objetivo';
 import ZonaBar from './ZonaBar';
 
 function agruparPorSimbolo(openLots) {
@@ -28,14 +28,8 @@ function agruparPorSimbolo(openLots) {
   return Object.values(grupos);
 }
 
-function claseSigno(v) {
-  if (v == null) return '';
-  return v >= 0 ? 'gain' : 'loss';
-}
-
-export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, onSectorManual, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, onBorrarLote, onEditarLote, onGuardarCosteEUR, comisionVentaObjetivo = 0, onCambiarComisionObjetivo, onAbrirFicha }) {
+export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCambiarExchangeFilter, prices, perfiles, positionSettings, onActualizarPosSettings, pricesLoading, onRefreshPrices, onNuevaCompra, onVender, onAbrirNotas, comisionVentaObjetivo = 0, onCambiarComisionObjetivo, onAbrirFicha }) {
   const [abierto, setAbierto] = useState(null); // fila desplegada en la tabla (escritorio)
-  const [detalle, setDetalle] = useState(null); // símbolo con la hoja de detalle abierta (móvil)
   const [modo, setModoState] = useState(() => localStorage.getItem('cartera_modo') || 'hoy');
   const vistaEspecial = modo === 'objetivo' || modo === 'analistas';
   function setModo(m) {
@@ -64,67 +58,21 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
   const fx = tiposValoracion(fxBce, prices);
 
   const filasSinOrdenar = grupos.map((g) => {
-    const cantidad = g.lotes.reduce((s, l) => s + l.remainingQuantity, 0);
-    const costeOriginal = g.lotes.reduce((s, l) => s + l.price * l.remainingQuantity, 0);
-    const precioMedio = costeOriginal / cantidad;
     const q = prices[g.symbol];
-    const manualPrice = g.lotes.find((l) => l.manualPrice != null)?.manualPrice ?? null;
-    const precioActual = q?.price ?? manualPrice ?? undefined;
-    const esManual = q?.price == null && manualPrice != null;
     const rate = fx[g.currency] ?? (g.currency === 'EUR' ? 1 : null);
-
-    const valorEUR = precioActual != null && rate != null ? precioActual * cantidad * rate : null;
-    // Precio actual en € (orientativo): Yahoo × EUR/USD en tiempo real
-    const precioActualEUR = g.currency !== 'EUR' && precioActual != null && rate != null ? precioActual * rate : null;
-    // Coste real en €: lo pagado (justificante) o, si falta, tipo BCE de la fecha de compra
-    const costesLote = g.lotes.map((l) => costeLoteEUR(l));
-    const costeEUR = costesLote.every((c) => c != null) ? costesLote.reduce((s, c) => s + c, 0) : null;
-    const costeAproximado = g.lotes.some(costeEsAproximado);
-    const precioMedioEUR = costeEUR != null ? costeEUR / cantidad : null;
-    const plEUR = valorEUR != null && costeEUR != null ? valorEUR - costeEUR : null;
-    const plPct = plEUR != null && costeEUR ? (plEUR / costeEUR) * 100 : null;
-    // Desglose (solo divisa extranjera): lo que ha hecho la acción, al tipo de hoy,
-    // y lo que ha hecho el tipo de cambio (incluye comisiones). Suman plEUR.
-    const efectoAccion = g.currency !== 'EUR' && precioActual != null && rate != null
-      ? (precioActual * cantidad - costeOriginal) * rate : null;
-    const efectoDivisa = efectoAccion != null && plEUR != null ? plEUR - efectoAccion : null;
-
-    // Hoy: cada lote contra el cierre de ayer, salvo los comprados en la
-    // sesión de hoy, que van contra su precio de compra.
-    let hoyEUR = null;
-    if (q?.price != null && q.previousClose != null && rate != null) {
-      hoyEUR = g.lotes.reduce((s, l) => {
-        const referencia = l.buyDate === q.sessionDate ? l.price : q.previousClose;
-        return s + l.remainingQuantity * (q.price - referencia) * rate;
-      }, 0);
-    }
-    const valorInicio = valorEUR != null && hoyEUR != null ? valorEUR - hoyEUR : null;
-    const hoyPct = valorInicio ? (hoyEUR / valorInicio) * 100 : null;
-
     const ajuste = positionSettings[g.symbol] || {};
-    const stopSaltado = ajuste.stopPrice != null && precioActual != null && precioActual <= ajuste.stopPrice;
-    const objetivoSaltado = ajuste.targetPrice != null && precioActual != null && precioActual >= ajuste.targetPrice;
-
+    const p = calcularPosicion({ currency: g.currency, lotes: g.lotes, q, rate, ajuste, comision: comisionVentaObjetivo });
     const notas = g.lotes[0].notes || [];
     const comentario = g.lotes[0].comment || '';
     const ultimaNota = notas.length ? notas[notas.length - 1].text : comentario;
     const sector = sectorDe(g.symbol, perfiles, positionSettings);
-    const nivel = nivelMasCercano(precioActual, [
+    const nivel = nivelMasCercano(p.precioActual, [
       { value: ajuste.stopPrice, label: 'Stop', tipo: 'loss', cruza: 'debajo', textoCruzado: 'Stop superado' },
       { value: ajuste.targetPrice, label: 'Objetivo', tipo: 'gain', cruza: 'encima', textoCruzado: 'Objetivo alcanzado' },
     ]);
-    const obj = calcularObjetivo({
-      cantidad, precioMedio, precioActual, rate, costeEUR,
-      targetPrice: ajuste.targetPrice ?? null, stopPrice: ajuste.stopPrice ?? null,
-      comision: comisionVentaObjetivo,
-    });
-
     return {
-      ...g, q, cantidad, precioMedio, precioActual, esManual, valorEUR, costeEUR, plEUR, plPct, hoyEUR, hoyPct,
-      precioMedioEUR, precioActualEUR, costeAproximado, efectoAccion, efectoDivisa, rate,
-      sector: sector.nombre, sectorInfo: sector, nivel, obj,
-      stopPrice: ajuste.stopPrice ?? null, targetPrice: ajuste.targetPrice ?? null, stopSaltado, objetivoSaltado,
-      conAlerta: stopSaltado || objetivoSaltado,
+      ...g, q, ...p,
+      sector: sector.nombre, sectorInfo: sector, nivel,
       notas, comentario, ultimaNota, nNotas: numNotas(notas, comentario),
     };
   });
@@ -150,14 +98,16 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
   // En el iPhone la lista va siempre por orden alfabético del ticker
   const filasAlfa = [...filasSinOrdenar].sort((a, b) => a.symbol.localeCompare(b.symbol));
-  const filaDetalle = detalle ? filasSinOrdenar.find((f) => f.symbol === detalle) : null;
+  const abrirFichaDe = (f, sec) => onAbrirFicha({ symbol: f.symbol, name: f.name, exchangeId: exchangeIdOf(f.lotes[0]), ...sec });
+  const abrirMiPosicion = (f) => abrirFichaDe(f, { s: 'posicion', sub: 'lotes' });
+  const miPosicionDe = (symbol) => abrirMiPosicion(filasSinOrdenar.find((f) => f.symbol === symbol));
+  const propsDesplegable = {
+    onActualizarPosSettings, onAbrirNotas, onVender,
+    onMiPosicion: abrirMiPosicion,
+    onFicha: (f) => abrirFichaDe(f),
+  };
 
-  function marcas(f) {
-    return [
-      { value: f.stopPrice, tipo: 'loss', titulo: 'Stop' },
-      { value: f.targetPrice, tipo: 'gain', titulo: 'Objetivo' },
-    ];
-  }
+  const marcas = marcasDe;
 
   return (
     <div>
@@ -240,7 +190,9 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
       <ZonaBar lotes={todosLosLotes} prices={prices} fx={fx} exchangeFilter={exchangeFilter} onCambiarExchangeFilter={onCambiarExchangeFilter} />
 
-      {filas.length > 0 && (
+      {filas.length > 0 && sencilla && <SelectorModo modo={modo} setModo={setModo} />}
+
+      {filas.length > 0 && !sencilla && (
         <div className="obj-toggle table-only-desktop" role="tablist" aria-label="Vista">
           <button role="tab" aria-selected={!vistaEspecial} className={!vistaEspecial ? 'active' : ''} onClick={() => setModo('hoy')}>Tabla</button>
           <button role="tab" aria-selected={modo === 'objetivo'} className={modo === 'objetivo' ? 'active' : ''} onClick={() => setModo('objetivo')}>Objetivo</button>
@@ -248,7 +200,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
         </div>
       )}
 
-      {filas.length > 0 && vistaEspecial && (
+      {filas.length > 0 && vistaEspecial && !sencilla && (
         <div className="mobile-only">
           <SelectorModo modo={modo} setModo={setModo} />
         </div>
@@ -257,28 +209,22 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
       {filas.length === 0 ? (
         <div className="empty-state">Todavía no tienes ninguna compra registrada.</div>
       ) : modo === 'analistas' ? (
-        <AnalistasVista filas={filasAlfa} onActualizarPosSettings={onActualizarPosSettings} onAbrir={setDetalle} />
+        <AnalistasVista filas={filasAlfa} onActualizarPosSettings={onActualizarPosSettings} onAbrir={miPosicionDe} />
       ) : modo === 'objetivo' ? (
         <ObjetivoVista
           filas={filasAlfa}
           comision={comisionVentaObjetivo}
           onCambiarComision={onCambiarComisionObjetivo}
-          onAbrir={setDetalle}
+          onAbrir={miPosicionDe}
         />
       ) : sencilla ? (
-        <>
-          <div className="mobile-only">
-            <SelectorModo modo={modo} setModo={setModo} />
-          </div>
-          <ListaSimple
-            filas={[...filasSinOrdenar].sort((a, b) => (b.valorEUR ?? -1) - (a.valorEUR ?? -1))}
-            abierta={desplegada}
-            onAlternar={(s) => setDesplegada((d) => (d === s ? null : s))}
-            onDetalle={setDetalle}
-            onVender={onVender}
-            onFicha={(f) => onAbrirFicha({ symbol: f.symbol, name: f.name, exchangeId: exchangeIdOf(f.lotes[0]) })}
-          />
-        </>
+        <ListaSimple
+          modo={modo}
+          filas={modo === 'hoy' ? ordenHoy(filasSinOrdenar) : [...filasSinOrdenar].sort((a, b) => (b.valorEUR ?? -1) - (a.valorEUR ?? -1))}
+          abierta={desplegada}
+          onAlternar={(s) => setDesplegada((d) => (d === s ? null : s))}
+          propsDesplegable={propsDesplegable}
+        />
       ) : (
         <>
           {/* --- Tabla (escritorio) --- */}
@@ -313,8 +259,8 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                         <span className={`ficha-chevron ${abierto === f.symbol ? 'is-open' : ''}`} aria-hidden="true">›</span>
                         <button
                           className="symbol-btn"
-                          onClick={(e) => { e.stopPropagation(); setDetalle(f.symbol); }}
-                          title="Ver gráfico y detalle"
+                          onClick={(e) => { e.stopPropagation(); abrirMiPosicion(f); }}
+                          title="Abrir Mi posición en la ficha"
                         >
                           {f.symbol}
                         </button>
@@ -374,12 +320,9 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                     {abierto === f.symbol && (
                       <tr className="ficha-row">
                         <td colSpan={nColumnas}>
-                          <FichaPosicion
-                            f={f}
-                            onEditarLote={onEditarLote}
-                            onBorrarLote={onBorrarLote}
-                            onGuardarCosteEUR={onGuardarCosteEUR}
-                          />
+                          <div className="ficha">
+                            <DesplegablePosicion f={f} {...propsDesplegable} />
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -394,7 +337,8 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
             <SelectorModo modo={modo} setModo={setModo} />
             <div className="qlist">
               {filasAlfa.map((f) => (
-                <button key={f.symbol} className={`qrow ${f.conAlerta ? 'row-alert' : ''}`} onClick={() => setDetalle(f.symbol)}>
+                <React.Fragment key={f.symbol}>
+                <button className={`qrow ${f.conAlerta ? 'row-alert' : ''} ${desplegada === f.symbol ? 'is-open' : ''}`} aria-expanded={desplegada === f.symbol} onClick={() => setDesplegada((d) => (d === f.symbol ? null : f.symbol))}>
                   <div className="qrow-left">
                     <div className="qrow-title">
                       <span className="symbol">{f.symbol}</span>
@@ -432,6 +376,12 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                     )}
                   </div>
                 </button>
+                {desplegada === f.symbol && (
+                  <div className={`qrow-desp ${f.conAlerta ? 'row-alert' : ''}`}>
+                    <DesplegablePosicion f={f} {...propsDesplegable} />
+                  </div>
+                )}
+                </React.Fragment>
               ))}
             </div>
           </div>
@@ -458,37 +408,24 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
         </div>
       )}
 
-      {filaDetalle && (
-        <HojaPosicion
-          f={filaDetalle}
-          marcas={marcas(filaDetalle)}
-          onClose={() => setDetalle(null)}
-          onActualizarPosSettings={onActualizarPosSettings}
-          onSectorManual={onSectorManual}
-          onAbrirNotas={(f) => { setDetalle(null); onAbrirNotas(f); }}
-          onVender={(s) => { setDetalle(null); onVender(s); }}
-          onEditarLote={(l) => { setDetalle(null); onEditarLote(l); }}
-          onBorrarLote={onBorrarLote}
-          onGuardarCosteEUR={onGuardarCosteEUR}
-          onAbrirFicha={(f) => { setDetalle(null); onAbrirFicha({ symbol: f.symbol, name: f.name, exchangeId: exchangeIdOf(f.lotes[0]) }); }}
-        />
-      )}
     </div>
   );
 }
 
-// Lista simple (vista Sencilla): valor, acciones, vale hoy y ganancia; se despliega al tocar
-function ListaSimple({ filas, abierta, onAlternar, onDetalle, onVender, onFicha }) {
+// Lista simple (vista Sencilla): valor, vale hoy y lo ganado hoy (modo Hoy) o en total; se despliega al tocar
+function ListaSimple({ modo, filas, abierta, onAlternar, propsDesplegable }) {
+  const hoy = modo === 'hoy';
   return (
     <div className="lista-simple" role="table" aria-label="Posiciones">
       <div className="ls-cabecera" role="row">
         <span role="columnheader">Valor</span>
-        <span role="columnheader" className="num">Acciones</span>
         <span role="columnheader" className="num">Vale hoy</span>
-        <span role="columnheader" className="num">Ganancia</span>
+        <span role="columnheader" className="num">{hoy ? 'Hoy' : 'Ganancia'}</span>
       </div>
       {filas.map((f) => {
         const abiertaEsta = abierta === f.symbol;
+        const importe = hoy ? f.hoyEUR : f.plEUR;
+        const pct = hoy ? f.hoyPct : f.plPct;
         return (
           <div key={f.symbol} className={`ls-item ${abiertaEsta ? 'is-open' : ''} ${f.conAlerta ? 'row-alert' : ''}`}>
             <button className="ls-fila" role="row" aria-expanded={abiertaEsta} onClick={() => onAlternar(f.symbol)}>
@@ -496,33 +433,15 @@ function ListaSimple({ filas, abierta, onAlternar, onDetalle, onVender, onFicha 
                 <b>{f.symbol}</b>
                 <span className="ls-nombre">{f.name}</span>
               </span>
-              <span className="num">{fmtNumber(f.cantidad, f.cantidad % 1 ? 2 : 0)}</span>
               <span className="num">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</span>
-              <span className={`num ${claseSigno(f.plEUR)}`}>
-                {f.plEUR != null ? fmtMoneySigned(f.plEUR) : '—'}
-                {f.plPct != null && <span className="ls-pct">{fmtPercent(f.plPct)}</span>}
+              <span className={`num ${claseSigno(importe)}`}>
+                {importe != null ? fmtMoneySigned(importe) : '—'}
+                {pct != null && <span className={`ls-pct ${hoy ? claseTono(pct, 'dia') : ''}`}>{fmtPercent(pct)}</span>}
               </span>
             </button>
             {abiertaEsta && (
               <div className="ls-detalle">
-                <div className="ls-datos">
-                  <span>Precio actual</span>
-                  <span className="num">
-                    {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}{' '}
-                    {f.hoyPct != null && <span className={claseTono(f.hoyPct, 'dia')}>{fmtPercent(f.hoyPct)}</span>}
-                  </span>
-                  <span>Hoy</span>
-                  <span className={`num ${claseSigno(f.hoyEUR)}`}>{f.hoyEUR != null ? fmtMoneySigned(f.hoyEUR) : '—'}</span>
-                  <span>Precio medio</span>
-                  <span className="num">{fmtCotizacion(f.precioMedio, f.currency)}</span>
-                  {f.stopPrice != null && (<><span>Stop</span><span className="num loss">{fmtCotizacion(f.stopPrice, f.currency)}</span></>)}
-                  {f.targetPrice != null && (<><span>Objetivo</span><span className="num gain">{fmtCotizacion(f.targetPrice, f.currency)}</span></>)}
-                </div>
-                <div className="btn-row">
-                  <button className="btn btn-ghost" onClick={() => onDetalle(f.symbol)}>Detalle</button>
-                  <button className="btn btn-ghost" onClick={() => onFicha(f)}>Ficha</button>
-                  <button className="btn btn-ghost" onClick={() => onVender(f.symbol)}>Vender</button>
-                </div>
+                <DesplegablePosicion f={f} {...propsDesplegable} />
               </div>
             )}
           </div>
@@ -543,254 +462,6 @@ function SelectorModo({ modo, setModo }) {
   );
 }
 
-function FilaLote({ lote, symbol, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
-  const intacto = lote.remainingQuantity === lote.quantity;
-  const enDivisa = lote.currency !== 'EUR';
-  return (
-    <div className="lot-line">
-      <span>
-        Lote del {fmtDate(lote.buyDate)} ({fmtAntiguedad(lote.buyDate)}): {fmtNumber(lote.remainingQuantity, 2)} ud. a{' '}
-        {fmtCotizacion(lote.price, lote.currency)}, {lote.broker}
-        {!intacto && ` (parcialmente vendido, quedan ${fmtNumber(lote.remainingQuantity, 2)} de ${fmtNumber(lote.quantity, 2)})`}
-        {enDivisa && <CosteEURLote lote={lote} onGuardar={(v) => onGuardarCosteEUR(lote.id, v)} />}
-      </span>
-      {intacto ? (
-        <div className="btn-row">
-          <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); onEditarLote(lote); }}>Editar</button>
-          <button
-            className="btn btn-ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.confirm(`¿Borrar este lote de ${symbol} del ${fmtDate(lote.buyDate)}? No se puede deshacer.`)) {
-                onBorrarLote(lote.id);
-              }
-            }}
-          >
-            Borrar
-          </button>
-        </div>
-      ) : (
-        <span className="hint">No se puede editar ni borrar: ya tiene ventas asociadas</span>
-      )}
-    </div>
-  );
-}
-
-// Hoja de detalle de una posición (se abre al tocar una fila en el iPhone)
-function HojaPosicion({ f, marcas, onClose, onActualizarPosSettings, onSectorManual, onAbrirNotas, onVender, onEditarLote, onBorrarLote, onGuardarCosteEUR, onAbrirFicha }) {
-  return (
-    <div className="modal-backdrop sheet-backdrop" onClick={onClose}>
-      <div className="modal sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Detalle de ${f.symbol}`}>
-        <div className="sheet-grip" aria-hidden="true" />
-        <div className="sheet-head">
-          <div>
-            <div className="qrow-title">
-              <span className="symbol sheet-symbol">{f.symbol}</span>
-              {f.sector && <span className="sector">{f.sector}</span>}
-            </div>
-            <div className="qrow-name">{f.name}</div>
-          </div>
-          <div className="qrow-right">
-            <div className="sheet-price">{f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}</div>
-            {f.precioActualEUR != null && <div className="qrow-eur">≈ {fmtCotizacion(f.precioActualEUR)}</div>}
-            <div className={`qrow-change ${claseSigno(f.q?.changePercent)}`}>
-              {f.q?.price != null && f.q.previousClose != null
-                ? `${fmtSigned(f.q.price - f.q.previousClose)} (${fmtPercent(f.q.changePercent)})`
-                : '—'}
-            </div>
-          </div>
-        </div>
-
-        <UltimaNota notas={f.notas} comentario={f.comentario} onAbrir={() => onAbrirNotas(f)} />
-
-        <PeriodChart
-          symbol={f.symbol}
-          currency={f.currency}
-          dia={f.q}
-          levels={[
-            { value: f.precioMedio, label: 'Precio medio', tipo: 'neutral' },
-            { value: f.stopPrice, label: 'Stop', tipo: 'loss' },
-            { value: f.targetPrice, label: 'Objetivo', tipo: 'gain' },
-          ]}
-          compras={f.lotes.map((l) => ({ date: l.buyDate, price: l.price }))}
-        />
-
-        <div className="stat-grid">
-          <Stat label="Cantidad" value={fmtNumber(f.cantidad, 2)} />
-          <Stat
-            label="Precio medio"
-            value={fmtCotizacion(f.precioMedio, f.currency)}
-            sub={f.currency !== 'EUR' && f.precioMedioEUR != null ? `${f.costeAproximado ? '≈ ' : ''}${fmtCotizacion(f.precioMedioEUR)} pagado` : null}
-          />
-          <Stat label="Coste compra" value={`${f.costeAproximado ? '≈ ' : ''}${fmtMoney(f.costeEUR)}`} />
-          <Stat label="Valor mercado" value={fmtMoney(f.valorEUR)} />
-          <Stat label="Hoy" value={f.hoyEUR != null ? `${fmtMoneySigned(f.hoyEUR)} (${fmtPercent(f.hoyPct)})` : '—'} clase={claseSigno(f.hoyEUR)} />
-          <Stat label="Total" value={f.plEUR != null ? `${fmtMoneySigned(f.plEUR)} (${fmtPercent(f.plPct)})` : '—'} clase={claseSigno(f.plEUR)} />
-          {f.efectoAccion != null && (
-            <>
-              <Stat label="Efecto precio" value={fmtMoneySigned(f.efectoAccion)} clase={claseSigno(f.efectoAccion)} />
-              <Stat label="Efecto divisa y comisiones" value={fmtMoneySigned(f.efectoDivisa)} clase={claseSigno(f.efectoDivisa)} />
-            </>
-          )}
-
-        </div>
-        {f.obj?.brutoEUR != null && (
-          <div className="stat-grid" style={{ marginTop: 8 }}>
-            <Stat label="En objetivo" value={fmtMoneySigned(f.obj.brutoEUR)} clase={claseSigno(f.obj.brutoEUR)} sub={f.obj.impuesto > 0 ? `neto ${fmtMoneySigned(f.obj.netoEUR)}` : 'sin IRPF'} />
-            <Stat label={f.obj.faltaEUR < 0 ? 'Por encima del objetivo' : 'Falta para el objetivo'} value={`${fmtMoneySigned(Math.abs(f.obj.faltaEUR))} (${fmtPercent(Math.abs(f.obj.faltaPct))})`} />
-            {f.obj.stopEUR != null && <Stat label="Si salta el stop" value={fmtMoneySigned(f.obj.stopEUR)} clase={claseSigno(f.obj.stopEUR)} />}
-            {f.obj.ratioRB != null && <Stat label="Riesgo/beneficio" value={`1 : ${fmtNumber(f.obj.ratioRB, 1)}`} />}
-          </div>
-        )}
-        {f.costeAproximado && (
-          <div className="hint" style={{ marginTop: 6 }}>
-            Algún lote no tiene el € pagado: su coste usa el tipo del BCE de la fecha de compra. Añádelo en la lista de lotes.
-          </div>
-        )}
-
-        <div className="sheet-edit-row">
-          <EditableNumber label="Stop" valor={f.stopPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.stopSaltado} color="loss" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'stopPrice', v)} />
-          <EditableNumber label="Objetivo" valor={f.targetPrice} precioActual={f.precioActual} currency={f.currency} resaltado={f.objetivoSaltado} color="gain" onGuardar={(v) => onActualizarPosSettings(f.symbol, 'targetPrice', v)} />
-        </div>
-
-        <div className="sheet-section">
-          <div className="sheet-label">Rango del día</div>
-          <RangeBar low={f.q?.dayLow} high={f.q?.dayHigh} price={f.precioActual} />
-          {f.q?.dayLow == null && <div className="hint">Sin datos del día.</div>}
-        </div>
-        <div className="sheet-section">
-          <div className="sheet-label">Rango 52 semanas, con stop (rojo) y objetivo (verde)</div>
-          <RangeBar low={f.q?.week52Low} high={f.q?.week52High} price={f.precioActual} marks={marcas} />
-        </div>
-
-        <SectorEditor sector={f.sectorInfo} onCambiar={(v) => onSectorManual(f.symbol, v)} />
-
-        <div className="sheet-section">
-          <div className="sheet-label">Lotes ({[...f.brokers].join(', ')})</div>
-          {[...f.lotes]
-            .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
-            .map((lote) => (
-              <FilaLote key={lote.id} lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} onGuardarCosteEUR={onGuardarCosteEUR} />
-            ))}
-        </div>
-
-        <div className="card-actions">
-          <button className="btn" onClick={() => onAbrirNotas(f)}>Cuaderno{f.notas.length ? ` (${f.notas.length})` : ''}</button>
-          <button className="btn" onClick={() => onVender(f.symbol)}>Vender</button>
-          <button className="btn" onClick={() => onAbrirFicha(f)}>Ficha completa</button>
-        </div>
-        <a className="btn btn-ghost sheet-link" href={yahooUrl(f.symbol)} target="_blank" rel="noopener noreferrer">
-          Ver en Yahoo Finance
-        </a>
-        <button className="btn btn-ghost sheet-close" onClick={onClose}>Cerrar</button>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, clase = '', sub = null }) {
-  return (
-    <div className="stat">
-      <div className="stat-label">{label}</div>
-      <div className={`stat-value ${clase}`}>{value}</div>
-      {sub && <div className="cell-sub">{sub}</div>}
-    </div>
-  );
-}
-
-// € pagado de un lote en divisa: se ve y se edita en línea. Vacío = usar el tipo BCE.
-function CosteEURLote({ lote, onGuardar }) {
-  const [editando, setEditando] = useState(false);
-  const [texto, setTexto] = useState(lote.costEUR ?? '');
-  const tipo = tipoImplicito(lote);
-
-  if (editando) {
-    return (
-      <span className="lot-eur" onClick={(e) => e.stopPropagation()}>
-        {' · € pagado: '}
-        <input
-          autoFocus
-          type="number"
-          inputMode="decimal"
-          step="any"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onBlur={() => { setEditando(false); onGuardar(texto); }}
-          onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
-          className="inline-input"
-          placeholder="Total del justificante"
-        />
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className="lot-eur"
-      onClick={(e) => { e.stopPropagation(); setTexto(lote.costEUR ?? ''); setEditando(true); }}
-      title="Toca para poner el total pagado en € del justificante"
-      style={{ cursor: 'pointer' }}
-    >
-      {' · '}
-      {lote.costEUR != null ? (
-        <span style={{ borderBottom: '1px dashed var(--line)' }}>
-          pagado {fmtMoney(lote.costEUR)} ({fmtCotizacion(lote.costEUR / lote.quantity)}/ud.
-          {tipo != null && `, tipo ${fmtNumber(tipo, 4)}`})
-        </span>
-      ) : (
-        <span style={{ borderBottom: '1px dashed var(--line)', color: 'var(--accent)' }}>
-          ≈ {fmtMoney(costeLoteEUR(lote, lote.quantity))} (BCE) · añadir € pagado
-        </span>
-      )}
-    </span>
-  );
-}
-
-function EditableNumber({ valor, precioActual, currency, resaltado, color, label, onGuardar }) {
-  const [editando, setEditando] = useState(false);
-  const [texto, setTexto] = useState(valor ?? '');
-  const dist = valor != null && precioActual != null && precioActual ? (valor / precioActual - 1) * 100 : null;
-
-  if (editando) {
-    return (
-      <input
-        autoFocus
-        type="number"
-        inputMode="decimal"
-        step="any"
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        onBlur={() => {
-          setEditando(false);
-          onGuardar(texto);
-        }}
-        onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
-        className="inline-input"
-      />
-    );
-  }
-
-  if (label) {
-    return (
-      <span onClick={() => { setTexto(valor ?? ''); setEditando(true); }} className="stat-block" style={{ cursor: 'pointer', display: 'block' }} title="Toca para editar">
-        <div className="stat-block-label">{label}</div>
-        <div className={`stat-block-value ${color}`} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5, display: 'inline-block' }}>
-          {valor != null ? `${fmtCotizacion(valor, currency)}${dist != null ? ` (${fmtPercent(dist)})` : ''}` : 'Añadir'}
-        </div>
-      </span>
-    );
-  }
-
-  return (
-    <span onClick={() => { setTexto(valor ?? ''); setEditando(true); }} style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'center' }} title="Clic para editar">
-      <span className={color} style={{ borderBottom: '1px dashed var(--line)', fontWeight: resaltado ? 700 : 400, opacity: valor != null ? 1 : 0.5 }}>
-        {valor != null ? fmtCotizacion(valor, currency) : '—'}
-      </span>
-      {dist != null && <span className="cell-sub">{fmtPercent(dist)}</span>}
-    </span>
-  );
-}
-
 // Mini barra de peso: proporcional a la posición más grande, con el % al lado
 function PesoBarra({ peso, max }) {
   if (peso == null) return <span className="ink-faint">—</span>;
@@ -799,94 +470,5 @@ function PesoBarra({ peso, max }) {
       <span className="peso-barra-track"><span style={{ width: `${max > 0 ? (peso / max) * 100 : 0}%` }} /></span>
       <span className="num">{fmtNumber(peso, 1)} %</span>
     </span>
-  );
-}
-
-// Ficha que se despliega al pulsar una fila en escritorio: coste de compra,
-// valor de mercado, P/L actual (con la parte que viene de la divisa), valor en
-// el precio objetivo, rango del día y lotes FIFO. Debajo de cada importe en €
-// va el importe en la divisa de la acción. El gráfico se abre pulsando el ticker.
-function FichaPosicion({ f, onEditarLote, onBorrarLote, onGuardarCosteEUR }) {
-  const enDivisa = f.currency !== 'EUR';
-  const costeDivisa = f.precioMedio * f.cantidad;
-  const valorDivisa = f.precioActual != null ? f.precioActual * f.cantidad : null;
-  // Valor objetivo: cantidad × objetivo, al cambio de hoy, contra el coste de compra
-  const valorObjDivisa = f.targetPrice != null ? f.targetPrice * f.cantidad : null;
-  const valorObjEUR = valorObjDivisa != null && f.rate != null ? valorObjDivisa * f.rate : null;
-  const ganObjEUR = valorObjEUR != null && f.costeEUR != null ? valorObjEUR - f.costeEUR : null;
-  const ganObjPct = ganObjEUR != null && f.costeEUR ? (ganObjEUR / f.costeEUR) * 100 : null;
-  const aprox = f.costeAproximado ? '≈ ' : '';
-  return (
-    <div className="ficha">
-      <div className="ficha-stats">
-        <FichaDato
-          label="Coste compra"
-          value={`${aprox}${fmtMoney(f.costeEUR)}`}
-          sub={enDivisa ? fmtMoney(costeDivisa, f.currency) : null}
-        />
-        <FichaDato
-          label="Valor mercado"
-          value={fmtMoney(f.valorEUR)}
-          sub={enDivisa && valorDivisa != null ? fmtMoney(valorDivisa, f.currency) : null}
-        />
-        <FichaDato
-          label="P/L actual"
-          value={fmtMoneySigned(f.plEUR)}
-          clase={claseSigno(f.plEUR)}
-          sub={f.plPct != null ? (
-            <>
-              <span className={claseSigno(f.plPct)}>{fmtPercent(f.plPct)}</span>
-              {enDivisa && f.efectoDivisa != null && (
-                <> · divisa <span className={claseSigno(f.efectoDivisa)}>{fmtMoneySigned(f.efectoDivisa)}</span></>
-              )}
-            </>
-          ) : null}
-        />
-        {valorObjEUR != null && (
-          <FichaDato
-            label="Valor objetivo"
-            value={`${aprox}${fmtMoney(valorObjEUR)}`}
-            title={`Vendiendo ${fmtNumber(f.cantidad, 2)} ud. a ${fmtCotizacion(f.targetPrice, f.currency)}${enDivisa ? ', al cambio de hoy' : ''}`}
-            sub={
-              <>
-                {enDivisa && <div>{fmtMoney(valorObjDivisa, f.currency)}</div>}
-                {ganObjEUR != null && (
-                  <div>
-                    <span className={claseSigno(ganObjEUR)}>{fmtMoneySigned(ganObjEUR)}</span> sobre el coste de compra{' '}
-                    <span className={claseSigno(ganObjEUR)}>({fmtPercent(ganObjPct)})</span>
-                  </div>
-                )}
-              </>
-            }
-          />
-        )}
-        <div className="ficha-dato ficha-dato-rango">
-          <div className="ficha-dato-label">Rango del día</div>
-          <RangeBar low={f.q?.dayLow} high={f.q?.dayHigh} price={f.precioActual} />
-        </div>
-      </div>
-
-      <div className="ficha-lotes">
-        <div className="ficha-lotes-head">
-          <span>Lotes abiertos · FIFO</span>
-          <a href={yahooUrl(f.symbol)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>Ver en Yahoo Finance</a>
-        </div>
-        {[...f.lotes]
-          .sort((a, b) => new Date(a.buyDate) - new Date(b.buyDate))
-          .map((lote) => (
-            <FilaLote key={lote.id} lote={lote} symbol={f.symbol} onEditarLote={onEditarLote} onBorrarLote={onBorrarLote} onGuardarCosteEUR={onGuardarCosteEUR} />
-          ))}
-      </div>
-    </div>
-  );
-}
-
-function FichaDato({ label, value, sub = null, clase = '', title }) {
-  return (
-    <div className="ficha-dato" title={title}>
-      <div className="ficha-dato-label">{label}</div>
-      <div className={`ficha-dato-value ${clase}`}>{value}</div>
-      {sub && <div className="ficha-dato-sub">{sub}</div>}
-    </div>
   );
 }

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/valoracionFCF.test.js tests/fundamentos.test.js tests/objetivo.test.js tests/evolucion.test.js tests/tamano.test.js tests/diagnostico.test.js tests/tonos.test.js tests/grafico.test.js tests/tecnico.test.js tests/mensual.test.js tests/analistas.test.js tests/mapa.test.js tests/dividendos.test.js tests/indice.test.js tests/dcf.test.js tests/miedo.test.js tests/radar.test.js tests/ideas.test.js tests/insiders.test.js tests/trece.test.js tests/listas.test.js"
+    "test": "node --test tests/valoracionFCF.test.js tests/fundamentos.test.js tests/objetivo.test.js tests/evolucion.test.js tests/tamano.test.js tests/diagnostico.test.js tests/tonos.test.js tests/grafico.test.js tests/tecnico.test.js tests/mensual.test.js tests/analistas.test.js tests/mapa.test.js tests/dividendos.test.js tests/indice.test.js tests/dcf.test.js tests/miedo.test.js tests/radar.test.js tests/ideas.test.js tests/insiders.test.js tests/trece.test.js tests/listas.test.js tests/posicion.test.js"
   },
   "dependencies": {
     "firebase": "^11.0.0",
