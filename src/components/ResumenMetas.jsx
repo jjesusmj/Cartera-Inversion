@@ -3,7 +3,7 @@ import { leerMetas, guardarMetas } from '../lib/api';
 import { SOLO_LECTURA, MENSAJE_SOLO_LECTURA } from '../lib/modo';
 import { mesesHastaMeta } from '../lib/indice';
 import { useCobros } from './ResumenDividendos';
-import { fmtMoney, fmtNumber } from '../lib/format';
+import { fmtEuros, fmtNumber } from '../lib/format';
 
 // Resumen › Metas: patrimonio objetivo y dividendos al mes objetivo (brutos), por perfil.
 // Ritmo actual: la rentabilidad anualizada (XIRR) de Resumen, sin nuevas aportaciones.
@@ -20,7 +20,7 @@ function cuando(meses) {
   const anos = Math.floor(meses / 12);
   const resto = meses % 12;
   const plazo = [anos ? `${anos} ${anos === 1 ? 'año' : 'años'}` : '', resto ? `${resto} ${resto === 1 ? 'mes' : 'meses'}` : ''].filter(Boolean).join(' y ');
-  return `Al ritmo actual, en ${MESES[d.getMonth()]} de ${d.getFullYear()} (dentro de ${plazo}).`;
+  return `Al ritmo actual, en ${MESES[d.getMonth()]} de ${d.getFullYear()} (dentro de ${plazo}), sin meter más dinero.`;
 }
 
 function Meta({ titulo, actual, objetivo, tasa, unidad }) {
@@ -30,7 +30,7 @@ function Meta({ titulo, actual, objetivo, tasa, unidad }) {
       <h3 className="panel-titulo">{titulo}</h3>
       {objetivo > 0 ? (
         <>
-          <p className="meta-cifras"><b>{fmtMoney(actual)}</b>{unidad} de <b>{fmtMoney(objetivo)}</b>{unidad}</p>
+          <p className="meta-cifras"><b>{fmtEuros(actual)}</b>{unidad} de <b>{fmtEuros(objetivo)}</b>{unidad}</p>
           <div className="meta-barra" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progreso * 100)}>
             <span style={{ width: `${progreso * 100}%` }} />
           </div>
@@ -38,7 +38,10 @@ function Meta({ titulo, actual, objetivo, tasa, unidad }) {
           <p className="meta-cuando">{cuando(mesesHastaMeta(actual, objetivo, tasa))}</p>
         </>
       ) : (
-        <p className="hint">Sin meta: escríbela abajo y guárdala.</p>
+        <>
+          <p className="meta-cifras">Ahora: <b>{fmtEuros(actual)}</b>{unidad}</p>
+          <p className="hint">Sin meta: escríbela abajo y guárdala para ver cuándo llegarías.</p>
+        </>
       )}
     </section>
   );
