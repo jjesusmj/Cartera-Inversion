@@ -463,6 +463,12 @@ export async function obtenerRadar(lista) {
   return res.json();
 }
 
+export async function obtenerCalificaciones(lista) {
+  const res = await fetch(`/api/calificaciones?s=${encodeURIComponent(lista)}`);
+  if (!res.ok) throw new Error('Yahoo no ha devuelto los datos de las calificaciones.');
+  return res.json();
+}
+
 export async function obtenerMiedo() {
   const res = await fetch('/api/miedo');
   if (!res.ok) throw new Error('No se han podido descargar los datos del índice de miedo y codicia.');

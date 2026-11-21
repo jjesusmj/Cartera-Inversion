@@ -24,14 +24,14 @@ const TRIMESTRE = [
 ];
 const DOCE_MESES = ['EBIT', 'EBITDA', 'OperatingIncome', 'InterestExpense', 'TotalRevenue', 'FreeCashFlow'];
 
-function simboloYahoo(symbol, divisa) {
+export function simboloYahoo(symbol, divisa) {
   return divisa === 'USD' ? symbol.replace('.', '-') : symbol;
 }
 
 const raw = (x) => (x && typeof x === 'object' && 'raw' in x ? x.raw : typeof x === 'number' ? x : null);
 
 // Objeto plano { campo: número } de un módulo de quoteSummary
-function plano(modulo) {
+export function plano(modulo) {
   const out = {};
   for (const [k, v] of Object.entries(modulo || {})) {
     const n = raw(v);
@@ -60,7 +60,7 @@ async function resumen(sym) {
 }
 
 // { Cuenta: [{ fecha, valor }] } de más antiguo a más reciente
-async function cuentasAnuales(sym) {
+export async function cuentasAnuales(sym) {
   const fin = Math.floor(Date.now() / 1000);
   const inicio = fin - 6 * 365 * 86400;
   const tipos = CUENTAS.map((c) => `annual${c}`).join(',');
@@ -81,7 +81,7 @@ async function cuentasAnuales(sym) {
 }
 
 // { trimestre: { Cuenta: valor }, ttm: { Cuenta: valor }, fechaTrimestre }
-async function cuentasRecientes(sym) {
+export async function cuentasRecientes(sym) {
   const fin = Math.floor(Date.now() / 1000);
   const inicio = fin - 2 * 365 * 86400;
   const tipos = [...TRIMESTRE.map((c) => `quarterly${c}`), ...DOCE_MESES.map((c) => `trailing${c}`)].join(',');

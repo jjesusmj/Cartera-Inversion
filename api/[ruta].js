@@ -8,6 +8,7 @@ const RUTAS = {
   'analistas': () => import('./_rutas/analistas.js'),
   'analysts': () => import('./_rutas/analysts.js'),
   'atr': () => import('./_rutas/atr.js'),
+  'calificaciones': () => import('./_rutas/calificaciones.js'),
   'chart': () => import('./_rutas/chart.js'),
   'dcf': () => import('./_rutas/dcf.js'),
   'ficha': () => import('./_rutas/ficha.js'),

@@ -14,7 +14,7 @@ const ITEMS = [
 const MERCADO = [{ id: 'mercado', label: 'Mapa' }, { id: 'miedo', label: 'Miedo y codicia' }];
 
 // Grupo «Búsqueda de ideas»
-const IDEAS = [{ id: 'radar', label: 'Radar técnico' }, { id: 'ideas', label: 'Ideas' }, { id: 'listas', label: 'Listas de valores' }];
+const IDEAS = [{ id: 'radar', label: 'Radar técnico' }, { id: 'calificaciones', label: 'Calificaciones' }, { id: 'ideas', label: 'Ideas' }, { id: 'listas', label: 'Listas de valores' }];
 
 // Grupo «Dinero inteligente»
 const DINERO = [{ id: 'insiders', label: 'Insiders' }, { id: 'superinversores', label: 'Superinversores' }];

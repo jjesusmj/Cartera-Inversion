@@ -2743,6 +2743,13 @@ tr.ficha-row > td { padding: 0 !important; }
   .miedo-eje-x span:nth-child(even) { display: none; }
 }
 
+/* Búsqueda de ideas › Calificaciones */
+.calif-sub { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
+.calif-tabla { width: 100%; }
+.calif-tabla td { padding: 6px 4px; }
+.calif-checks { list-style: none; padding-left: 0; }
+.calif-checks li span { display: inline-block; width: 16px; font-weight: 700; }
+
 /* Búsqueda de ideas › Radar técnico */
 .radar-controles { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .radar-otros { display: flex; gap: 8px; margin-bottom: 14px; }
