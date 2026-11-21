@@ -4,9 +4,9 @@
 // (las 50 mayores de una lista de grandes del S&P 500) o del IBEX 35, en una sola
 // consulta en lote a Yahoo (v7/finance/quote), junto con el índice.
 
-import { yahooJson } from './_yahoo.js';
-import { IBEX35 as ES } from '../src/lib/listasBase.js';
-import { leerLista, MAX } from '../src/lib/listas.js';
+import { yahooJson } from '../_yahoo.js';
+import { IBEX35 as ES } from '../../src/lib/listasBase.js';
+import { leerLista, MAX } from '../../src/lib/listas.js';
 
 // Candidatas de EE. UU. (en formato de Yahoo): se queda con las 50 de más capitalización
 const US = [

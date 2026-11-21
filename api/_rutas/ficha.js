@@ -7,7 +7,7 @@
 //  - chart: 2 años de cierres, máximos, mínimos y volúmenes diarios (para el análisis técnico)
 // Cada bloque puede fallar por separado: se devuelve null y la ficha lo indica.
 
-import { yahooJson, pedir, UA_NAVEGADOR } from './_yahoo.js';
+import { yahooJson, pedir, UA_NAVEGADOR } from '../_yahoo.js';
 
 const MODULOS = 'financialData,defaultKeyStatistics,summaryDetail,earningsTrend,earningsHistory,recommendationTrend';
 const CUENTAS = [

@@ -4,10 +4,10 @@
 //        &us=AAPL,...&es=SAN.MC,...         con los cambios de Listas de valores
 // Dinero inteligente › Insiders y Ficha › Directivos. Datos de Yahoo (quoteSummary, insiderTransactions).
 
-import { yahooJson } from './_yahoo.js';
-import { DOW, NASDAQ100, ESPANA } from '../src/lib/listasBase.js';
-import { leerLista, MAX } from '../src/lib/listas.js';
-import { normalizar, mayoresCompras } from '../src/lib/insiders.js';
+import { yahooJson } from '../_yahoo.js';
+import { DOW, NASDAQ100, ESPANA } from '../../src/lib/listasBase.js';
+import { leerLista, MAX } from '../../src/lib/listas.js';
+import { normalizar, mayoresCompras } from '../../src/lib/insiders.js';
 
 const HORA = 3600e3;
 const MAX_VALORES = 80;

@@ -5,7 +5,7 @@
 // Devuelve { SYMBOL: { mean, median, low, high, analysts, recommendation, currency } }
 // o { SYMBOL: { error } } si Yahoo no tiene datos de ese valor.
 
-import { yahooJson } from './_yahoo.js';
+import { yahooJson } from '../_yahoo.js';
 
 function simboloYahoo(symbol, divisa) {
   return divisa === 'USD' ? symbol.replace('.', '-') : symbol;

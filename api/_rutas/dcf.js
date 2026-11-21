@@ -6,7 +6,7 @@
 // Los importes van en la moneda de las cuentas (`moneda`); si no coincide con la de la
 // cotización, `fx` es cuántas unidades de la cotización vale una de las cuentas, al cambio de hoy.
 
-import { yahooJson, pedir, UA_NAVEGADOR } from './_yahoo.js';
+import { yahooJson, pedir, UA_NAVEGADOR } from '../_yahoo.js';
 
 const TIPOS = {
   ventas: 'annualTotalRevenue',

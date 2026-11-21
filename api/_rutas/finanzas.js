@@ -3,7 +3,7 @@
 // próximos resultados, datos del dividendo e historial de pagos desde 2013.
 // Solo se llama al abrir esas pantallas.
 
-import { yahooJson, pedir, UA_NAVEGADOR } from './_yahoo.js';
+import { yahooJson, pedir, UA_NAVEGADOR } from '../_yahoo.js';
 
 const raw = (x) => (x && typeof x === 'object' && 'raw' in x ? x.raw : typeof x === 'number' ? x : null);
 

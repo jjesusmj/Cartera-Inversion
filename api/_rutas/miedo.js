@@ -3,8 +3,8 @@
 // de sectores) y el diferencial high yield de FRED, calcula los 5 indicadores y el índice,
 // y devuelve los 2 últimos años. Se guarda 1 hora en memoria y en la caché de Vercel.
 
-import { yahooJson, pedir, UA_NAVEGADOR } from './_yahoo.js';
-import { calcularMiedo } from '../src/lib/miedo.js';
+import { yahooJson, pedir, UA_NAVEGADOR } from '../_yahoo.js';
+import { calcularMiedo } from '../../src/lib/miedo.js';
 
 const SECTORES = ['XLK', 'XLV', 'XLF', 'XLY', 'XLP', 'XLI', 'XLE', 'XLU', 'XLRE', 'XLB', 'XLC'];
 const HORA = 3600e3;

@@ -3,8 +3,8 @@
 // ~200 semanas para la SMA 200) y la fila del radar en diario y en semanal.
 // Cada valor se guarda 1 hora en memoria; la respuesta, 1 hora en la caché de Vercel.
 
-import { pedir, UA_NAVEGADOR } from './_yahoo.js';
-import { filaRadar } from '../src/lib/radar.js';
+import { pedir, UA_NAVEGADOR } from '../_yahoo.js';
+import { filaRadar } from '../../src/lib/radar.js';
 
 const HORA = 3600e3;
 const MAX_VALORES = 80;

@@ -5,9 +5,9 @@
 // La SEC pide un User-Agent con contacto (variable SEC_USER_AGENT) y como mucho 10 peticiones por segundo.
 // Tickers del detalle: OpenFIGI (CUSIP → ticker). Precio actual: Yahoo.
 
-import { pedir, yahooJson } from './_yahoo.js';
-import { SUPERINVERSORES } from './_superinversores.js';
-import { leerInfoTabla, agrupar, unidades, cartera, comparar, trimestres, resumen } from '../src/lib/trece.js';
+import { pedir, yahooJson } from '../_yahoo.js';
+import { SUPERINVERSORES } from '../_superinversores.js';
+import { leerInfoTabla, agrupar, unidades, cartera, comparar, trimestres, resumen } from '../../src/lib/trece.js';
 
 const DIA = 86400e3;
 const memoria = new Map();

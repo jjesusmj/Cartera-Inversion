@@ -1,9 +1,6 @@
 {
   "functions": {
-    "api/fundamentals.js": {
-      "maxDuration": 30
-    },
-    "api/superinversores.js": {
+    "api/[ruta].js": {
       "maxDuration": 60
     }
   }

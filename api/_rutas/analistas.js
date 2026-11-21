@@ -2,7 +2,7 @@
 // Analistas › Consenso de la ficha: objetivos de precio, recomendaciones e historial
 // de calificaciones (Yahoo quoteSummary). Solo se llama al abrir esa pantalla.
 
-import { yahooJson } from './_yahoo.js';
+import { yahooJson } from '../_yahoo.js';
 
 const raw = (x) => (x && typeof x === 'object' && 'raw' in x ? x.raw : typeof x === 'number' ? x : null);
 

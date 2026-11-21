@@ -3,7 +3,7 @@
 // velas diarias de Yahoo Finance de los últimos 3 meses.
 // Lo usa la calculadora de tamaño de posición al elegir un valor.
 
-import { calcularATR } from '../src/lib/tamano.js';
+import { calcularATR } from '../../src/lib/tamano.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 

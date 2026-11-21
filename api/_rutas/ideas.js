@@ -9,11 +9,11 @@
 //    Dow Jones + Nasdaq 100 (Yahoo, upgradeDowngradeHistory valor a valor). Caché de 6 horas.
 //  - Con u=AAPL,MSFT,... : el universo con los cambios de Listas de valores (en vez de las listas fijas).
 
-import { yahooJson } from './_yahoo.js';
+import { yahooJson } from '../_yahoo.js';
 import { cuentas, ultimoCierre, tipoLibre } from './dcf.js';
-import { DOW, NASDAQ100, ESPANA } from '../src/lib/listasBase.js';
-import { leerLista, MAX } from '../src/lib/listas.js';
-import { normalizar, pasaFiltros, subidas, bajadas, activos, cercaMaximos, cercaMinimos, dcfAutomatico, infravaloradas, CUANTOS, subidasRating } from '../src/lib/ideas.js';
+import { DOW, NASDAQ100, ESPANA } from '../../src/lib/listasBase.js';
+import { leerLista, MAX } from '../../src/lib/listas.js';
+import { normalizar, pasaFiltros, subidas, bajadas, activos, cercaMaximos, cercaMinimos, dcfAutomatico, infravaloradas, CUANTOS, subidasRating } from '../../src/lib/ideas.js';
 
 const CAMPOS = 'shortName,longName,quoteType,currency,regularMarketPrice,regularMarketChange,regularMarketChangePercent,' +
   'fiftyTwoWeekLow,fiftyTwoWeekHigh,regularMarketVolume,marketCap,trailingPE,regularMarketTime';

@@ -23,8 +23,8 @@ import {
   seriesYahoo,
   divisaEdgar,
   TIPOS_YAHOO,
-} from './_fundamentos.js';
-import { pedir, yahooJson, hayCrumb } from './_yahoo.js';
+} from '../_fundamentos.js';
+import { pedir, yahooJson, hayCrumb } from '../_yahoo.js';
 
 // Se reutiliza mientras la instancia de Vercel siga viva
 let tickersSec = null;
