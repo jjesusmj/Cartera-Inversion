@@ -436,7 +436,7 @@ function ListaSimple({ modo, filas, abierta, onAlternar, propsDesplegable }) {
               <span className="num">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</span>
               <span className={`num ${claseSigno(importe)}`}>
                 {importe != null ? fmtMoneySigned(importe) : '—'}
-                {pct != null && <span className={`ls-pct ${hoy ? claseTono(pct, 'dia') : ''}`}>{fmtPercent(pct)}</span>}
+                {pct != null && <span className={`ls-pct ${claseTono(pct, hoy ? 'dia' : 'total')}`}>{fmtPercent(pct)}</span>}
               </span>
             </button>
             {abiertaEsta && (
@@ -453,7 +453,7 @@ function ListaSimple({ modo, filas, abierta, onAlternar, propsDesplegable }) {
 
 function SelectorModo({ modo, setModo }) {
   return (
-    <div className="segmented" role="tablist" aria-label="Qué mostrar">
+    <div className="segmented segmented-global val-filtro" role="tablist" aria-label="Qué mostrar">
       <button role="tab" aria-selected={modo === 'hoy'} className={modo === 'hoy' ? 'active' : ''} onClick={() => setModo('hoy')}>Hoy</button>
       <button role="tab" aria-selected={modo === 'total'} className={modo === 'total' ? 'active' : ''} onClick={() => setModo('total')}>Total</button>
       <button role="tab" aria-selected={modo === 'objetivo'} className={modo === 'objetivo' ? 'active' : ''} onClick={() => setModo('objetivo')}>Objetivo</button>
