@@ -34,10 +34,11 @@ export function cobrosProximos({ pagos = [], dividendo = {} } = {}, ahora = Date
 // Cada cobro lleva `eur`. Devuelve [{ mes (0-11), anunciado, estimado }].
 export function cobrosPorMes(cobros, ahora = Date.now() / 1000) {
   const mes0 = new Date(ahora * 1000).getUTCMonth();
-  const barras = Array.from({ length: 12 }, (_, i) => ({ mes: (mes0 + i) % 12, anunciado: 0, estimado: 0 }));
+  const barras = Array.from({ length: 12 }, (_, i) => ({ mes: (mes0 + i) % 12, anunciado: 0, estimado: 0, cobros: [] }));
   for (const c of cobros) {
     const i = (new Date(c.fecha * 1000).getUTCMonth() - mes0 + 12) % 12;
     barras[i][c.anunciado ? 'anunciado' : 'estimado'] += c.eur || 0;
+    barras[i].cobros.push(c);
   }
   return barras;
 }

@@ -49,6 +49,7 @@ export function useCobros(filas) {
 
 export default function ResumenDividendos({ filas, onAbrirFicha }) {
   const cobros = useCobros(filas);
+  const [sel, setSel] = useState(null); // barra (0-11) cuyo detalle se ve
   if (!filas.length) return <p className="hint">No hay posiciones abiertas.</p>;
   if (!cobros.listo) return <p className="hint">Cargando dividendos… ({cobros.cargadas} de {filas.length})</p>;
   const { ahora, datos, fallidas, posiciones, total, calendario } = cobros;
@@ -71,20 +72,30 @@ export default function ResumenDividendos({ filas, onAbrirFicha }) {
       <div className="divs-grid">
         <section className="card panel">
           <h3 className="panel-titulo">Cobros por mes</h3>
-          <div className="divs-meses" role="img" aria-label="Cobros previstos por mes">
-            {meses.map((m) => {
+          <div className="divs-meses" onMouseLeave={() => setSel(null)}>
+            {meses.map((m, i) => {
               const suma = m.anunciado + m.estimado;
               return (
-                <div key={m.mes} className="divs-mes" title={`${MESES[m.mes]}: ${fmtMoney(suma)}${m.anunciado ? ` (${fmtMoney(m.anunciado)} anunciado)` : ''}`}>
+                <button
+                  key={m.mes}
+                  type="button"
+                  className={`divs-mes ${sel === i ? 'sel' : ''}`}
+                  aria-label={`${MESES[m.mes]}: ${fmtMoney(suma)}`}
+                  onMouseEnter={() => setSel(i)}
+                  onClick={() => setSel(i)}
+                >
                   <span className="divs-mes-valor">{suma ? fmtNumber(suma, 0) : ''}</span>
                   <div className="divs-mes-pista">
                     <div className="divs-mes-est" style={{ height: `${(m.estimado / maxMes) * 100}%` }} />
                     <div className="divs-mes-anun" style={{ height: `${(m.anunciado / maxMes) * 100}%` }} />
                   </div>
                   <span className="divs-mes-nombre">{MESES[m.mes]}</span>
-                </div>
+                </button>
               );
             })}
+          </div>
+          <div className="divs-detalle" aria-live="polite">
+            {sel != null ? <DetalleMes m={meses[sel]} /> : <span className="hint-inline">Pasa el ratón o toca una barra para ver qué cobras ese mes.</span>}
           </div>
           <div className="divs-leyenda">
             <span><i className="divs-mes-anun" /> Anunciado</span>
@@ -153,5 +164,23 @@ export default function ResumenDividendos({ filas, onAbrirFicha }) {
         <p className="hint">Acciones de hoy × dividendo por acción de los próximos 12 meses, en euros brutos al cambio de hoy.</p>
       </section>
     </div>
+  );
+}
+
+// Detalle de una barra: total, y lo anunciado y lo estimado con los valores de cada parte
+function DetalleMes({ m }) {
+  const suma = m.anunciado + m.estimado;
+  if (!suma) return <><b>{MESES[m.mes]}</b>: sin cobros</>;
+  const parte = (anunciado) => {
+    const porValor = {};
+    for (const c of m.cobros) if (c.anunciado === anunciado) porValor[c.symbol] = (porValor[c.symbol] || 0) + (c.eur || 0);
+    return Object.entries(porValor).sort((a, b) => b[1] - a[1]).map(([s, v]) => `${s} ${fmtMoney(v)}`).join(', ');
+  };
+  return (
+    <>
+      <b>{MESES[m.mes]}: {fmtMoney(suma)}</b>
+      {m.anunciado > 0 && <div><i className="divs-mes-anun" /> Anunciado {fmtMoney(m.anunciado)}: {parte(true)}</div>}
+      {m.estimado > 0 && <div><i className="divs-mes-est" /> Estimado {fmtMoney(m.estimado)}: {parte(false)}</div>}
+    </>
   );
 }

@@ -2547,6 +2547,10 @@ tr.ficha-row > td { padding: 0 !important; }
 .divs-mes-est { background: var(--prim-suave); border-radius: 3px 3px 0 0; }
 .divs-mes-anun { background: var(--prim); }
 .divs-mes-nombre { font-size: 11px; color: var(--ink-dim); }
+.divs-mes { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; border-radius: 4px; }
+.divs-mes.sel { background: var(--bg-raised); box-shadow: 0 0 0 1px var(--line); }
+.divs-detalle { margin-top: 10px; padding: 8px 10px; background: var(--bg-raised); border-radius: 8px; font-size: 12.5px; line-height: 1.6; min-height: 36px; font-variant-numeric: tabular-nums; }
+.divs-detalle i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
 .divs-leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12px; align-items: center; }
 .divs-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
 .etiqueta { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--bg-raised); color: var(--ink-dim); white-space: nowrap; }
