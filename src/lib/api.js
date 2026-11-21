@@ -95,6 +95,18 @@ export async function guardarAjustes(datos) {
   return setDoc(doc(db, 'settings', 'general'), datos, { merge: true });
 }
 
+// ---------- Listas de valores: cambios sobre las listas fijas (settings/listas, común a todos) ----------
+
+export async function leerListas() {
+  const snap = await getDoc(doc(db, 'settings', 'listas'));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function guardarListas(cambios) {
+  comprobarEscritura();
+  return setDoc(doc(db, 'settings', 'listas'), cambios); // documento entero: lo que no está, se borra
+}
+
 // ---------- Metas (un documento por perfil: metas/{owner}) ----------
 
 export async function leerMetas(owner) {
@@ -424,9 +436,9 @@ export const obtenerFinanzas = (symbol, currency) => pedirFichaExtra('finanzas',
 export const obtenerDCF = (symbol, currency) => pedirFichaExtra('dcf', symbol, currency);
 
 // Mercado › Mapa: 'us' o 'es'. Sin caché aquí: la función ya cachea 2 minutos.
-// lista: 'SYM:CUR,...' o null para las mayores compras del mercado
-export async function obtenerInsiders(lista) {
-  const res = await fetch(lista ? `/api/insiders?s=${encodeURIComponent(lista)}` : '/api/insiders?mayores=1');
+// lista: 'SYM:CUR,...' o null para las mayores compras del mercado (mayores: '&us=...&es=...' o '')
+export async function obtenerInsiders(lista, mayores = '') {
+  const res = await fetch(lista ? `/api/insiders?s=${encodeURIComponent(lista)}` : `/api/insiders?mayores=1${mayores}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto las operaciones de directivos.');
   return res.json();
 }
@@ -438,9 +450,9 @@ export async function obtenerSuperinversores(id) {
   return res.json();
 }
 
-// extra: '' (listas del día), 'dcf' o 'rating' (solo us)
-export async function obtenerIdeas(mercado, extra = '') {
-  const res = await fetch(`/api/ideas?mercado=${encodeURIComponent(mercado)}${extra ? `&${extra}=1` : ''}`);
+// extra: '' (listas del día), 'dcf' o 'rating' (solo us). lista: '&u=...' con los cambios de Listas de valores, o ''
+export async function obtenerIdeas(mercado, extra = '', lista = '') {
+  const res = await fetch(`/api/ideas?mercado=${encodeURIComponent(mercado)}${extra ? `&${extra}=1` : ''}${lista}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos de ideas.');
   return res.json();
 }
@@ -457,8 +469,9 @@ export async function obtenerMiedo() {
   return res.json();
 }
 
-export async function obtenerMapa(lista) {
-  const res = await fetch(`/api/mapa?lista=${encodeURIComponent(lista)}`);
+// propia: '&s=...' con el IBEX 35 cambiado en Listas de valores, o ''
+export async function obtenerMapa(lista, propia = '') {
+  const res = await fetch(`/api/mapa?lista=${encodeURIComponent(lista)}${propia}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos del mapa.');
   return res.json();
 }

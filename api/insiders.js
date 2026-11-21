@@ -1,10 +1,12 @@
 // Vercel Serverless Function
 //   GET /api/insiders?s=META:USD,SAN.MC:EUR   operaciones de directivos de esos valores (caché 1 hora)
 //   GET /api/insiders?mayores=1               mayores compras de 90 días en Dow Jones, Nasdaq 100 y España (caché 24 horas)
+//        &us=AAPL,...&es=SAN.MC,...         con los cambios de Listas de valores
 // Dinero inteligente › Insiders y Ficha › Directivos. Datos de Yahoo (quoteSummary, insiderTransactions).
 
 import { yahooJson } from './_yahoo.js';
-import { DOW, NASDAQ100, ESPANA } from './_listas.js';
+import { DOW, NASDAQ100, ESPANA } from '../src/lib/listasBase.js';
+import { leerLista, MAX } from '../src/lib/listas.js';
 import { normalizar, mayoresCompras } from '../src/lib/insiders.js';
 
 const HORA = 3600e3;
@@ -38,8 +40,8 @@ async function varios(lista) {
 export default async function handler(req, res) {
   try {
     if (req.query.mayores) {
-      const us = [...new Set([...DOW, ...NASDAQ100])].map((s) => ({ symbol: s.replace('-', '.'), currency: 'USD' }));
-      const es = ESPANA.map((s) => ({ symbol: s, currency: 'EUR' }));
+      const us = (leerLista(req.query.us, 2 * MAX) || [...new Set([...DOW, ...NASDAQ100])]).map((s) => ({ symbol: s.replace('-', '.'), currency: 'USD' }));
+      const es = (leerLista(req.query.es, MAX) || ESPANA).map((s) => ({ symbol: s, currency: 'EUR' }));
       const valores = await varios([...us, ...es]);
       res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=3600');
       return res.status(200).json({

@@ -3,6 +3,8 @@ import { obtenerInsiders } from '../lib/api';
 import { exchangeById, exchangeIdDeSimbolo, exchangeIdOf } from '../lib/exchanges';
 import { recientes, deTipo, porFecha, resumen } from '../lib/insiders';
 import { fmtCotizacion, fmtNumber } from '../lib/format';
+import { paramMayores } from '../lib/listas';
+import { NotaListas } from './ListasValores';
 
 // Dinero inteligente › Insiders (mis valores, mayores compras y buscar) y Ficha › Directivos.
 // Operaciones de directivos de Yahoo, por /api/insiders.
@@ -24,21 +26,21 @@ const SEIS_MESES = 182;
 const leer = (k, def) => { try { return localStorage.getItem(k) || def; } catch { return def; } };
 const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
 
-function useInsiders(clave, mayores = false) {
+function useInsiders(clave, mayores = false, extra = '') {
   const [estado, setEstado] = useState({ datos: null, error: null });
   useEffect(() => {
     if (!clave && !mayores) return undefined;
     let vivo = true;
     setEstado({ datos: null, error: null });
-    obtenerInsiders(mayores ? null : clave)
+    obtenerInsiders(mayores ? null : clave, extra)
       .then((d) => vivo && setEstado({ datos: d, error: null }))
       .catch((e) => vivo && setEstado({ datos: null, error: e.message }));
     return () => { vivo = false; };
-  }, [clave, mayores]);
+  }, [clave, mayores, extra]);
   return estado;
 }
 
-export default function Insiders({ openLots, watchlist, onAbrirFicha }) {
+export default function Insiders({ openLots, watchlist, onAbrirFicha, listas, onEditarListas }) {
   const [tab, setTabState] = useState(() => leer('insiders_tab', 'mis'));
   const setTab = (v) => { guardar('insiders_tab', v); setTabState(v); };
   // Cartera y seguimiento, sin repetir
@@ -62,7 +64,7 @@ export default function Insiders({ openLots, watchlist, onAbrirFicha }) {
         ))}
       </div>
       {tab === 'mis' && <MisValores mios={mios} onAbrirFicha={onAbrirFicha} />}
-      {tab === 'mayores' && <Mayores mios={mios} onAbrirFicha={onAbrirFicha} />}
+      {tab === 'mayores' && <Mayores mios={mios} onAbrirFicha={onAbrirFicha} listas={listas} onEditarListas={onEditarListas} />}
       {tab === 'buscar' && <Buscar onAbrirFicha={onAbrirFicha} />}
       <p className="hint">
         Compra y venta: operaciones en mercado. Otras: acciones entregadas como sueldo, ejercicio de opciones, donaciones y operaciones
@@ -106,9 +108,9 @@ function MisValores({ mios, onAbrirFicha }) {
   );
 }
 
-function Mayores({ mios, onAbrirFicha }) {
+function Mayores({ mios, onAbrirFicha, listas, onEditarListas }) {
   const clave = mios.map((v) => `${v.symbol}:${v.currency}`).join(',');
-  const universo = useInsiders(null, true);
+  const universo = useInsiders(null, true, paramMayores(listas));
   const propios = useInsiders(clave);
   if (universo.error) return <p className="hint">{universo.error}</p>;
   if (!universo.datos || (clave && !propios.datos && !propios.error)) return <p className="hint">Buscando compras en unos 220 valores… (la primera vez del día tarda unos segundos)</p>;
@@ -126,6 +128,7 @@ function Mayores({ mios, onAbrirFicha }) {
         Valores: tu cartera y tu seguimiento, Dow Jones, Nasdaq 100, IBEX 35 y mercado continuo. Importe en la moneda de cada valor.
         Se recalcula una vez al día.
       </p>
+      <NotaListas ids={['dow', 'nasdaq', 'espana']} listas={listas} onEditar={onEditarListas} />
     </>
   );
 }

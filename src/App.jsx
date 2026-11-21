@@ -36,6 +36,8 @@ import {
   guardarFxCompraLote,
   leerAjustes,
   guardarAjustes,
+  leerListas,
+  guardarListas,
 } from './lib/api';
 import { venderFIFO } from './lib/fifo';
 import { SIMBOLO_FX } from './lib/costes';
@@ -48,6 +50,7 @@ import Radar from './components/Radar';
 import Ideas from './components/Ideas';
 import Insiders from './components/Insiders';
 import Superinversores from './components/Superinversores';
+import ListasValores from './components/ListasValores';
 import BuscadorValor, { leerRecientes, guardarReciente } from './components/BuscadorValor';
 
 // Lo que se ve está en la dirección: ?v=ficha&t=MSFT&s=valoracion&sub=justo
@@ -145,6 +148,7 @@ export default function App() {
   const [watchlistAll, setWatchlistAll] = useState([]);
   const [positionSettingsAll, setPositionSettingsAll] = useState([]);
   const [ajustes, setAjustes] = useState({ margenTR: 0 });
+  const [listas, setListas] = useState({}); // cambios de Listas de valores (settings/listas)
   const [prices, setPrices] = useState({});
   const [perfiles, setPerfiles] = useState({});
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
@@ -172,13 +176,15 @@ export default function App() {
   const cargarTodo = useCallback(async () => {
     setLoading(true);
     try {
-      const [l, s, w, ps, aj] = await Promise.all([
+      const [l, s, w, ps, aj, lv] = await Promise.all([
         listarLotes(),
         listarVentas(),
         listarWatch(),
         listarPositionSettings(),
         leerAjustes().catch(() => ({})),
+        leerListas().catch(() => ({})),
       ]);
+      setListas(lv);
       setAjustes((prev) => ({ ...prev, ...aj }));
       setLotsAll(l);
       setSalesAll(s);
@@ -372,6 +378,11 @@ export default function App() {
   }
 
   // Vista "Vs objetivo": comisión de venta (€). El IRPF va por tramos.
+  async function handleGuardarListas(cambios) {
+    await guardarListas(cambios);
+    setListas(cambios);
+  }
+
   async function handleCambiarComisionObjetivo(valor) {
     const comisionVentaObjetivo = Math.max(0, parseFloat(valor) || 0);
     setAjustes((a) => ({ ...a, comisionVentaObjetivo }));
@@ -607,12 +618,13 @@ export default function App() {
               />
             )}
             {view === 'renta' && <Renta sales={sales} />}
-            {view === 'mercado' && <Mercado openLots={openLots} prices={prices} onAbrirFicha={abrirFicha} />}
+            {view === 'mercado' && <Mercado openLots={openLots} prices={prices} onAbrirFicha={abrirFicha} listas={listas} onEditarListas={() => setView('listas')} />}
             {view === 'miedo' && <MiedoCodicia />}
             {view === 'radar' && <Radar openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
-            {view === 'insiders' && <Insiders openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
+            {view === 'insiders' && <Insiders openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} listas={listas} onEditarListas={() => setView('listas')} />}
             {view === 'superinversores' && <Superinversores onAbrirFicha={abrirFicha} />}
-            {view === 'ideas' && <Ideas watchlist={watchlist} onAbrirFicha={abrirFicha} onNuevoSeguimiento={ro((datos) => setPrefillSeguimiento(datos))} onIrInsiders={() => setView('insiders')} />}
+            {view === 'ideas' && <Ideas watchlist={watchlist} onAbrirFicha={abrirFicha} onNuevoSeguimiento={ro((datos) => setPrefillSeguimiento(datos))} onIrInsiders={() => setView('insiders')} listas={listas} onEditarListas={() => setView('listas')} />}
+            {view === 'listas' && <ListasValores listas={listas} onGuardar={ro(handleGuardarListas)} />}
             {view === 'ficha' && !nav.t && (
               <div className="ficha-vacia">
                 <h1 className="page-title">Ficha de valor</h1>

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { obtenerIdeas } from '../lib/api';
+import { paramIdeas } from '../lib/listas';
+import { NotaListas } from './ListasValores';
 import { exchangeIdDeSimbolo } from '../lib/exchanges';
 import { claseTono } from '../lib/tonos';
 import { fmtCotizacion, fmtNumber } from '../lib/format';
@@ -77,20 +79,20 @@ const COLUMNAS_DCF = [
 const leer = (k, def) => { try { return localStorage.getItem(k) || def; } catch { return def; } };
 const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
 
-function useDatos(mercado, extra) {
+function useDatos(mercado, extra, lista) {
   const [estado, setEstado] = useState({ datos: null, error: null });
   useEffect(() => {
     let vivo = true;
     setEstado({ datos: null, error: null });
-    obtenerIdeas(mercado, extra)
+    obtenerIdeas(mercado, extra, lista)
       .then((d) => vivo && setEstado({ datos: d, error: null }))
       .catch((e) => vivo && setEstado({ datos: null, error: e.message }));
     return () => { vivo = false; };
-  }, [mercado, extra]);
+  }, [mercado, extra, lista]);
   return estado;
 }
 
-export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento, onIrInsiders }) {
+export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento, onIrInsiders, listas, onEditarListas }) {
   const [mercado, setMercadoState] = useState(() => leer('ideas_mercado', 'us'));
   const [tab, setTabState] = useState(() => leer('ideas_tab', 'subidas'));
   const setMercado = (v) => { guardar('ideas_mercado', v); setMercadoState(v); };
@@ -98,6 +100,7 @@ export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento, onI
   // Las pestañas de solo EE. UU. no existen en España
   const pestanas = PESTANAS.filter(([, , m]) => !m || m === mercado);
   const activa = pestanas.some(([id]) => id === tab) ? tab : 'subidas';
+  const lista = paramIdeas(activa === 'rating' ? 'us' : mercado, listas);
 
   return (
     <div>
@@ -117,8 +120,8 @@ export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento, onI
           <button key={id} role="tab" aria-selected={activa === id} className={`ideas-tab${activa === id ? ' active' : ''}`} onClick={() => setTab(id)}>{txt}</button>
         ))}
       </div>
-      {activa === 'dcf' && <ListaDCF key={`dcf-${mercado}`} mercado={mercado} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />}
-      {activa === 'rating' && <ListaRating watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />}
+      {activa === 'dcf' && <ListaDCF key={`dcf-${mercado}`} mercado={mercado} lista={lista} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />}
+      {activa === 'rating' && <ListaRating lista={lista} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />}
       {activa === 'insiders' && (
         <section className="card panel">
           <p className="frase-cartera">
@@ -129,8 +132,9 @@ export default function Ideas({ watchlist, onAbrirFicha, onNuevoSeguimiento, onI
         </section>
       )}
       {!['dcf', 'rating', 'insiders'].includes(activa) && (
-        <ListaDia key={mercado} mercado={mercado} tab={activa} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />
+        <ListaDia key={mercado} mercado={mercado} lista={lista} tab={activa} watchlist={watchlist} onAbrirFicha={onAbrirFicha} onNuevoSeguimiento={onNuevoSeguimiento} />
       )}
+      <NotaListas ids={mercado === 'us' ? ['dow', 'nasdaq'] : ['espana']} listas={listas} onEditar={onEditarListas} />
     </div>
   );
 }
@@ -147,8 +151,8 @@ const UNIVERSO = {
   es: { dia: 'IBEX 35 y mercado continuo', semanas: 'IBEX 35 y mercado continuo' },
 };
 
-function ListaDia({ mercado, tab, ...resto }) {
-  const { datos, error } = useDatos(mercado, '');
+function ListaDia({ mercado, lista, tab, ...resto }) {
+  const { datos, error } = useDatos(mercado, '', lista);
   if (error) return <p className="hint">{error}</p>;
   if (!datos) return <p className="hint">Cargando…</p>;
   const filas = datos[tab] || [];
@@ -169,8 +173,8 @@ function ListaDia({ mercado, tab, ...resto }) {
   );
 }
 
-function ListaDCF({ mercado, ...resto }) {
-  const { datos, error } = useDatos(mercado, 'dcf');
+function ListaDCF({ mercado, lista, ...resto }) {
+  const { datos, error } = useDatos(mercado, 'dcf', lista);
   if (error) return <p className="hint">{error}</p>;
   if (!datos) return <p className="hint">Calculando el DCF de cada valor… (la primera vez del día tarda unos segundos)</p>;
   const fuera = Object.entries(datos.fuera || {});
@@ -207,8 +211,8 @@ function ListaDCF({ mercado, ...resto }) {
   );
 }
 
-function ListaRating(props) {
-  const { datos, error } = useDatos('us', 'rating');
+function ListaRating({ lista, ...props }) {
+  const { datos, error } = useDatos('us', 'rating', lista);
   if (error) return <p className="hint">{error}</p>;
   if (!datos) return <p className="hint">Leyendo los cambios de recomendación de unos 120 valores… (la primera vez tarda unos segundos)</p>;
   const hoy = datos.rating.filter((f) => f.hoy).length;

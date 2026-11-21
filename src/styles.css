@@ -2732,3 +2732,21 @@ tr.ficha-row > td { padding: 0 !important; }
   .super-titulo { font-size: 17px; }
 }
 .ideas-hoy { margin-left: 6px; font-size: 10.5px; padding: 1px 6px; }
+
+/* Búsqueda de ideas › Listas de valores */
+.nota-listas { margin-top: 10px; }
+.lv-lista { margin-bottom: 14px; }
+.lv-chips, .lv-quitados { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; align-items: center; }
+.lv-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-raised); font-size: 13px; font-variant-numeric: tabular-nums; }
+.lv-chip-nuevo { background: var(--prim-suave); border-color: var(--prim-banda); }
+.lv-chip-quitado { color: var(--ink-dim); background: transparent; }
+.lv-x { all: unset; cursor: pointer; min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--ink-dim); font-size: 15px; line-height: 1; }
+.lv-x:hover { background: var(--line); color: var(--ink); }
+.lv-x:focus-visible { outline: 2px solid var(--prim); }
+.lv-error { color: var(--loss); }
+.lv-ok { color: var(--gain); }
+.lv-barra { position: sticky; bottom: 12px; z-index: 5; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--warn-borde); border-radius: 10px; background: var(--warn-bg-solido); color: var(--warn); font-weight: 600; }
+@media (max-width: 720px) {
+  .lv-barra { bottom: calc(68px + env(safe-area-inset-bottom)); }
+  .lv-barra > span { flex-basis: 100%; }
+}

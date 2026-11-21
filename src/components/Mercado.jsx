@@ -7,6 +7,8 @@ import { claseTono } from '../lib/tonos';
 import { fmtNumber, fmtPercent } from '../lib/format';
 import MapaCasillas from './MapaCasillas';
 import { MapaCartera } from './ResumenHoy';
+import { paramMapa } from '../lib/listas';
+import { NotaListas } from './ListasValores';
 
 // Mercado › Mapa: cambio de hoy de las mayores empresas de EE. UU. y del IBEX 35
 // (tamaño por capitalización) y de tus posiciones (tamaño por peso en la cartera).
@@ -20,7 +22,7 @@ function leer() {
   try { return localStorage.getItem('mapa_tab') || 'us'; } catch { return 'us'; }
 }
 
-export default function Mercado({ openLots, prices, onAbrirFicha }) {
+export default function Mercado({ openLots, prices, onAbrirFicha, listas, onEditarListas }) {
   const [tab, setTabState] = useState(leer);
   const setTab = (t) => { try { localStorage.setItem('mapa_tab', t); } catch { /* sin almacenamiento */ } setTabState(t); };
 
@@ -39,7 +41,8 @@ export default function Mercado({ openLots, prices, onAbrirFicha }) {
       </div>
       {tab === 'cartera'
         ? <MapaMiCartera openLots={openLots} prices={prices} onAbrirFicha={onAbrirFicha} />
-        : <MapaLista key={tab} lista={tab} onAbrirFicha={onAbrirFicha} />}
+        : <MapaLista key={tab} lista={tab} propia={paramMapa(tab, listas)} onAbrirFicha={onAbrirFicha} />}
+      {tab === 'es' && <NotaListas ids={['ibex']} listas={listas} onEditar={onEditarListas} />}
     </div>
   );
 }
@@ -54,15 +57,15 @@ function Cabecera({ nombre, pct, suben, bajan, hora }) {
   );
 }
 
-function MapaLista({ lista, onAbrirFicha }) {
+function MapaLista({ lista, propia, onAbrirFicha }) {
   const [estado, setEstado] = useState({ datos: null, error: null });
   useEffect(() => {
     let vivo = true;
-    obtenerMapa(lista)
+    obtenerMapa(lista, propia)
       .then((d) => vivo && setEstado({ datos: d, error: null }))
       .catch((e) => vivo && setEstado({ datos: null, error: e.message }));
     return () => { vivo = false; };
-  }, [lista]);
+  }, [lista, propia]);
   const { datos, error } = estado;
   if (error) return <div className="error-box">{error}</div>;
   if (!datos) return <p className="hint">Descargando las cotizaciones de Yahoo…</p>;
@@ -84,7 +87,7 @@ function MapaLista({ lista, onAbrirFicha }) {
         )}
       />
       <p className="hint">
-        {lista === 'us' ? 'Las 50 mayores por capitalización de una lista de grandes empresas del S&P 500.' : 'Las 35 empresas del IBEX 35.'}
+        {lista === 'us' ? 'Las 50 mayores por capitalización de una lista de grandes empresas del S&P 500.' : propia ? `Tu lista del IBEX 35 (${v.length} valores).` : 'Las 35 empresas del IBEX 35.'}
         {datos.faltan?.length ? ` Sin datos de Yahoo: ${datos.faltan.join(', ')}.` : ''}
       </p>
     </section>

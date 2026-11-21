@@ -1,4 +1,5 @@
-// Listas fijas de valores para Búsqueda de ideas (formato de Yahoo). Revisar cuando cambien los índices.
+// Listas fijas de valores (formato de Yahoo), mantenidas a mano: revisar cuando cambien los índices.
+// Se editan desde la app en Búsqueda de ideas › Listas de valores (cambios en Firestore, settings/listas).
 
 // Dow Jones (30) y Nasdaq 100, a noviembre de 2026; los repetidos se quitan al usarlas
 export const DOW = [
@@ -29,4 +30,12 @@ export const ESPANA = [
   'LGT.MC', 'LIB.MC', 'MCM.MC', 'MDF.MC', 'MEL.MC', 'MVC.MC', 'NEA.MC', 'NTH.MC', 'NXT.MC',
   'OHLA.MC', 'OLE.MC', 'ORY.MC', 'PHM.MC', 'PRM.MC', 'PRS.MC', 'PSG.MC', 'R4.MC', 'REN.MC', 'RJF.MC', 'RLIA.MC',
   'SQRL.MC', 'TLGO.MC', 'TRE.MC', 'TRG.MC', 'TUB.MC', 'VID.MC', 'VIS.MC', 'VOC.MC',
+];
+
+// IBEX 35 de Mercado › Mapa (composición a noviembre de 2026; revisar cuando cambie)
+export const IBEX35 = [
+  'ACS.MC', 'ACX.MC', 'AENA.MC', 'AMS.MC', 'ANA.MC', 'ANE.MC', 'BBVA.MC', 'BKT.MC', 'CABK.MC', 'CLNX.MC', 'COL.MC',
+  'ELE.MC', 'ENG.MC', 'FDR.MC', 'FER.MC', 'GRF.MC', 'IAG.MC', 'IBE.MC', 'IDR.MC', 'ITX.MC', 'LOG.MC', 'MAP.MC',
+  'MRL.MC', 'MTS.MC', 'NTGY.MC', 'PUIG.MC', 'RED.MC', 'REP.MC', 'ROVI.MC', 'SAB.MC', 'SAN.MC', 'SCYR.MC', 'SLR.MC',
+  'TEF.MC', 'UNI.MC',
 ];

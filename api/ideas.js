@@ -7,10 +7,12 @@
 //    o España) y los que tienen un margen del 15 % o más. Caché de 24 horas.
 //  - Con rating=1 (solo us): subidas de recomendación de analistas de las últimas 7 sesiones en
 //    Dow Jones + Nasdaq 100 (Yahoo, upgradeDowngradeHistory valor a valor). Caché de 6 horas.
+//  - Con u=AAPL,MSFT,... : el universo con los cambios de Listas de valores (en vez de las listas fijas).
 
 import { yahooJson } from './_yahoo.js';
 import { cuentas, ultimoCierre, tipoLibre } from './dcf.js';
-import { DOW, NASDAQ100, ESPANA } from './_listas.js';
+import { DOW, NASDAQ100, ESPANA } from '../src/lib/listasBase.js';
+import { leerLista, MAX } from '../src/lib/listas.js';
 import { normalizar, pasaFiltros, subidas, bajadas, activos, cercaMaximos, cercaMinimos, dcfAutomatico, infravaloradas, CUANTOS, subidasRating } from '../src/lib/ideas.js';
 
 const CAMPOS = 'shortName,longName,quoteType,currency,regularMarketPrice,regularMarketChange,regularMarketChangePercent,' +
@@ -34,8 +36,7 @@ async function screener(id) {
   return j?.finance?.result?.[0]?.quotes || [];
 }
 
-async function listas(mercado) {
-  const universo = UNIVERSO[mercado];
+async function listas(mercado, universo) {
   const crudo = await cotizaciones(universo);
   const faltan = universo.filter((s) => !crudo.some((q) => q.symbol === s));
   const filas = crudo.map((q) => normalizar(q, mercado)).filter((f) => pasaFiltros(f, mercado));
@@ -79,8 +80,7 @@ async function dcfDeUno(f, sym, libre, eurusd) {
   }
 }
 
-async function dcf(mercado) {
-  const universo = UNIVERSO[mercado];
+async function dcf(mercado, universo) {
   const crudo = await cotizaciones(universo);
   const filas = crudo.map((q) => normalizar(q, mercado)).filter((f) => pasaFiltros(f, mercado));
   const [libre, eur] = await Promise.all([tipoLibre(mercado === 'us' ? 'USD' : 'EUR').catch(() => null), ultimoCierre('EURUSD=X').catch(() => null)]);
@@ -96,10 +96,12 @@ async function dcf(mercado) {
 }
 
 // Subidas de rating: historial de cambios de recomendación de cada valor, de 10 en 10
-let cacheRating = null;
-async function rating() {
-  if (cacheRating && Date.now() - cacheRating.at < 6 * 3600e3) return cacheRating.datos;
-  const crudo = await cotizaciones(UNIVERSO.us);
+const cacheRating = new Map(); // por universo
+async function rating(universo) {
+  const clave = universo.join(',');
+  const g = cacheRating.get(clave);
+  if (g && Date.now() - g.at < 6 * 3600e3) return g.datos;
+  const crudo = await cotizaciones(universo);
   const filas = crudo.map((q) => ({ q, f: normalizar(q, 'us') })).filter(({ f }) => pasaFiltros(f, 'us'));
   const valores = [];
   const fallidos = [];
@@ -127,26 +129,28 @@ async function rating() {
     }))));
   }
   const datos = { rating: subidasRating(valores), valores: valores.length, fallidos, calculado: Date.now() };
-  cacheRating = { at: Date.now(), datos };
+  cacheRating.set(clave, { at: Date.now(), datos });
   return datos;
 }
 
 export default async function handler(req, res) {
   const mercado = req.query.mercado;
   if (!UNIVERSO[mercado]) return res.status(400).json({ error: 'mercado debe ser us o es' });
+  // Dos listas de EE. UU. (Dow y Nasdaq) de hasta 100 cada una
+  const universo = leerLista(req.query.u, mercado === 'us' ? 2 * MAX : MAX) || UNIVERSO[mercado];
   try {
     if (req.query.rating) {
       if (mercado !== 'us') return res.status(400).json({ error: 'Subidas de rating: solo EE. UU.' });
-      const datos = await rating();
+      const datos = await rating(universo);
       res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=3600');
       return res.status(200).json(datos);
     }
     if (req.query.dcf) {
-      const datos = await dcf(mercado);
+      const datos = await dcf(mercado, universo);
       res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=3600');
       return res.status(200).json({ ...datos, calculado: Date.now() });
     }
-    const datos = await listas(mercado);
+    const datos = await listas(mercado, universo);
     res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
     return res.status(200).json(datos);
   } catch (err) {

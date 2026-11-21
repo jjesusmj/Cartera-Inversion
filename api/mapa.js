@@ -1,9 +1,12 @@
-// Vercel Serverless Function — GET /api/mapa?lista=us|es
+// Vercel Serverless Function — GET /api/mapa?lista=us|es[&s=SAN.MC,...]
+// (s: el IBEX 35 con los cambios de Listas de valores; solo para es)
 // Mercado › Mapa: cambio de hoy y capitalización de las mayores empresas de EE. UU.
 // (las 50 mayores de una lista de grandes del S&P 500) o del IBEX 35, en una sola
 // consulta en lote a Yahoo (v7/finance/quote), junto con el índice.
 
 import { yahooJson } from './_yahoo.js';
+import { IBEX35 as ES } from '../src/lib/listasBase.js';
+import { leerLista, MAX } from '../src/lib/listas.js';
 
 // Candidatas de EE. UU. (en formato de Yahoo): se queda con las 50 de más capitalización
 const US = [
@@ -13,21 +16,16 @@ const US = [
   'ISRG', 'QCOM', 'CAT', 'RTX', 'AMGN', 'BKNG', 'VZ', 'T', 'UBER', 'ADBE', 'SPGI', 'PGR', 'LOW', 'BLK', 'HON', 'NEE',
   'PFE', 'SCHW', 'C', 'DHR', 'UNP', 'ANET', 'MU', 'LRCX', 'KLAC', 'AMAT',
 ];
-// IBEX 35 (composición a noviembre de 2026; revisar cuando cambie)
-const ES = [
-  'ACS.MC', 'ACX.MC', 'AENA.MC', 'AMS.MC', 'ANA.MC', 'ANE.MC', 'BBVA.MC', 'BKT.MC', 'CABK.MC', 'CLNX.MC', 'COL.MC',
-  'ELE.MC', 'ENG.MC', 'FDR.MC', 'FER.MC', 'GRF.MC', 'IAG.MC', 'IBE.MC', 'IDR.MC', 'ITX.MC', 'LOG.MC', 'MAP.MC',
-  'MRL.MC', 'MTS.MC', 'NTGY.MC', 'PUIG.MC', 'RED.MC', 'REP.MC', 'ROVI.MC', 'SAB.MC', 'SAN.MC', 'SCYR.MC', 'SLR.MC',
-  'TEF.MC', 'UNI.MC',
-];
 const LISTAS = {
   us: { simbolos: US, indice: '^GSPC', nombre: 'S&P 500', cuantos: 50 },
   es: { simbolos: ES, indice: '^IBEX', nombre: 'IBEX 35', cuantos: 35 },
 };
 
 export default async function handler(req, res) {
-  const l = LISTAS[req.query.lista];
+  let l = LISTAS[req.query.lista];
   if (!l) return res.status(400).json({ error: 'lista debe ser us o es' });
+  const propia = req.query.lista === 'es' && leerLista(req.query.s, MAX);
+  if (propia) l = { ...l, simbolos: propia, cuantos: propia.length };
   try {
     const todos = [l.indice, ...l.simbolos];
     const j = await yahooJson(
