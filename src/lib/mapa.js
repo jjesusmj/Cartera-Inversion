@@ -61,3 +61,32 @@ export function repartirMapa(items, ancho, alto) {
   if (fila.length) colocar(fila);
   return out;
 }
+
+// Como repartirMapa, pero toda casilla mide al menos minW × minH para que siempre se lean
+// el nombre y el %. Las pequeñas se agrandan (dejan de ser exactas) y, si aun así no caben,
+// el mapa crece hacia abajo. Devuelve { casillas, alto }.
+export function repartirConMinimo(items, ancho, altoBase, minW, minH) {
+  const validos = items.filter((it) => it.valor > 0);
+  if (!validos.length || ancho <= 0 || altoBase <= 0) return { casillas: [], alto: altoBase };
+  const minArea = minW * minH;
+  // Holgura del 60 %: las casillas no salen con la proporción exacta del mínimo
+  let alto = Math.max(altoBase, Math.ceil((validos.length * minArea * 1.6) / ancho));
+  const ajustado = validos.map((it) => it.valor);
+  let casillas = [];
+  for (let vuelta = 0; vuelta < 80; vuelta++) {
+    // Suelo: el valor que da el área mínima (con un 15 % de margen) en el alto actual
+    const total = ajustado.reduce((s, v) => s + v, 0);
+    const suelo = (total * minArea * 1.15) / (ancho * alto);
+    for (let i = 0; i < ajustado.length; i++) if (ajustado[i] < suelo) ajustado[i] = suelo;
+    casillas = repartirMapa(ajustado.map((valor, i) => ({ i, valor })), ancho, alto)
+      .map((c) => ({ ...c, item: validos[c.item.i] }));
+    const pequeñas = casillas.filter((c) => c.w < minW - 0.5 || c.h < minH - 0.5);
+    if (!pequeñas.length) break;
+    for (const c of pequeñas) {
+      const i = validos.indexOf(c.item);
+      ajustado[i] *= 1.3;
+    }
+    if (vuelta % 12 === 11) alto = Math.ceil(alto * 1.08); // no hay sitio: el mapa crece
+  }
+  return { casillas, alto };
+}
