@@ -2743,6 +2743,22 @@ tr.ficha-row > td { padding: 0 !important; }
   .miedo-eje-x span:nth-child(even) { display: none; }
 }
 
+/* Búsqueda de ideas › Screener */
+.scr-filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0 12px; }
+.scr-filtros .field { margin-bottom: 10px; }
+.scr-filtros .field input, .scr-filtros .field select { font-size: 16px; }
+.scr-fund { margin-top: 4px; }
+.scr-fund summary { cursor: pointer; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.scr-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 6px; }
+.scr-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 16px; }
+.scr-cab .panel-titulo { margin: 0; }
+.scr-vistas { padding: 10px 16px; overflow-x: auto; }
+@media (max-width: 720px) {
+  .scr-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+  .scr-filtros .scr-ancho { grid-column: 1 / -1; }
+  .scr-filtros .field label { min-height: 2.4em; display: flex; align-items: flex-end; }
+}
+
 /* Búsqueda de ideas › Calificaciones */
 .calif-sub { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .calif-tabla { width: 100%; }

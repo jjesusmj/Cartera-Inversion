@@ -125,7 +125,7 @@ export function filaScreener(q, extra = null) {
     payout: s.payoutRatio ?? null,
     rent1a: pct(q.fiftyTwoWeekChangePercent),
     vsMax52: esNum(q.regularMarketPrice) && q.fiftyTwoWeekHigh > 0 ? q.regularMarketPrice / q.fiftyTwoWeekHigh - 1 : null,
-    mBruto: f.grossMargins ?? null,
+    mBruto: f.grossMargins > 0 ? f.grossMargins : null, // los bancos salen con 0
     mOperativo: f.operatingMargins ?? null,
     mNeto: f.profitMargins ?? null,
     roe: f.returnOnEquity ?? null,

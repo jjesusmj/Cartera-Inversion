@@ -48,6 +48,7 @@ import Mercado from './components/Mercado';
 import MiedoCodicia from './components/MiedoCodicia';
 import Radar from './components/Radar';
 import Calificaciones from './components/Calificaciones';
+import Screener from './components/Screener';
 import Ideas from './components/Ideas';
 import Insiders from './components/Insiders';
 import Superinversores from './components/Superinversores';
@@ -618,6 +619,7 @@ export default function App() {
             {view === 'mercado' && <Mercado openLots={openLots} prices={prices} onAbrirFicha={abrirFicha} listas={listas} onEditarListas={() => setView('listas')} />}
             {view === 'miedo' && <MiedoCodicia />}
             {view === 'radar' && <Radar openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
+            {view === 'screener' && <Screener onAbrirFicha={abrirFicha} />}
             {view === 'calificaciones' && <Calificaciones openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} />}
             {view === 'insiders' && <Insiders openLots={openLots} watchlist={watchlist} onAbrirFicha={abrirFicha} listas={listas} onEditarListas={() => setView('listas')} />}
             {view === 'superinversores' && <Superinversores onAbrirFicha={abrirFicha} />}

@@ -463,6 +463,13 @@ export async function obtenerRadar(lista) {
   return res.json();
 }
 
+export async function obtenerScreener(filtros) {
+  const res = await fetch(`/api/screener?q=${encodeURIComponent(JSON.stringify(filtros))}`);
+  const d = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(d?.error ? `Yahoo no ha devuelto resultados: ${d.error}` : 'Yahoo no ha devuelto resultados.');
+  return d;
+}
+
 export async function obtenerCalificaciones(lista) {
   const res = await fetch(`/api/calificaciones?s=${encodeURIComponent(lista)}`);
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos de las calificaciones.');
