@@ -2,7 +2,7 @@
 // Mercado › Miedo y codicia › Sentimiento:
 //  - encuesta AAII: Excel semanal de aaii.com, últimos 5 años (6 horas en memoria);
 //  - volatilidad: ^GSPC y ^VIX diarios de 3 meses y el último valor de ^VIX3M, ^VVIX y ^MOVE en Yahoo,
-//    con la correlación, el VIX frente a su media y el semáforo (15 minutos en memoria).
+//    con la correlación, el VIX frente a su media, la media de 50 sesiones del S&P y el semáforo (15 minutos en memoria).
 // Cada parte falla por separado: si una no responde, la otra se devuelve igual.
 
 import * as XLSX from 'xlsx';
@@ -50,9 +50,13 @@ async function volatilidad() {
   const ratio = v && v3 ? v / v3 : null;
   const corr = correlacionDiaria(spS, vixS, 20);
   const frente20 = frenteMedia(vixS, 20);
+  const ult50 = spS.slice(-50);
+  const media50 = ult50.length === 50 ? ult50.reduce((a, b) => a + b, 0) / 50 : null;
+  const spHoy = precio(sp);
   return {
     fecha: fechas.at(-1) || null,
-    sp: precio(sp),
+    sp: spHoy,
+    media50,
     vix: v,
     vix3m: v3,
     vvix: precio(vvix),
@@ -60,7 +64,7 @@ async function volatilidad() {
     ratio,
     corr,
     frente20,
-    semaforo: semaforo({ vix: v, ratio, frente20, corr }),
+    semaforo: semaforo({ vix: v, ratio, sp: spHoy, media50 }),
   };
 }
 

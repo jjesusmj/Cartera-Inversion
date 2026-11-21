@@ -107,35 +107,39 @@ export function fraseFrenteMedia(x) {
   return 'Cerca de su media: sin sobresaltos.';
 }
 
-// Reglas del semáforo (se enseñan tal cual en la página)
+// Reglas del semáforo (se enseñan tal cual en la página). Elegidas con datos de 2006-2016 y
+// comprobadas con 2017-2026 (VIX, VIX3M y S&P 500 diarios de Yahoo).
 export const REGLAS = {
   tension: ['VIX por encima de 30', 'VIX/VIX3M por encima de 1'],
-  vigilancia: [
-    'VIX entre 20 y 30',
-    'VIX/VIX3M entre 0,95 y 1',
-    'VIX más de un 20 % por encima de su media de 20 sesiones',
-    'Correlación de 20 sesiones por encima de −0,3',
-  ],
+  vigilancia: ['VIX/VIX3M de 0,95 o más con el S&P 500 por debajo de su media de 50 sesiones'],
 };
 
-// Fase del mercado: 'tension' si se cumple alguna regla roja; 'vigilancia' si alguna amarilla; si no, 'calma'.
-// motivos: las reglas que se cumplen hoy, con el dato.
-export function semaforo({ vix, ratio, frente20, corr }) {
+// Qué pasó después en cada fase, en % de las sesiones (S&P 500, septiembre de 2006 a agosto de 2026).
+// cae5: cayó un 5 % o más en las 20 sesiones siguientes; sube5: subió un 5 % o más en 20 sesiones;
+// positivo60: 60 sesiones después estaba más arriba.
+export const HISTORICO = {
+  desde: 2006,
+  hasta: 2026,
+  todos: { tiempo: 100, cae5: 18, sube5: 17, positivo60: 72 },
+  calma: { tiempo: 78, cae5: 14, sube5: 10, positivo60: 72 },
+  vigilancia: { tiempo: 7, cae5: 28, sube5: 28, positivo60: 72 },
+  tension: { tiempo: 15, cae5: 30, sube5: 47, positivo60: 72 },
+};
+
+// Fase del mercado: 'tension' si se cumple alguna regla roja; si no, 'vigilancia' si se cumple la amarilla;
+// si no, 'calma'. motivos: lo que se cumple hoy, con el dato.
+export function semaforo({ vix, ratio, sp, media50 }) {
+  if (![vix, ratio].some(esNum)) return null;
   const rojo = [];
-  const amarillo = [];
-  if (esNum(vix)) {
-    if (vix > 30) rojo.push(`El VIX está en ${coma(vix, 1)}, por encima de 30.`);
-    else if (vix >= 20) amarillo.push(`El VIX está en ${coma(vix, 1)}, entre 20 y 30.`);
+  if (esNum(vix) && vix > 30) rojo.push(`El VIX está en ${coma(vix, 1)}, por encima de 30.`);
+  if (esNum(ratio) && ratio > 1) rojo.push(`VIX/VIX3M está en ${coma(ratio, 2)}, por encima de 1.`);
+  const bajoMedia = esNum(sp) && esNum(media50) && sp < media50;
+  const txtMedia = bajoMedia ? ` El S&P 500 está un ${coma((1 - sp / media50) * 100, 1)} % por debajo de su media de 50 sesiones.` : '';
+  if (rojo.length) return { fase: 'tension', motivos: txtMedia ? [...rojo, txtMedia.trim()] : rojo };
+  if (esNum(ratio) && ratio >= 0.95 && bajoMedia) {
+    return { fase: 'vigilancia', motivos: [`VIX/VIX3M está en ${coma(ratio, 2)}, de 0,95 o más.${txtMedia}`] };
   }
-  if (esNum(ratio)) {
-    if (ratio > 1) rojo.push(`VIX/VIX3M está en ${coma(ratio, 2)}, por encima de 1.`);
-    else if (ratio >= 0.95) amarillo.push(`VIX/VIX3M está en ${coma(ratio, 2)}, entre 0,95 y 1.`);
-  }
-  if (esNum(frente20) && frente20 > 0.2) amarillo.push(`El VIX está un ${coma(frente20 * 100, 0)} % por encima de su media de 20 sesiones.`);
-  if (esNum(corr) && corr > -0.3) amarillo.push(`La correlación de 20 sesiones es ${coma(corr, 2)}: el VIX y el S&P 500 casi no van al revés.`);
-  const evaluados = [vix, ratio, frente20, corr].filter(esNum).length;
-  if (!evaluados) return null;
-  if (rojo.length) return { fase: 'tension', motivos: [...rojo, ...amarillo] };
-  if (amarillo.length) return { fase: 'vigilancia', motivos: amarillo };
-  return { fase: 'calma', motivos: ['No se cumple ninguna de las condiciones de vigilancia ni de tensión.'] };
+  const motivos = ['No se cumple ninguna regla de tensión ni de vigilancia.'];
+  if (esNum(ratio) && ratio >= 0.95) motivos.push(`VIX/VIX3M está en ${coma(ratio, 2)}, pero el S&P 500 sigue por encima de su media de 50 sesiones.`);
+  return { fase: 'calma', motivos };
 }

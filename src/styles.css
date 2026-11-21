@@ -2753,6 +2753,20 @@ tr.ficha-row > td { padding: 0 !important; }
 .sen-fase.activa i { opacity: 1; }
 .sen-fase-txt { font-size: 26px; font-weight: 700; margin: 8px 0 4px; }
 .sen-motivos { margin: 0 0 8px; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+.sen-lectura { font-size: 14px; line-height: 1.55; margin: 0 0 8px; }
+.sen-historico { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.sen-historico caption { text-align: left; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+.sen-historico caption span { display: block; font-weight: 400; font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
+.sen-historico td { white-space: nowrap; }
+@media (max-width: 720px) {
+  .sen-historico { font-size: 12px; }
+  .sen-historico th, .sen-historico td { padding: 4px 4px; }
+  .sen-historico th:first-child, .sen-historico td:first-child { white-space: normal; }
+}
+.sen-historico th { font-weight: 500; color: var(--ink-dim); font-size: 12px; text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.sen-historico th:first-child, .sen-historico td:first-child { text-align: left; white-space: nowrap; }
+.sen-historico td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line-soft); }
+.sen-historico tr.actual td { background: var(--bg-raised); }
 .sen-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .sen-kpis .card.panel, .sen-dos .card.panel { margin-bottom: 0; }
 .sen-kpi .panel-titulo { margin: 0; }

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { obtenerSentimiento, obtenerGrafico } from '../lib/api';
-import { mediaMovil, fraseRatio, fraseCorrelacion, fraseFrenteMedia, REGLAS } from '../lib/sentimiento';
+import { mediaMovil, fraseRatio, fraseCorrelacion, fraseFrenteMedia, REGLAS, HISTORICO } from '../lib/sentimiento';
 import { fmtNumber } from '../lib/format';
 
 // Mercado › Miedo y codicia › Sentimiento: semáforo de volatilidad, encuesta AAII y VIX frente al S&P 500.
@@ -13,9 +13,9 @@ const num = (x, dec = 1) => (esNum(x) ? fmtNumber(x, dec) : '—');
 const fechaLarga = (f) => { const [a, m, d] = f.split('-'); return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(+a, m - 1, +d)); };
 
 const FASES = [
-  { id: 'calma', txt: 'Calma', color: 'var(--mc-codicia-extrema)' },
-  { id: 'vigilancia', txt: 'Vigilancia', color: 'var(--mc-neutral)' },
-  { id: 'tension', txt: 'Tensión', color: 'var(--mc-miedo-extremo)' },
+  { id: 'calma', txt: 'Calma', color: 'var(--mc-codicia-extrema)', lectura: 'Sin señales de tensión en la volatilidad. Es lo normal: el 78 % del tiempo.' },
+  { id: 'vigilancia', txt: 'Vigilancia', color: 'var(--mc-neutral)', lectura: 'Ojo: el miedo a corto plazo se acerca al de 3 meses y la bolsa ha perdido su media de 50 sesiones. Históricamente, el riesgo de una caída del 5 % o más en las 4 semanas siguientes ha sido mayor de lo normal (28 % frente a 18 %).' },
+  { id: 'tension', txt: 'Tensión', color: 'var(--mc-miedo-extremo)', lectura: 'Tormenta: el mercado ya está en plena tensión. Describe lo que pasa ahora: a partir de aquí ha habido tanto caídas como rebotes fuertes, y 60 sesiones después la bolsa estaba más arriba tantas veces como un día cualquiera.' },
 ];
 const PERIODOS = [['1d', '1 D'], ['5d', '5 D'], ['1mo', '1 M'], ['3mo', '3 M'], ['6mo', '6 M'], ['1y', '1 A'], ['5y', '5 A']];
 const C_SP = 'var(--accent)';
@@ -120,11 +120,42 @@ function Semaforo({ v }) {
         ))}
       </div>
       <p className="sen-fase-txt" style={{ color: f.color }}>{f.txt}</p>
+      <p className="sen-lectura">{f.lectura}</p>
       <ul className="sen-motivos">
         {s.motivos.map((m) => <li key={m}>{m}</li>)}
       </ul>
-      <p className="hint">Describe cómo está el mercado ahora; no predice lo que va a pasar. Las reglas están al pie de la página.</p>
+      <TablaHistorico actual={s.fase} />
+      <p className="hint">Datos del S&amp;P 500 de {HISTORICO.desde} a {HISTORICO.hasta}. Lo que pasó otras veces no asegura lo que pasará ahora. Las reglas y cómo se eligieron están al pie de la página.</p>
     </section>
+  );
+}
+
+// Qué pasó después en cada fase, en % de las sesiones
+function TablaHistorico({ actual }) {
+  const filas = [...FASES.map((f) => [f.id, f.txt, f.color]), ['todos', 'Cualquier día', null]];
+  return (
+    <div className="tabla-scroll">
+      <table className="sen-historico">
+        <caption>
+          Qué pasó otras veces en cada fase
+          <span>% de las sesiones en las que, en las 20 siguientes, el S&amp;P 500 cayó o subió un 5 % o más, y en las que estaba más arriba 60 sesiones después</span>
+        </caption>
+        <thead>
+          <tr><th>Fase</th><th>Tiempo</th><th>Cayó ≥5 %</th><th>Subió ≥5 %</th><th>Arriba a 60 ses.</th></tr>
+        </thead>
+        <tbody>
+          {filas.map(([id, txt, color]) => {
+            const h = HISTORICO[id];
+            return (
+              <tr key={id} className={id === actual ? 'actual' : ''}>
+                <td style={color ? { color, fontWeight: 600 } : null}>{txt}{id === actual ? ' (hoy)' : ''}</td>
+                <td>{h.tiempo} %</td><td>{h.cae5} %</td><td>{h.sube5} %</td><td>{h.positivo60} %</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -431,12 +462,24 @@ function Explicacion() {
       <h4>Reglas del semáforo</h4>
       <ul>
         <li><b style={{ color: 'var(--mc-miedo-extremo)' }}>Tensión</b> si se cumple alguna de estas: {REGLAS.tension.join(' · ')}.</li>
-        <li><b style={{ color: 'var(--mc-neutral)' }}>Vigilancia</b> si se cumple alguna de estas: {REGLAS.vigilancia.join(' · ')}.</li>
-        <li><b style={{ color: 'var(--mc-codicia-extrema)' }}>Calma</b> si no se cumple ninguna.</li>
+        <li><b style={{ color: 'var(--mc-neutral)' }}>Vigilancia</b> si no hay tensión y: {REGLAS.vigilancia.join(' · ')}.</li>
+        <li><b style={{ color: 'var(--mc-codicia-extrema)' }}>Calma</b> en el resto de casos.</li>
       </ul>
+      <h4>Cómo se eligieron y qué fiabilidad tienen</h4>
+      <p>
+        Se probaron varias reglas con 20 años de datos diarios del S&amp;P 500, el VIX y el VIX3M. Para no hacer trampa, la regla de
+        vigilancia se eligió solo con los años 2006 a 2016 y después se comprobó, sin tocarla, con 2017 a 2026. En los dos periodos,
+        cuando salta, la probabilidad de una caída del 5 % o más en las 20 sesiones siguientes ha sido mayor que la de un día cualquiera
+        (29 % frente a 20 % en el primero; 22 % frente a 16 % en el segundo) y saltó antes de que la bolsa cayera un 5 % en 14 de las 18
+        correcciones de más del 10 %.
+      </p>
+      <p>
+        Es una ventaja modesta: la mayoría de las veces que salta no pasa nada grave, y no siempre avisa a tiempo. Otras ideas, como
+        «VIX por encima de 20», la correlación o los mínimos del VIX subiendo, se probaron y no mejoraban a un día cualquiera, así que no
+        cuentan en el semáforo (la correlación y el VIX frente a su media se enseñan solo como contexto).
+      </p>
       <p className="hint">
-        Los cortes son reglas orientativas muy usadas; no son una fórmula oficial. El semáforo describe cómo está el mercado ahora: no predice
-        lo que va a pasar ni es una recomendación de compra o venta.
+        El semáforo no es una recomendación de compra o venta. Lo que pasó otras veces no asegura lo que pasará ahora.
       </p>
 
       <p className="hint sen-fuentes">

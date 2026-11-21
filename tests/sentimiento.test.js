@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fechaExcel, leerAaii, ultimosAnios, mediaMovil, resumenAaii, correlacion, correlacionDiaria,
-  frenteMedia, fraseRatio, semaforo,
+  frenteMedia, fraseRatio, semaforo, HISTORICO,
 } from '../src/lib/sentimiento.js';
 
 const cerca = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} ≠ ${b}`);
@@ -78,14 +78,26 @@ test('fraseRatio: tramos', () => {
 });
 
 test('semaforo: calma, vigilancia y tensión con sus motivos', () => {
-  assert.equal(semaforo({ vix: 14, ratio: 0.85, frente20: 0.02, corr: -0.8 }).fase, 'calma');
-  const v = semaforo({ vix: 22, ratio: 0.9, frente20: 0.05, corr: -0.8 });
+  // Calma aunque el VIX pase de 20: las reglas ya no lo usan
+  assert.equal(semaforo({ vix: 24, ratio: 0.9, sp: 100, media50: 105 }).fase, 'calma');
+  // Curva casi plana pero la bolsa por encima de su media: calma, con el aviso
+  const c = semaforo({ vix: 18, ratio: 0.97, sp: 110, media50: 105 });
+  assert.equal(c.fase, 'calma');
+  assert.equal(c.motivos.length, 2);
+  const v = semaforo({ vix: 22, ratio: 0.97, sp: 100, media50: 104 });
   assert.equal(v.fase, 'vigilancia');
-  assert.deepEqual(v.motivos, ['El VIX está en 22,0, entre 20 y 30.']);
-  const t = semaforo({ vix: 35.89, ratio: 1.08, frente20: 0.6, corr: -0.1 });
+  assert.match(v.motivos[0], /0,97.*3,8 % por debajo de su media de 50 sesiones/);
+  const t = semaforo({ vix: 35.89, ratio: 1.16, sp: 6910, media50: 7600 });
   assert.equal(t.fase, 'tension');
-  assert.equal(t.motivos.length, 4);
   assert.equal(t.motivos[0], 'El VIX está en 35,9, por encima de 30.');
-  assert.equal(semaforo({ corr: 0.1 }).fase, 'vigilancia');
+  assert.equal(t.motivos[1], 'VIX/VIX3M está en 1,16, por encima de 1.');
+  assert.equal(t.motivos.length, 3);
+  // Sin media de 50 sesiones no puede haber vigilancia, pero sí tensión
+  assert.equal(semaforo({ vix: 18, ratio: 0.99 }).fase, 'calma');
+  assert.equal(semaforo({ vix: 31 }).fase, 'tension');
   assert.equal(semaforo({}), null);
+});
+
+test('HISTORICO: las fases suman el 100 % del tiempo', () => {
+  assert.equal(HISTORICO.calma.tiempo + HISTORICO.vigilancia.tiempo + HISTORICO.tension.tiempo, 100);
 });
