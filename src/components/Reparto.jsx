@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fmtMoney, fmtMoneySigned, fmtPercent } from '../lib/format';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 
 // Reparto de la cartera por grupos (sector, bolsa): peso, ganancia total y
 // resultado de hoy. Al tocar un grupo se ven los valores que lo forman.
@@ -38,12 +38,12 @@ export default function Reparto({ titulo, grupos, total, umbral }) {
                   <span>{fmtMoney(g.valorEUR)}</span>
                   <span>
                     Total <span className={g.plEUR >= 0 ? 'gain' : 'loss'}>{fmtMoneySigned(g.plEUR)}</span>
-                    {plPct != null && <> <span className={claseTono(plPct, 'total')}>{fmtPercent(plPct)}</span></>}
+                    {plPct != null && <> <span className={claseTexto(plPct)}>{fmtPercent(plPct)}</span></>}
                   </span>
                   {g.hoyEUR != null && (
                     <span>
                       Hoy <span className={g.hoyEUR >= 0 ? 'gain' : 'loss'}>{fmtMoneySigned(g.hoyEUR)}</span>
-                      {hoyPct != null && <> <span className={claseTono(hoyPct, 'dia')}>{fmtPercent(hoyPct)}</span></>}
+                      {hoyPct != null && <> <span className={claseTexto(hoyPct)}>{fmtPercent(hoyPct)}</span></>}
                     </span>
                   )}
                 </div>

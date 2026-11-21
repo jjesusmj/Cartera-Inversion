@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtPercent, fmtNumber, fmtEuros } from '../lib/format';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { useFxToday } from '../lib/useFxToday';
 import { tiposValoracion } from '../lib/costes';
 import { useSort } from '../lib/useSort';
@@ -309,7 +309,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                       <td><Sparkline spark={f.q?.spark} previousClose={f.q?.previousClose} width={64} height={28} /></td>
                       <td className={`num ${claseSigno(f.hoyEUR)}`}>
                         {f.hoyEUR != null ? fmtMoneySigned(f.hoyEUR) : '—'}
-                        {f.hoyPct != null && <span className="cell-sub"><span className={claseTono(f.hoyPct, 'dia')}>{fmtPercent(f.hoyPct)}</span></span>}
+                        {f.hoyPct != null && <span className="cell-sub"><span className={claseTexto(f.hoyPct)}>{fmtPercent(f.hoyPct)}</span></span>}
                       </td>
                       <td style={{ minWidth: 110 }}>
                         <RangeBar low={f.q?.week52Low} high={f.q?.week52High} price={f.precioActual} marks={marcas(f)} />
@@ -386,7 +386,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
                         {f.precioActualEUR != null && <div className="qrow-eur">≈ {fmtCotizacion(f.precioActualEUR)}</div>}
                         <div className={`qrow-change ${claseSigno(f.hoyEUR)}`}>
                           {f.hoyEUR != null ? fmtMoneySigned(f.hoyEUR) : '—'}
-                          {f.hoyPct != null && <> <span className={claseTono(f.hoyPct, 'dia')}>{fmtPercent(f.hoyPct)}</span></>}
+                          {f.hoyPct != null && <> <span className={claseTexto(f.hoyPct)}>{fmtPercent(f.hoyPct)}</span></>}
                         </div>
                       </>
                     ) : (

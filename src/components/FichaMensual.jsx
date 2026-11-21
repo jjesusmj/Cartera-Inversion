@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { obtenerMensual } from '../lib/api';
 import { tablaMensual, estadisticas, INDICES } from '../lib/mensual';
-import { claseTono } from '../lib/tonos';
+import { claseCalor, claseTexto } from '../lib/tonos';
 import { fmtNumber } from '../lib/format';
 
 // Precio › Rentabilidad mensual: tabla por meses del valor y de su índice, y estadísticas.
@@ -88,14 +88,14 @@ function Tabla({ filas, provisional }) {
                 {f.meses.map((r, i) => (
                   <td key={i}>
                     {r != null && (
-                      <span className={`${claseTono(r * 100, 'mes')}${esProv(f.ano, i + 1) ? ' es-provisional' : ''}`} title={esProv(f.ano, i + 1) ? 'Mes en curso: provisional' : undefined}>
+                      <span className={`${claseCalor(r * 100, 'mes')}${esProv(f.ano, i + 1) ? ' es-provisional' : ''}`} title={esProv(f.ano, i + 1) ? 'Mes en curso: provisional' : undefined}>
                         {pct(r)}{esProv(f.ano, i + 1) ? '*' : ''}
                       </span>
                     )}
                   </td>
                 ))}
                 <td className="mensual-total">
-                  {f.anual != null && <span className={claseTono(f.anual * 100, 'total')}>{pct(f.anual)}</span>}
+                  {f.anual != null && <span className={claseTexto(f.anual * 100)}>{pct(f.anual)}</span>}
                 </td>
               </tr>
             ))}

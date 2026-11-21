@@ -3,7 +3,7 @@ import { obtenerIdeas } from '../lib/api';
 import { paramIdeas } from '../lib/listas';
 import { NotaListas } from './ListasValores';
 import { exchangeIdDeSimbolo } from '../lib/exchanges';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { fmtCotizacion, fmtNumber } from '../lib/format';
 
 // Búsqueda de ideas › Ideas: subidas, bajadas, más activos, cerca de máximos y mínimos de
@@ -34,7 +34,7 @@ const COLUMNAS = [
   {
     id: 'pct', txt: 'Variación', v: (f) => f.pct,
     c: (f) => (
-      <span className={esNum(f.pct) ? claseTono(f.pct * 100, 'dia') : ''}>
+      <span className={esNum(f.pct) ? claseTexto(f.pct * 100) : ''}>
         {esNum(f.cambio) ? `${f.cambio >= 0 ? '+' : ''}${fmtNumber(f.cambio, 2)} · ` : ''}{pct(f.pct)}
       </span>
     ),

@@ -168,3 +168,67 @@ export function reducirSemanal(indices, fechas) {
 export function diasPeriodo(periodo) {
   return periodo === '1m' ? 31 : periodo === '3m' ? 92 : periodo === '1a' ? 366 : null;
 }
+
+// --- Rentabilidad por días, semanas y meses (tabla de colores de Evolución) ---
+// Parte de los cambios diarios de `cambios(ag)`: € = cambio de la ganancia (comprar
+// no cuenta) y % sobre el valor del día anterior. Al juntar días, los € se suman y
+// los % se encadenan: (1 + a) × (1 + b) − 1.
+
+const encadenar = (pcts) => (pcts.reduce((m, p) => m * (1 + p / 100), 1) - 1) * 100;
+const juntar = (dias) => (dias.length ? { eur: dias.reduce((s, d) => s + d.eur, 0), pct: encadenar(dias.map((d) => d.pct)), dias: dias.length } : null);
+const lunes = (fecha) => new Date((semana(fecha) * 7 - 3) * DIA).toISOString().slice(0, 10);
+const diaSemana = (fecha) => (new Date(Date.parse(fecha)).getUTCDay() + 6) % 7; // 0 = lunes
+
+// Días: una fila por semana (la más reciente arriba), con lunes a viernes y el total
+export function tablaDias(diarios, semanas = 8) {
+  const grupos = new Map();
+  for (const d of diarios) {
+    const k = lunes(d.fecha);
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(d);
+  }
+  return [...grupos.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, semanas).map(([inicio, dias]) => {
+    const celdas = Array(5).fill(null);
+    for (const d of dias) { const i = diaSemana(d.fecha); if (i < 5) celdas[i] = { ...d }; }
+    return { clave: inicio, celdas, total: juntar(dias) };
+  });
+}
+
+// Semanas: una fila por mes (el más reciente arriba), con sus semanas (1.ª, 2.ª…) y el total
+export function tablaSemanas(diarios, meses = 6) {
+  const grupos = new Map();
+  for (const d of diarios) {
+    const k = d.fecha.slice(0, 7);
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(d);
+  }
+  return [...grupos.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, meses).map(([mes, dias]) => {
+    const porSemana = new Map();
+    for (const d of dias) {
+      const k = semana(d.fecha);
+      if (!porSemana.has(k)) porSemana.set(k, []);
+      porSemana.get(k).push(d);
+    }
+    const celdas = [...porSemana.entries()].sort((a, b) => a[0] - b[0])
+      .map(([, ds]) => ({ ...juntar(ds), desde: ds[0].fecha, hasta: ds[ds.length - 1].fecha }));
+    return { clave: mes, celdas, total: juntar(dias) };
+  });
+}
+
+// Meses: una fila por año (el más reciente arriba), de enero a diciembre y el total
+export function tablaMeses(diarios) {
+  const grupos = new Map();
+  for (const d of diarios) {
+    const k = d.fecha.slice(0, 4);
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(d);
+  }
+  return [...grupos.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([ano, dias]) => {
+    const celdas = Array(12).fill(null);
+    for (let m = 0; m < 12; m++) {
+      const ds = dias.filter((d) => Number(d.fecha.slice(5, 7)) === m + 1);
+      if (ds.length) celdas[m] = { ...juntar(ds), mes: `${ano}-${String(m + 1).padStart(2, '0')}` };
+    }
+    return { clave: ano, celdas, total: juntar(dias) };
+  });
+}

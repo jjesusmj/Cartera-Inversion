@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { obtenerRadar } from '../lib/api';
 import { exchangeById, exchangeIdDeSimbolo, exchangeIdOf } from '../lib/exchanges';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { fmtCotizacion, fmtNumber } from '../lib/format';
 import Senales from './Senales';
 
@@ -23,7 +23,7 @@ const tonoVs = (x) => (esNum(x) ? (x >= 0 ? 'gain' : 'loss') : '');
 // Columnas: id, título, valor para ordenar, celda
 const COLUMNAS = [
   { id: 'precio', txt: 'Precio', v: (f) => f.d.precio, c: (f) => fmtCotizacion(f.d.precio, f.moneda) },
-  { id: 'dia', txt: '% día', v: (f) => f.d.pctDia, c: (f) => <span className={esNum(f.d.pctDia) ? claseTono(f.d.pctDia * 100, 'dia') : ''}>{pct(f.d.pctDia, 2)}</span> },
+  { id: 'dia', txt: '% día', v: (f) => f.d.pctDia, c: (f) => <span className={esNum(f.d.pctDia) ? claseTexto(f.d.pctDia * 100) : ''}>{pct(f.d.pctDia, 2)}</span> },
   { id: 'puntos', txt: 'Puntuación', v: (f) => f.d.puntuacion?.total, c: (f) => <span className={`chip-tono tono-${tonoPuntos(f.d.puntuacion.total)}`}>{f.d.puntuacion.total}</span> },
   { id: 'senales', txt: 'Señales', v: (f) => f.d.senales.length, c: (f) => <Senales lista={f.d.senales} /> },
   { id: 'rsi', txt: 'RSI 14', v: (f) => f.d.rsi, c: (f) => <span className={f.d.rsi > 70 ? 'loss' : f.d.rsi < 30 ? 'gain' : ''}>{num(f.d.rsi)}</span> },
@@ -194,7 +194,7 @@ function Detalle({ f, marco, onCerrar, onAbrirFicha }) {
           </div>
           <div className="qrow-right">
             <div className="sheet-price">{fmtCotizacion(d.precio, f.moneda)}</div>
-            <span className={esNum(d.pctDia) ? claseTono(d.pctDia * 100, 'dia') : ''}>{pct(d.pctDia, 2)}</span>
+            <span className={esNum(d.pctDia) ? claseTexto(d.pctDia * 100) : ''}>{pct(d.pctDia, 2)}</span>
           </div>
         </div>
         <Senales lista={d.senales} />

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { costeLoteEUR } from '../lib/costes';
 import { obtenerHistorico } from '../lib/api';
+import RentabilidadCalor from './RentabilidadCalor';
 import {
   construirSerie, inicioPeriodo, agregado, cambios, detalleAcumulado, reducirSemanal,
 } from '../lib/evolucion';
@@ -151,6 +152,9 @@ export default function EvolucionVista({ openLots }) {
       {accion && <div className="evo-accion-nombre">{nombre[accion]} · ganancia desde la compra</div>}
 
       <Agrupado ag={ag} unidad={unidad} largo={largo} lotes={lotesElegidos} cur={cur1} setCur={setCur1} />
+
+      {/* Por días, semanas o meses: siempre desde la primera compra, con la acción elegida */}
+      <RentabilidadCalor ag={agregado(serie, elegidos, 0)} />
 
       {!accion && simbolos.length > 1 && (
         <Detalle

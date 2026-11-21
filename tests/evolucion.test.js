@@ -68,3 +68,35 @@ test('detalle acumulado: el periodo recorta pero no mueve el cero', () => {
   // Oracle no aparece antes de comprarla
   assert.equal(detalleAcumulado(s, 'ORCL', 0)[0].fecha, '2026-01-06');
 });
+
+test('tabla por días, semanas y meses: los € suman y los % se encadenan', async () => {
+  const { tablaDias, tablaSemanas, tablaMeses } = await import('../src/lib/evolucion.js');
+  // Días laborables del 1 sep al 31 oct 2026, cada uno con +10 € y +1 %
+  const diarios = [];
+  for (let t = Date.parse('2026-09-01'); t <= Date.parse('2026-10-31'); t += 86400000) {
+    const f = new Date(t).toISOString().slice(0, 10);
+    const ds = new Date(t).getUTCDay();
+    if (ds !== 0 && ds !== 6) diarios.push({ fecha: f, eur: 10, pct: 1 });
+  }
+  const dias = tablaDias(diarios, 8);
+  assert.equal(dias.length, 8);
+  assert.equal(dias[0].clave, '2026-10-26'); // la semana más reciente, arriba (lunes)
+  assert.equal(dias[0].celdas.filter(Boolean).length, 5);
+  assert.equal(dias[0].total.eur, 50);
+  assert.ok(Math.abs(dias[0].total.pct - (1.01 ** 5 - 1) * 100) < 1e-9);
+  for (const fila of dias) assert.equal(fila.total.eur, fila.celdas.filter(Boolean).reduce((s, c) => s + c.eur, 0));
+
+  const semanas = tablaSemanas(diarios, 6);
+  assert.deepEqual(semanas.map((f) => f.clave), ['2026-10', '2026-09']);
+  assert.equal(semanas[0].total.eur, 22 * 10); // octubre 2026: 22 días laborables
+  for (const fila of semanas) assert.equal(fila.total.eur, fila.celdas.reduce((s, c) => s + c.eur, 0));
+  assert.equal(semanas[0].celdas[0].desde, '2026-10-01'); // 1.ª semana: jueves 1 y viernes 2
+  assert.equal(semanas[0].celdas[0].eur, 20);
+
+  const meses = tablaMeses(diarios);
+  assert.equal(meses.length, 1);
+  assert.equal(meses[0].celdas[8].eur, 220); // septiembre: 22 días
+  assert.equal(meses[0].celdas[9].eur, 220);
+  assert.equal(meses[0].celdas[0], null);
+  assert.equal(meses[0].total.eur, 440);
+});

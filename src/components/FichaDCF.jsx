@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { obtenerDCF } from '../lib/api';
 import { hipotesisPorDefecto, calcularDCF, fcfReal, ANOS_PROYECCION } from '../lib/dcf';
 import { esBancoOAseguradora } from '../lib/valoracionFCF';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { fmtCotizacion, fmtNumber } from '../lib/format';
 
 // Valoración › Valor justo › DCF estándar (FCF no apalancado), con hipótesis editables
@@ -79,7 +79,7 @@ export default function FichaDCF({ symbol, currency, precio, perfil }) {
           <div><span className="dcf-etq">Precio</span><b className="dcf-grande">{cot(precio)}</b></div>
           <div>
             <span className="dcf-etq">Margen de seguridad</span>
-            <span className={`${claseTono(r.margen * 100, 'total')} dcf-chip`}>{r.margen >= 0 ? '+' : ''}{pctTxt(r.margen)}</span>
+            <span className={`${claseTexto(r.margen * 100)} dcf-chip`}>{r.margen >= 0 ? '+' : ''}{pctTxt(r.margen)}</span>
           </div>
         </div>
       ) : (

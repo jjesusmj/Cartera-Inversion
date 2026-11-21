@@ -3,7 +3,7 @@ import { obtenerMapa } from '../lib/api';
 import { useFxToday } from '../lib/useFxToday';
 import { tiposValoracion } from '../lib/costes';
 import { exchangeIdOf, exchangeIdDeSimbolo } from '../lib/exchanges';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { fmtNumber, fmtPercent } from '../lib/format';
 import MapaCasillas from './MapaCasillas';
 import { MapaCartera } from './ResumenHoy';
@@ -50,7 +50,7 @@ export default function Mercado({ openLots, prices, onAbrirFicha, listas, onEdit
 function Cabecera({ nombre, pct, suben, bajan, hora }) {
   return (
     <p className="frase-cartera">
-      {nombre && <>{nombre} <span className={claseTono(pct, 'dia')}>{fmtPercent(pct)}</span>{' · '}</>}
+      {nombre && <>{nombre} <span className={claseTexto(pct)}>{fmtPercent(pct)}</span>{' · '}</>}
       {suben} {suben === 1 ? 'sube' : 'suben'} y {bajan} {bajan === 1 ? 'baja' : 'bajan'}
       {hora && <span className="hint-inline"> · precios de las {horaTxt(hora)}</span>}
     </p>
@@ -82,7 +82,7 @@ function MapaLista({ lista, propia, onAbrirFicha }) {
           <>
             <b>{f.symbol}</b> <span className="hint-inline">{f.name}</span>
             {' · '}{capTxt(f.cap, f.currency)}{' '}
-            <span className={claseTono(f.pct, 'dia')}>{f.pct != null ? fmtPercent(f.pct) : '—'}</span>
+            <span className={claseTexto(f.pct)}>{f.pct != null ? fmtPercent(f.pct) : '—'}</span>
           </>
         )}
       />

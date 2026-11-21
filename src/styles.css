@@ -1512,6 +1512,30 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 .evo-seg { margin-bottom: 0; flex: 1; min-width: 110px; max-width: 160px; }
 .evo-seg-per { max-width: 280px; flex: 2; }
 .evo-card { cursor: default; gap: 8px; }
+.calor-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.calor-sel { display: flex; gap: 8px; flex-wrap: wrap; }
+.calor-sel .segmented { margin-bottom: 0; }
+.calor-tabla { display: grid; grid-template-columns: minmax(58px, auto) repeat(var(--calor-cols), minmax(0, 1fr)) minmax(64px, auto); gap: 4px; align-items: center; font-size: 13px; }
+.calor-th { text-align: center; font-size: 12px; color: var(--ink-dim); font-weight: 600; padding: 2px 0; }
+.calor-fila { font-weight: 600; white-space: nowrap; padding-right: 4px; }
+.calor-celda { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 32px; }
+.calor-celda:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.calor-vacia { min-height: 32px; }
+.calor-total { text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; background: var(--bg-raised); border-radius: 6px; padding: 7px 4px; }
+.calor-mes { display: none; font-size: 10px; font-weight: 500; opacity: 0.8; }
+.calor-detalle { font-size: 12.5px; min-height: 18px; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .calor-tabla { font-size: 12px; gap: 3px; grid-template-columns: minmax(44px, auto) repeat(var(--calor-cols), minmax(0, 1fr)) minmax(52px, auto); }
+  .calor-celda { min-height: 30px; padding: 4px 1px; }
+  /* Meses en el iPhone: cada año en un bloque de 4 × 3 con el total debajo */
+  .calor-tabla.calor-meses { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .calor-meses .calor-esquina, .calor-meses .calor-th { display: none; }
+  .calor-meses .calor-fila { grid-column: 1 / -1; margin-top: 6px; }
+  .calor-meses .calor-total { grid-column: 1 / -1; }
+  .calor-meses .calor-mes { display: block; }
+  .calor-meses .calor-vacia { background: var(--bg-raised); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); }
+  .calor-meses .calor-vacia .calor-mes { display: block; }
+}
 .evo-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .evo-kpis > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .evo-kv { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; white-space: nowrap; }
@@ -2339,6 +2363,12 @@ tr.ficha-row > td { padding: 0 !important; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+.celda-calor { display: block; padding: 6px 4px; border-radius: 6px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; background: var(--bg-inset); color: var(--ink); }
+.calor-verde-f { background: #6fbf8c; color: #0d3a20; }
+.calor-verde-a { background: #c6e6d0; color: #14492a; }
+.calor-gris { background: var(--bg-inset); color: var(--ink); }
+.calor-rojo-a { background: #f2c3c5; color: #6e1a1f; }
+.calor-rojo-f { background: #e26a6e; color: #3d0a0d; }
 .tono-rojo-f { background: var(--t-rojo-f); }
 .tono-rojo-a { background: var(--t-rojo-a); }
 .tono-gris { background: var(--t-gris); }
@@ -2391,9 +2421,9 @@ tr.ficha-row > td { padding: 0 !important; }
 .mensual-tabla { border-collapse: separate; border-spacing: 2px; font-size: 11.5px; width: 100%; }
 .mensual-tabla th { font-weight: 600; color: var(--ink-dim); padding: 4px 2px; text-align: center; white-space: nowrap; }
 .mensual-tabla td { padding: 0; text-align: center; white-space: nowrap; }
-.mensual-tabla .chip-tono { display: block; min-width: 50px; padding: 3px 4px; border-radius: 6px; font-size: 11px; }
+.mensual-tabla .celda-calor { min-width: 50px; }
 .mensual-tabla th.mensual-ano { position: sticky; left: 0; background: var(--bg); z-index: 1; text-align: left; padding-right: 6px; }
-.mensual-tabla td.mensual-total .chip-tono { font-weight: 700; }
+.mensual-tabla td.mensual-total { font-weight: 700; }
 .mensual-tabla .es-provisional { opacity: 0.7; outline: 1px dashed var(--ink-dim); outline-offset: -1px; }
 
 /* Analistas y Finanzas de la ficha */
@@ -2609,7 +2639,7 @@ tr.ficha-row > td { padding: 0 !important; }
 .dcf-cabecera > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dcf-etq { font-size: 12px; color: var(--ink-dim); }
 .dcf-grande { font-size: 22px; font-variant-numeric: tabular-nums; }
-.dcf-chip { align-self: flex-start; font-size: 15px; padding: 4px 10px; }
+.dcf-chip { align-self: flex-start; font-size: 15px; font-weight: 700; }
 .dcf-avisos { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
 .dcf-avisos p { margin: 3px 0; }
 .dcf-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }

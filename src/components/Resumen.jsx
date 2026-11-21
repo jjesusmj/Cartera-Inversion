@@ -5,7 +5,7 @@ import ResumenDividendos from './ResumenDividendos';
 import ResumenIndice from './ResumenIndice';
 import ResumenMetas from './ResumenMetas';
 import { fmtMoney, fmtPercent, fmtNumber } from '../lib/format';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { useFxToday } from '../lib/useFxToday';
 import { useFxHistorico } from '../lib/useFxHistorico';
 import { costeLoteEUR, tiposValoracion } from '../lib/costes';
@@ -229,13 +229,13 @@ export default function Resumen({ lots, openLots, todosLosLotes, exchangeFilter,
           {mejor && (
             <div className="callout">
               <div className="callout-label">Mejor de hoy</div>
-              <div className="callout-value">{mejor.symbol} <span className={claseTono(mejor.hoyPct, 'dia')}>{fmtPercent(mejor.hoyPct)}</span></div>
+              <div className="callout-value">{mejor.symbol} <span className={claseTexto(mejor.hoyPct)}>{fmtPercent(mejor.hoyPct)}</span></div>
             </div>
           )}
           {peor && (
             <div className="callout">
               <div className="callout-label">Peor de hoy</div>
-              <div className="callout-value">{peor.symbol} <span className={claseTono(peor.hoyPct, 'dia')}>{fmtPercent(peor.hoyPct)}</span></div>
+              <div className="callout-value">{peor.symbol} <span className={claseTexto(peor.hoyPct)}>{fmtPercent(peor.hoyPct)}</span></div>
             </div>
           )}
         </div>

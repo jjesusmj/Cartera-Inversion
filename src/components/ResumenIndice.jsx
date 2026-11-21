@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { obtenerHistorico } from '../lib/api';
 import { costeLoteEUR } from '../lib/costes';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { fmtNumber } from '../lib/format';
 import {
   serieCartera, serieIndice, inicioMeses, compuesta, base100, volatilidad, peorCaida, beta, aportaciones,
@@ -110,7 +110,7 @@ export default function ResumenIndice({ lots, sales }) {
                   <td>{f.txt}</td>
                   <td className={`num ${f.cartera == null ? '' : f.cartera >= 0 ? 'gain' : 'loss'}`}><b>{pct(f.cartera)}</b></td>
                   <td className="num">{pct(f.indice)}</td>
-                  <td className="num">{f.dif != null ? <span className={claseTono(f.dif * 100, 'mes')}>{pct(f.dif)}</span> : '—'}</td>
+                  <td className="num">{f.dif != null ? <span className={claseTexto(f.dif * 100)}>{pct(f.dif)}</span> : '—'}</td>
                 </tr>
               ))}
             </tbody>

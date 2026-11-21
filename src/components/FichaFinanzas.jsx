@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { obtenerFinanzas } from '../lib/api';
 import { dividendosPorAno } from '../lib/analistas';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { fmtCotizacion, fmtNumber } from '../lib/format';
 
 // Finanzas › Resultados (BPA real frente al estimado y próximos resultados)
@@ -69,7 +69,7 @@ export function FichaResultados({ symbol, currency }) {
                       <td>{esNum(r.trimestre) ? fecha(r.trimestre) : '—'}</td>
                       <td className="num">{bpa(r.estimado)}</td>
                       <td className="num"><b>{bpa(r.real)}</b></td>
-                      <td className="num">{esNum(r.sorpresa) ? <span className={claseTono(r.sorpresa * 100, 'mes')}>{pct(r.sorpresa)}</span> : '—'}</td>
+                      <td className="num">{esNum(r.sorpresa) ? <span className={claseTexto(r.sorpresa * 100)}>{pct(r.sorpresa)}</span> : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -145,7 +145,7 @@ export function FichaDividendos({ symbol, currency }) {
                     <td>{a.ano}{a.provisional ? '*' : ''}</td>
                     <td className="num"><b>{a.pagos ? cot(a.total) : 'Sin dividendo'}</b></td>
                     <td className="num">{a.pagos}</td>
-                    <td className="num">{esNum(a.cambio) && !a.provisional ? <span className={claseTono(a.cambio * 100, 'total')}>{pct(a.cambio)}</span> : '—'}</td>
+                    <td className="num">{esNum(a.cambio) && !a.provisional ? <span className={claseTexto(a.cambio * 100)}>{pct(a.cambio)}</span> : '—'}</td>
                   </tr>
                 ))}
               </tbody>

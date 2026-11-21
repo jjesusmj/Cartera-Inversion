@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtPercent, fmtNumber, fmtDate, fmtAntiguedad } from '../lib/format';
-import { claseTono } from '../lib/tonos';
+import { claseTexto } from '../lib/tonos';
 import { costeLoteEUR, tipoImplicito } from '../lib/costes';
 import { UltimaNota } from './DetailParts';
 import { RangeBar } from './Charts';
@@ -31,7 +31,7 @@ export function DesplegablePosicion({ f, onActualizarPosSettings, onAbrirNotas, 
         <span>Precio actual</span>
         <span className="num">
           {f.precioActual != null ? fmtCotizacion(f.precioActual, f.currency) : '—'}{' '}
-          {f.hoyPct != null && <span className={claseTono(f.hoyPct, 'dia')}>{fmtPercent(f.hoyPct)}</span>}
+          {f.hoyPct != null && <span className={claseTexto(f.hoyPct)}>{fmtPercent(f.hoyPct)}</span>}
         </span>
         <span>Precio medio</span>
         <span className="num">
