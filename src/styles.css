@@ -2678,39 +2678,69 @@ tr.ficha-row > td { padding: 0 !important; }
 }
 
 /* Mercado › Miedo y codicia */
-.miedo-cifra { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.miedo-numero { font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.miedo-tramo { color: #fff; font-weight: 600; font-size: 15px; padding: 5px 12px; border-radius: 999px; }
-.miedo-escala { position: relative; display: flex; height: 10px; border-radius: 5px; overflow: visible; margin: 14px 0 6px; }
-.miedo-escala > span { height: 100%; opacity: 0.85; }
-.miedo-escala > span:first-child { border-radius: 5px 0 0 5px; }
-.miedo-escala > span:nth-last-child(2) { border-radius: 0 5px 5px 0; }
-.miedo-escala > i { position: absolute; top: -4px; width: 4px; height: 18px; margin-left: -2px; background: var(--ink); border-radius: 2px; box-shadow: 0 0 0 2px var(--bg-raised); }
-.miedo-frase { font-size: 15px; line-height: 1.55; margin: 10px 0 4px; }
-.miedo-antes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
-.miedo-antes-item { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
-.miedo-antes-label { font-size: 12px; color: var(--ink-dim); }
-.miedo-antes-valor { font-size: 13.5px; }
-.miedo-antes-valor b { font-size: 18px; margin-right: 4px; }
-.miedo-grafico-caja { position: relative; }
-.miedo-grafico { border-radius: 6px; overflow: hidden; }
-.miedo-banda { opacity: 0.14; }
-.miedo-linea { fill: none; stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.miedo-eje-y { position: absolute; top: 10px; bottom: 0; left: 4px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10.5px; color: var(--ink-dim); pointer-events: none; }
-.miedo-leyenda { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; }
-.miedo-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
-.miedo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.miedo-page {
+  --mc-miedo-extremo: #d93a3a;
+  --mc-miedo: #ee8a3c;
+  --mc-neutral: #e2b52c;
+  --mc-codicia: #7cbf4f;
+  --mc-codicia-extrema: #2f9a52;
+}
+.miedo-top { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 16px; align-items: stretch; margin-bottom: 20px; }
+.miedo-top .card.panel { margin-bottom: 0; }
+.miedo-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.miedo-cab .panel-titulo { margin: 0; }
+.miedo-reloj { display: block; width: 100%; max-width: 300px; margin: 10px auto 0; overflow: visible; }
+.miedo-reloj-arco { fill: none; stroke-width: 24; }
+.miedo-reloj-marca { font-size: 11px; fill: var(--ink-dim); text-anchor: middle; }
+.miedo-aguja { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+.miedo-aguja-centro { fill: var(--ink); }
+.miedo-cifra { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 2px 0 14px; }
+.miedo-numero { font-size: 52px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.miedo-tramo { font-weight: 700; font-size: 20px; }
+.miedo-antes { display: flex; flex-direction: column; }
+.miedo-antes-item { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+.miedo-antes-label { font-size: 13px; color: var(--ink-dim); }
+.miedo-antes-valor { font-size: 13.5px; font-weight: 600; }
+.miedo-antes-valor b { font-size: 16px; margin-right: 6px; }
+.miedo-frase { font-size: 14px; line-height: 1.55; margin: 14px 0 0; }
+.miedo-historia { display: flex; flex-direction: column; }
+.miedo-lienzo { position: relative; display: flex; gap: 8px; flex: 1; min-height: 240px; margin-top: 8px; }
+.miedo-eje-y { position: relative; width: 26px; flex: none; margin-bottom: 22px; font-size: 11px; color: var(--ink-dim); }
+.miedo-eje-y span { position: absolute; right: 0; transform: translateY(-50%); }
+.miedo-grafico-caja { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.miedo-grafico { flex: 1; width: 100%; min-height: 218px; display: block; }
+.miedo-banda { opacity: 0.12; }
+.miedo-guia { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.miedo-linea { fill: none; stroke: url(#miedo-degradado); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.miedo-eje-x { position: relative; height: 22px; font-size: 11px; color: var(--ink-dim); }
+.miedo-eje-x span { position: absolute; top: 6px; transform: translateX(-50%); white-space: nowrap; }
+.miedo-leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: 12px; color: var(--ink-dim); }
+.miedo-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+.miedo-seccion { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
+.miedo-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
 .miedo-grid .card.panel { margin-bottom: 0; }
-.miedo-ind-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.miedo-ind-cab .panel-titulo { margin: 0; }
-.miedo-ind-punt b { font-size: 22px; }
-.miedo-ind-dato { font-size: 13.5px; line-height: 1.5; margin: 8px 0 4px; }
+.miedo-ind-punt { font-size: 20px; }
+.miedo-escala { position: relative; display: flex; height: 8px; border-radius: 4px; overflow: visible; margin: 12px 0 6px; }
+.miedo-escala > span { height: 100%; }
+.miedo-escala > span:first-child { border-radius: 4px 0 0 4px; }
+.miedo-escala > span:nth-last-child(2) { border-radius: 0 4px 4px 0; }
+.miedo-escala > i { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; background: var(--ink); border-radius: 2px; box-shadow: 0 0 0 2px var(--bg-raised); }
+.miedo-ind-tramo { font-size: 13px; font-weight: 600; }
+.miedo-ind-dato { font-size: 13.5px; line-height: 1.5; margin: 6px 0 4px; }
 .miedo-nota { margin-top: 16px; }
+.miedo-nota .hint { margin: 0; }
+@media (max-width: 1280px) {
+  .miedo-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+}
+@media (max-width: 900px) {
+  .miedo-top { grid-template-columns: 1fr; }
+}
 @media (max-width: 720px) {
   .miedo-numero { font-size: 46px; }
-  .miedo-antes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .miedo-grid { grid-template-columns: 1fr; }
-  .miedo-leyenda { order: 3; width: 100%; }
+  .miedo-lienzo { min-height: 200px; }
+  .miedo-grafico { min-height: 178px; }
+  .miedo-eje-x span:nth-child(even) { display: none; }
 }
 
 /* Búsqueda de ideas › Radar técnico */
