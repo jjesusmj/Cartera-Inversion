@@ -25,6 +25,7 @@ const RUTAS = {
   'radar': () => import('./_rutas/radar.js'),
   'search-symbol': () => import('./_rutas/search-symbol.js'),
   'screener': () => import('./_rutas/screener.js'),
+  'sentimiento': () => import('./_rutas/sentimiento.js'),
   'superinversores': () => import('./_rutas/superinversores.js'),
 };
 

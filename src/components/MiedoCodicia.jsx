@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { obtenerMiedo } from '../lib/api';
 import { TRAMOS, tramo, haceSesiones } from '../lib/miedo';
 import { fmtNumber } from '../lib/format';
+import Sentimiento from './Sentimiento';
 
 // Mercado › Miedo y codicia: índice propio de 0 a 100 con 5 indicadores del mercado de EE. UU.
 // El cálculo lo hace /api/miedo; aquí solo se muestra.
@@ -22,6 +23,17 @@ const FRASE = {
 const ANTES = [['Sesión anterior', 1], ['Hace 1 semana', 5], ['Hace 1 mes', 21], ['Hace 1 año', 252]];
 const PERIODOS = [['3m', '3 m', 63], ['6m', '6 m', 126], ['1a', '1 a', 252], ['2a', '2 a', 504]];
 
+const PESTANAS = [['indice', 'Índice de miedo y codicia'], ['sentimiento', 'Sentimiento']];
+
+// Pestaña inicial: ?tab=sentimiento manda; si no, la última elegida
+function leerPestana() {
+  try {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (PESTANAS.some(([id]) => id === t)) return t;
+    return localStorage.getItem('miedo_tab') === 'sentimiento' ? 'sentimiento' : 'indice';
+  } catch { return 'indice'; }
+}
+
 function leer() {
   try { return localStorage.getItem('miedo_periodo') || '1a'; } catch { return '1a'; }
 }
@@ -36,18 +48,30 @@ export default function MiedoCodicia() {
     return () => { vivo = false; };
   }, []);
   const { datos, error } = estado;
+  const [pestana, setPestanaState] = useState(leerPestana);
+  const setPestana = (t) => { try { localStorage.setItem('miedo_tab', t); } catch { /* sin almacenamiento */ } setPestanaState(t); };
 
   return (
     <div className="miedo-page">
       <div className="page-head">
         <div>
           <div className="page-title">Miedo y codicia</div>
-          <div className="page-sub">Sentimiento del mercado de EE. UU., de 0 (miedo extremo) a 100 (codicia extrema).</div>
+          <div className="page-sub">
+            {pestana === 'indice'
+              ? 'Sentimiento del mercado de EE. UU., de 0 (miedo extremo) a 100 (codicia extrema).'
+              : 'Encuesta AAII a inversores particulares y volatilidad del mercado de EE. UU.'}
+          </div>
         </div>
       </div>
-      {error && <p className="hint">{error}</p>}
-      {!error && !datos && <p className="hint">Cargando… (la primera vez tarda unos segundos)</p>}
-      {datos && <Contenido d={datos} />}
+      <div className="segmented segmented-global val-filtro miedo-pestanas" role="tablist" aria-label="Sección">
+        {PESTANAS.map(([id, txt]) => (
+          <button key={id} role="tab" aria-selected={id === pestana} className={id === pestana ? 'active' : ''} onClick={() => setPestana(id)}>{txt}</button>
+        ))}
+      </div>
+      {pestana === 'sentimiento' && <Sentimiento />}
+      {pestana === 'indice' && error && <p className="hint">{error}</p>}
+      {pestana === 'indice' && !error && !datos && <p className="hint">Cargando… (la primera vez tarda unos segundos)</p>}
+      {pestana === 'indice' && datos && <Contenido d={datos} />}
     </div>
   );
 }

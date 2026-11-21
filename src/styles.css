@@ -2743,6 +2743,67 @@ tr.ficha-row > td { padding: 0 !important; }
   .miedo-eje-x span:nth-child(even) { display: none; }
 }
 
+/* Mercado › Miedo y codicia › Sentimiento */
+.miedo-pestanas { margin-bottom: 16px; }
+.sen-semaforo { margin-bottom: 16px; }
+.sen-fases { display: flex; gap: 8px; margin: 12px 0 6px; }
+.sen-fase { flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--ink-faint); }
+.sen-fase i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); opacity: 0.3; flex: none; }
+.sen-fase.activa { color: var(--ink); font-weight: 600; border-color: var(--c); }
+.sen-fase.activa i { opacity: 1; }
+.sen-fase-txt { font-size: 26px; font-weight: 700; margin: 8px 0 4px; }
+.sen-motivos { margin: 0 0 8px; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+.sen-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.sen-kpis .card.panel, .sen-dos .card.panel { margin-bottom: 0; }
+.sen-kpi .panel-titulo { margin: 0; }
+.sen-kpi-valor { font-size: 30px; font-weight: 700; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+.sen-kpi .hint { margin: 0; }
+.sen-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.sen-grafico, .sen-vix { display: flex; flex-direction: column; }
+.sen-dato { font-size: 13px; margin: 4px 0 0; min-height: 20px; }
+.sen-lienzo { min-height: 220px; }
+.sen-lienzo-alto { min-height: 300px; }
+.sen-lienzo-alto .miedo-grafico { min-height: 278px; }
+.sen-lienzo .miedo-eje-x span:first-child { transform: none; }
+.sen-lienzo .miedo-eje-x span:last-child { transform: translateX(-100%); }
+.sen-zona { position: relative; flex: 1; display: flex; touch-action: pan-y; cursor: crosshair; }
+.sen-eje-ancho { width: 30px; }
+.sen-eje-sp { width: 44px; }
+.sen-eje-vix { width: 24px; }
+.sen-eje-vix span { left: 0; right: auto; font-weight: 600; }
+.sen-alc { fill: var(--gain); }
+.sen-neu { fill: var(--ink-faint); opacity: 0.45; }
+.sen-baj { fill: var(--loss); }
+.sen-guia-clara { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sen-cero { stroke: var(--ink-faint); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sen-guia-vix { stroke-width: 1; stroke-dasharray: 5 4; opacity: 0.7; vector-effect: non-scaling-stroke; }
+.sen-linea { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.sen-linea-fina { fill: none; stroke: var(--ink-faint); stroke-width: 1; opacity: 0.7; vector-effect: non-scaling-stroke; }
+.sen-cursor { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink-dim); pointer-events: none; }
+.sen-vix { margin-bottom: 16px; }
+.sen-datos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sen-datos > div { display: flex; flex-direction: column; gap: 2px; }
+.sen-datos-label { font-size: 12px; color: var(--ink-dim); }
+.sen-datos b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.sen-explica h4 { font-size: 14px; margin: 16px 0 4px; }
+.sen-explica p, .sen-explica li { font-size: 14px; line-height: 1.6; }
+.sen-explica p { margin: 0 0 8px; }
+.sen-explica ul { margin: 0 0 8px; padding-left: 18px; }
+.sen-fuentes { margin-top: 12px !important; }
+@media (max-width: 1100px) {
+  .sen-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sen-dos { grid-template-columns: 1fr; }
+  .sen-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .sen-fases { gap: 4px; }
+  .sen-fase { padding: 6px; font-size: 12px; gap: 5px; }
+  .sen-kpi-valor { font-size: 24px; }
+  .sen-lienzo-alto { min-height: 240px; }
+  .sen-lienzo-alto .miedo-grafico { min-height: 218px; }
+  .sen-eje-sp { width: 38px; }
+}
+
 /* Búsqueda de ideas › Screener */
 .scr-filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0 12px; }
 .scr-filtros .field { margin-bottom: 10px; }

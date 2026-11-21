@@ -482,6 +482,12 @@ export async function obtenerMiedo() {
   return res.json();
 }
 
+export async function obtenerSentimiento() {
+  const res = await fetch('/api/sentimiento');
+  if (!res.ok) throw new Error('No se han podido descargar los datos de sentimiento.');
+  return res.json();
+}
+
 // propia: '&s=...' con el IBEX 35 cambiado en Listas de valores, o ''
 export async function obtenerMapa(lista, propia = '') {
   const res = await fetch(`/api/mapa?lista=${encodeURIComponent(lista)}${propia}`);
