@@ -22,6 +22,12 @@ export function fmtMoney(value, currency = 'EUR') {
   return nf({ style: 'currency', currency }).format(value);
 }
 
+// Euros sin decimales (vista Sencilla de Cartera): 2.018 € / +107 €
+export function fmtEuros(value, conSigno = false) {
+  if (value == null || isNaN(value)) return '—';
+  return nf({ style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0, ...(conSigno ? { signDisplay: 'exceptZero' } : {}) }).format(value);
+}
+
 export function fmtPercent(value) {
   if (value == null || isNaN(value)) return '—';
   const n = nf({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);

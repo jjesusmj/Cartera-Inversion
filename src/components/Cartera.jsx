@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtPercent, fmtNumber } from '../lib/format';
+import { fmtMoney, fmtCotizacion, fmtMoneySigned, fmtPercent, fmtNumber, fmtEuros } from '../lib/format';
 import { claseTono } from '../lib/tonos';
 import { useFxToday } from '../lib/useFxToday';
 import { tiposValoracion } from '../lib/costes';
@@ -139,20 +139,21 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
       {sencilla ? (
         <>
-          <p className="frase-cartera">
-            Tu cartera vale <b>{fmtMoney(totalValor)}</b>
-            {' · '}
-            <b className={claseSigno(totalPL)}>{fmtMoneySigned(totalPL)}</b> {totalPL >= 0 ? 'ganados' : 'perdidos'} sobre <b>{fmtMoney(totalCoste)}</b> invertidos
+          <div className="resumen-cartera">
+          <div className="rc-cifras">
+            <div className="rc-label">Tu cartera vale</div>
+            <div className="rc-valor">{fmtEuros(totalValor)}</div>
+            <div className="rc-linea">
+              <b className={claseSigno(totalPL)}>{fmtEuros(totalPL, true)} ({fmtPercent(totalPLPct)})</b> {totalPL >= 0 ? 'ganados' : 'perdidos'} sobre {fmtEuros(totalCoste)} invertidos
+            </div>
             {conHoy.length > 0 && (
-              <>
-                {' · '}Hoy <b className={claseSigno(totalHoyEUR)}>{fmtMoneySigned(totalHoyEUR)}</b>{' '}
-                <span className={claseTono(totalHoyPct, 'dia')}>{fmtPercent(totalHoyPct)}</span>
-              </>
+              <div className="rc-linea">Hoy: <b className={claseSigno(totalHoyEUR)}>{fmtEuros(totalHoyEUR, true)} ({fmtPercent(totalHoyPct)})</b></div>
             )}
-          </p>
+          </div>
           <div className="botones-grandes">
             <button className="btn btn-primary btn-grande" onClick={onNuevaCompra}>＋ Comprar</button>
             <button className="btn btn-grande btn-suave" onClick={() => setEligiendoVenta(true)} disabled={!filas.length}>− Vender</button>
+          </div>
           </div>
         </>
       ) : (
@@ -224,6 +225,7 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           abierta={desplegada}
           onAlternar={(s) => setDesplegada((d) => (d === s ? null : s))}
           propsDesplegable={propsDesplegable}
+          maxPeso={maxPeso}
         />
       ) : (
         <>
@@ -413,31 +415,53 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 }
 
 // Lista simple (vista Sencilla): valor, vale hoy y lo ganado hoy (modo Hoy) o en total; se despliega al tocar
-function ListaSimple({ modo, filas, abierta, onAlternar, propsDesplegable }) {
+function ListaSimple({ modo, filas, abierta, onAlternar, propsDesplegable, maxPeso }) {
   const hoy = modo === 'hoy';
   return (
     <div className="lista-simple" role="table" aria-label="Posiciones">
       <div className="ls-cabecera" role="row">
         <span role="columnheader">Valor</span>
+        <span role="columnheader" className="num ls-acciones">Acciones</span>
         <span role="columnheader" className="num">Vale hoy</span>
-        <span role="columnheader" className="num">{hoy ? 'Hoy' : 'Ganancia'}</span>
+        <span role="columnheader" className="num">{hoy ? 'Ganancia hoy' : 'Ganancia total'}</span>
+        <span aria-hidden="true" />
       </div>
       {filas.map((f) => {
         const abiertaEsta = abierta === f.symbol;
         const importe = hoy ? f.hoyEUR : f.plEUR;
         const pct = hoy ? f.hoyPct : f.plPct;
+        const acciones = fmtNumber(f.cantidad, f.cantidad % 1 ? 2 : 0);
         return (
           <div key={f.symbol} className={`ls-item ${abiertaEsta ? 'is-open' : ''} ${f.conAlerta ? 'row-alert' : ''}`}>
             <button className="ls-fila" role="row" aria-expanded={abiertaEsta} onClick={() => onAlternar(f.symbol)}>
               <span className="ls-valor">
                 <b>{f.symbol}</b>
                 <span className="ls-nombre">{f.name}</span>
+                {f.peso != null && (
+                  <span className="ls-peso" title={`${fmtNumber(f.peso, 1)} % de la cartera`}>
+                    <span style={{ width: `${maxPeso > 0 ? (f.peso / maxPeso) * 100 : 0}%` }} />
+                  </span>
+                )}
               </span>
-              <span className="num">{f.valorEUR != null ? fmtMoney(f.valorEUR) : '—'}</span>
+              <span className="num ls-acciones">
+                <b>{acciones}</b>
+                <span className="ls-pct ink-faint">acciones</span>
+              </span>
+              <span className="num">
+                <b>{f.valorEUR != null ? fmtEuros(f.valorEUR) : '—'}</b>
+                {f.precioActual != null && (
+                  <span className="ls-pct ink-faint">
+                    {fmtCotizacion(f.precioActual, f.currency)}{' '}
+                    {f.hoyPct != null && <span className={claseSigno(f.hoyPct)}>{fmtPercent(f.hoyPct)}</span>}
+                  </span>
+                )}
+                <span className="ls-pct ink-faint ls-acc-movil">{acciones} acc.</span>
+              </span>
               <span className={`num ${claseSigno(importe)}`}>
-                {importe != null ? fmtMoneySigned(importe) : '—'}
-                {pct != null && <span className={`ls-pct ${claseTono(pct, hoy ? 'dia' : 'total')}`}>{fmtPercent(pct)}</span>}
+                <b>{importe != null ? fmtEuros(importe, true) : '—'}</b>
+                {pct != null && <span className={`ls-pct ${hoy ? claseSigno(pct) : 'ink-faint'}`}>{fmtPercent(pct)}</span>}
               </span>
+              <span className="ls-flecha" aria-hidden="true">›</span>
             </button>
             {abiertaEsta && (
               <div className="ls-detalle">
