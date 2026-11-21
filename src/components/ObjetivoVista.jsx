@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { fmtMoneySigned, fmtPercent, fmtCotizacion, fmtNumber } from '../lib/format';
-import { resumirObjetivos, esAviso } from '../lib/objetivo';
+import { resumirObjetivos, esAviso, avisoObjetivo } from '../lib/objetivo';
 import BarraNiveles from './BarraNiveles';
 
 function claseSigno(v) {
@@ -84,13 +84,24 @@ export default function ObjetivoVista({ filas, comision, onCambiarComision, onAb
   );
 }
 
-function Chip({ o }) {
-  if (o.estado === 'stop') return <span className="obj-chip obj-chip-alerta">Stop superado</span>;
-  if (o.estado === 'alcanzado') return <span className="obj-chip obj-chip-alerta">Alcanzado · revisar</span>;
-  if (o.estado === 'cerca') return <span className="obj-chip obj-chip-cerca">{fmtNumber(o.progreso, 0)} % · cerca</span>;
-  if (o.estado === 'recuperacion') return <span className="obj-chip obj-chip-neutro">Recuperación</span>;
-  if (o.estado === 'normal') return <span className="obj-chip obj-chip-ok">{fmtNumber(Math.max(o.progreso, 0), 0)} %</span>;
-  return null;
+// Arriba a la derecha: lo que ganas o pierdes en € frente a la compra
+function Chip({ f }) {
+  if (f.plPct == null) return null;
+  return <span className={`obj-pct ${claseSigno(f.plPct)}`}>{f.plPct > 0 ? '+' : ''}{fmtNumber(f.plPct, 1)} %</span>;
+}
+
+const COLOR_AVISO = { stopGanando: 'ambar', stopPerdiendo: 'rojo', alcanzado: 'verde', cerca: 'verde' };
+
+function TextoAviso({ tipo, f }) {
+  const o = f.obj;
+  const stop = fmtCotizacion(f.stopPrice, f.currency);
+  if (tipo === 'stopGanando') return <>Has bajado de tu stop ({stop}) pero sigues ganando. Revisa: vende o ajusta el stop.</>;
+  if (tipo === 'stopPerdiendo') {
+    const debajo = f.precioActual && f.stopPrice ? (1 - f.precioActual / f.stopPrice) * 100 : null;
+    return <>{debajo != null && debajo >= 0.5 ? `Estás un ${fmtNumber(debajo, 0)} % por debajo de tu stop` : 'Has bajado de tu stop'} ({stop}). Revisa: vende o baja el stop.</>;
+  }
+  if (tipo === 'alcanzado') return <>Has llegado a tu objetivo ({fmtCotizacion(f.targetPrice, f.currency)}). Revisa: vende o súbelo.</>;
+  return <>Cerca de tu objetivo: falta un {fmtNumber(Math.abs(o.faltaPct), 1)} %.</>;
 }
 
 function TarjetaObjetivo({ f, onAbrir }) {
@@ -108,23 +119,25 @@ function TarjetaObjetivo({ f, onAbrir }) {
   }
 
   const enDivisa = f.currency !== 'EUR';
-  const alerta = o.estado === 'stop' || o.estado === 'alcanzado';
+  const aviso = avisoObjetivo(o, f.plEUR);
+  const color = aviso ? COLOR_AVISO[aviso] : null;
   const etiquetas = [
     { pos: o.barra.compra, texto: `Compra ${fmtCotizacion(f.precioMedio, f.currency)}` },
+    { pos: o.barra.stop, texto: `Stop ${fmtCotizacion(f.stopPrice, f.currency)}`, clase: 'loss' },
     { pos: o.barra.objetivo, texto: fmtCotizacion(f.targetPrice, f.currency), clase: 'gain' },
   ];
 
   return (
-    <button className={`obj-card ${alerta ? 'obj-card-alerta' : ''}`} onClick={onAbrir}>
+    <button className={`obj-card ${color === 'rojo' ? 'obj-card-alerta' : color ? `obj-card-${color}` : ''}`} onClick={onAbrir}>
       <div className="obj-card-top">
         <div>
           <div className="obj-card-symbol">{f.symbol}</div>
           <div className="obj-card-name">{f.name} · {fmtCantidad(f.cantidad)} acc.{enDivisa ? ` · ${f.currency} → €` : ''}</div>
         </div>
-        <Chip o={o} />
+        <Chip f={f} />
       </div>
 
-      <BarraNiveles pos={o.barra} precioActual={fmtCotizacion(f.precioActual, f.currency)} etiquetas={etiquetas} />
+      <BarraNiveles pos={o.barra} precioActual={fmtCotizacion(f.precioActual, f.currency)} etiquetas={etiquetas} apilar />
 
       <div className="obj-cells">
         <div>
@@ -144,16 +157,13 @@ function TarjetaObjetivo({ f, onAbrir }) {
         </div>
       </div>
 
-      {f.stopPrice != null && (o.stopSaltado ? (
-        <div className="obj-stop">
-          <span>Por debajo de tu stop ({fmtCotizacion(f.stopPrice, f.currency)}). Vendiendo en el stop: <b className={claseSigno(o.stopEUR)}>{fmtMoneySigned(o.stopEUR)}</b></span>
-        </div>
-      ) : (
+      {aviso && <div className={`obj-aviso-caja obj-aviso-${color}`}><TextoAviso tipo={aviso} f={f} /></div>}
+      {(!aviso || aviso === 'cerca') && f.stopPrice != null && (
         <div className="obj-stop">
           <span>Stop {fmtCotizacion(f.stopPrice, f.currency)} · si salta: <b className={claseSigno(o.stopEUR)}>{fmtMoneySigned(o.stopEUR)}</b></span>
           {o.ratioRB != null && <span>Riesgo/benef. <b>1 : {fmtNumber(o.ratioRB, 1)}</b></span>}
         </div>
-      ))}
+      )}
       {o.estado === 'recuperacion' && <div className="obj-nota">Objetivo por debajo del precio de compra: vendes con una pérdida menor.</div>}
     </button>
   );

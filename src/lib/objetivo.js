@@ -90,6 +90,15 @@ export function calcularObjetivo({ cantidad, precioMedio, precioActual, rate, co
   return { estado, stopSaltado, hoy, brutoEUR, comision, impuesto, netoEUR, faltaEUR, faltaPct, progreso, stopEUR, ratioRB, barra };
 }
 
+// Aviso de la tarjeta de Objetivo. Con el stop superado, el color depende de si
+// ahora ganas o pierdes en € (plEUR), no de dónde está el stop frente a la compra.
+export function avisoObjetivo(o, plEUR) {
+  if (o.estado === 'stop') return plEUR != null && plEUR >= 0 ? 'stopGanando' : 'stopPerdiendo';
+  if (o.estado === 'alcanzado') return 'alcanzado';
+  if (o.estado === 'cerca') return 'cerca';
+  return null;
+}
+
 // Totales. Los tramos se aplican sobre la suma, así que las pérdidas
 // compensan las ganancias y el total paga más que cada posición "sola":
 // el total no coincide con la suma de los netos de cada fila.

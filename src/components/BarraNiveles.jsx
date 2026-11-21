@@ -9,6 +9,7 @@ import React from 'react';
 //   precioActual: texto del globo (o null para no mostrarlo)
 //   etiquetas: [{ pos, texto, clase }]  (debajo de la barra)
 //   tramos: true para pintar ganado / falta / riesgo
+//   apilar: true para poner en otra fila las etiquetas que se pisarían (en vez de apartarlas)
 
 const escala = (p) => 6 + 0.88 * p;
 const ANCHO_ETIQUETA = 32; // % aproximado que ocupa una etiqueta
@@ -32,6 +33,21 @@ function colocarEtiquetas(etiquetas) {
   return orden;
 }
 
+// Cada etiqueta bajo su marca; si pisa a otra de su fila, baja a la fila siguiente
+function apilarEtiquetas(etiquetas) {
+  const filas = [];
+  return etiquetas
+    .filter((e) => e.pos != null)
+    .map((e) => ({ ...e, centro: Math.min(100 - ANCHO_ETIQUETA / 2, Math.max(ANCHO_ETIQUETA / 2, escala(e.pos))) }))
+    .sort((a, b) => a.centro - b.centro)
+    .map((e) => {
+      let fila = filas.findIndex((ultimo) => e.centro - ultimo >= ANCHO_ETIQUETA);
+      if (fila === -1) fila = filas.length;
+      filas[fila] = e.centro;
+      return { ...e, fila };
+    });
+}
+
 function Bandera({ pos, color = 'var(--gain)' }) {
   return (
     <svg className="nv-flag" style={{ left: `${escala(pos)}%` }} width="16" height="30" viewBox="0 0 16 30" aria-hidden="true">
@@ -49,12 +65,14 @@ function Tramo({ desde, hasta, clase }) {
   return <div className={`nv-seg ${clase}`} style={{ left: `${a}%`, width: `${b - a}%` }} />;
 }
 
-export default function BarraNiveles({ pos, precioActual, etiquetas = [], tramos = true, analistas = false }) {
+export default function BarraNiveles({ pos, precioActual, etiquetas = [], tramos = true, analistas = false, apilar = false }) {
   const sube = pos.actual >= pos.compra;
   const globo = Math.min(88, Math.max(12, escala(pos.actual)));
+  const colocadas = apilar ? apilarEtiquetas(etiquetas) : colocarEtiquetas(etiquetas);
+  const filasExtra = Math.max(0, ...colocadas.map((e) => e.fila || 0));
 
   return (
-    <div className={`nv-bar ${precioActual ? '' : 'nv-bar-sin-globo'}`} aria-hidden="true">
+    <div className={`nv-bar ${precioActual ? '' : 'nv-bar-sin-globo'}`} style={filasExtra ? { height: `calc(var(--nv-alto) + ${filasExtra * 15}px)` } : undefined} aria-hidden="true">
       <div className="nv-rail" />
       {analistas && pos.min != null && pos.max != null && <Tramo desde={pos.min} hasta={pos.max} clase="nv-banda" />}
       {tramos && pos.stop != null && pos.stop < pos.compra && pos.actual > pos.stop && <Tramo desde={pos.stop} hasta={pos.compra} clase="nv-riesgo" />}
@@ -70,8 +88,8 @@ export default function BarraNiveles({ pos, precioActual, etiquetas = [], tramos
       {analistas && pos.media != null && <div className="nv-media" style={{ left: `${escala(pos.media)}%` }} />}
       <div className="nv-dot" style={{ left: `${escala(pos.actual)}%` }} />
 
-      {colocarEtiquetas(etiquetas).map((e, i) => (
-        <div key={i} className={`nv-label ${e.clase || ''}`} style={{ left: `${e.centro}%` }}>{e.texto}</div>
+      {colocadas.map((e, i) => (
+        <div key={i} className={`nv-label ${e.clase || ''}`} style={{ left: `${e.centro}%`, ...(e.fila ? { marginTop: `${e.fila * 15}px` } : {}) }}>{e.texto}</div>
       ))}
     </div>
   );

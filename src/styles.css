@@ -1420,6 +1420,13 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 .obj-chip-cerca { background: var(--warn-bg); color: var(--warn); }
 .obj-chip-alerta { background: var(--loss-bg); color: #9b1f1f; }
 .obj-chip-neutro { background: var(--bg-inset); color: var(--ink-dim); }
+.obj-pct { font-size: 15px; font-weight: 700; white-space: nowrap; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.obj-card-ambar { border-color: rgba(224, 168, 0, 0.7); }
+.obj-card-verde { border-color: rgba(27, 122, 67, 0.5); }
+.obj-aviso-caja { font-size: 12.5px; line-height: 1.45; border-radius: 8px; padding: 8px 10px; }
+.obj-aviso-rojo { background: var(--loss-bg); color: #9b1f1f; }
+.obj-aviso-ambar { background: var(--warn-bg); color: var(--warn); }
+.obj-aviso-verde { background: var(--gain-bg); color: var(--gain); }
 
 
 .obj-resumen-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 6px 0 12px; }
@@ -1437,8 +1444,8 @@ td.cell-link:hover .symbol { text-decoration: underline; }
 .obj-nota { font-size: 11px; color: var(--ink-dim); }
 
 /* Barra de niveles (Objetivo y Analistas) */
-.nv-bar { position: relative; height: 84px; }
-.nv-bar-sin-globo { height: 34px; }
+.nv-bar { --nv-alto: 84px; position: relative; height: var(--nv-alto); }
+.nv-bar-sin-globo { --nv-alto: 34px; }
 .nv-rail, .nv-seg { position: absolute; top: 36px; height: 10px; }
 .nv-rail { left: 0; right: 0; background: var(--bg-inset); border-radius: 5px; }
 .nv-bar-sin-globo .nv-rail, .nv-bar-sin-globo .nv-seg { top: 12px; }

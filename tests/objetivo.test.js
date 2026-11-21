@@ -1,7 +1,7 @@
 // Rentabilidad frente al objetivo. Ejecutar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularObjetivo, resumirObjetivos, impuestoAhorro } from '../src/lib/objetivo.js';
+import { calcularObjetivo, resumirObjetivos, impuestoAhorro, avisoObjetivo } from '../src/lib/objetivo.js';
 
 const cerca = (real, esperado, msg) => assert.ok(Math.abs(real - esperado) < 0.01, `${msg}: ${real} frente a ${esperado}`);
 
@@ -119,4 +119,24 @@ test('tu objetivo frente a los analistas', async () => {
   const sin = compararAnalistas({ precioMedio: 45, precioActual: 53.86, objetivo: null, analistas: { mean: 60.39, low: 41.5, high: 67 } });
   assert.equal(sin.tu, null);
   assert.equal(sin.aviso, null);
+});
+
+test('aviso: stop superado en ámbar si ganas, en rojo si pierdes', () => {
+  // TEF: compra 3,185, stop 3,380, cotiza 3,363 → stop superado y ganando
+  const tef = calcularObjetivo({ cantidad: 600, precioMedio: 3.185, precioActual: 3.363, rate: 1, costeEUR: 1911, targetPrice: 3.485, stopPrice: 3.38 });
+  assert.equal(tef.estado, 'stop');
+  assert.equal(avisoObjetivo(tef, 106.8), 'stopGanando');
+  // ORCL: stop por debajo de la compra y precio muy por debajo del stop → perdiendo
+  const orcl = calcularObjetivo({ cantidad: 25, precioMedio: 149.69, precioActual: 101.19, rate: 0.91, costeEUR: 3253, targetPrice: 200, stopPrice: 145 });
+  assert.equal(orcl.estado, 'stop');
+  assert.equal(avisoObjetivo(orcl, -948.42), 'stopPerdiendo');
+});
+
+test('aviso: objetivo alcanzado, cerca y sin aviso', () => {
+  const alc = calcularObjetivo({ cantidad: 1888, precioMedio: 1.685, precioActual: 4.885, rate: 1, costeEUR: 3181.28, targetPrice: 4.5 });
+  assert.equal(avisoObjetivo(alc, 6000), 'alcanzado');
+  const cer = calcularObjetivo({ cantidad: 1150, precioMedio: 2.16, precioActual: 12.886, rate: 1, costeEUR: 2484, targetPrice: 13.5 });
+  assert.equal(avisoObjetivo(cer, 12000), 'cerca');
+  const normal = calcularObjetivo({ cantidad: 14, precioMedio: 159.22, precioActual: 144.91, rate: 0.91, costeEUR: 1986, targetPrice: 184 });
+  assert.equal(avisoObjetivo(normal, -138), null);
 });
