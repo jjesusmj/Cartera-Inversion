@@ -3,7 +3,8 @@
 // de sectores) y el diferencial high yield de FRED, calcula los 5 indicadores y el índice,
 // y devuelve los 2 últimos años. Se guarda 1 hora en memoria y en la caché de Vercel.
 
-import { yahooJson, pedir, UA_NAVEGADOR } from '../_yahoo.js';
+import { yahooJson } from '../_yahoo.js';
+import { serieFred } from '../_fred.js';
 import { calcularMiedo } from '../../src/lib/miedo.js';
 
 const SECTORES = ['XLK', 'XLV', 'XLF', 'XLY', 'XLP', 'XLI', 'XLE', 'XLU', 'XLRE', 'XLB', 'XLC'];
@@ -23,14 +24,9 @@ async function serie(sym, ajustado = false) {
   return m;
 }
 
-async function highYield() {
-  const res = await pedir('https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2', { headers: { 'User-Agent': UA_NAVEGADOR } });
-  return (await res.text()).trim().split('\n').slice(1).map((l) => l.split(',')).filter(([, v]) => v && v !== '.').map(([f, v]) => [f, parseFloat(v)]);
-}
-
 async function calcular() {
   const [gspc, vix, spy, tlt, hy, ...sec] = await Promise.all([
-    serie('^GSPC'), serie('^VIX'), serie('SPY', true), serie('TLT', true), highYield(), ...SECTORES.map((s) => serie(s)),
+    serie('^GSPC'), serie('^VIX'), serie('SPY', true), serie('TLT', true), serieFred('BAMLH0A0HYM2'), ...SECTORES.map((s) => serie(s)),
   ]);
   const fechas = [...gspc.keys()].sort();
   const col = (m) => fechas.map((f) => m.get(f) ?? null);

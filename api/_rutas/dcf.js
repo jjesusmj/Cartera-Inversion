@@ -6,7 +6,8 @@
 // Los importes van en la moneda de las cuentas (`moneda`); si no coincide con la de la
 // cotización, `fx` es cuántas unidades de la cotización vale una de las cuentas, al cambio de hoy.
 
-import { yahooJson, pedir, UA_NAVEGADOR } from '../_yahoo.js';
+import { yahooJson } from '../_yahoo.js';
+import { serieFred } from '../_fred.js';
 
 const TIPOS = {
   ventas: 'annualTotalRevenue',
@@ -58,10 +59,9 @@ export async function ultimoCierre(sym) {
 }
 
 async function bund() {
-  const res = await pedir('https://fred.stlouisfed.org/graph/fredgraph.csv?id=IRLTLT01DEM156N', { headers: { 'User-Agent': UA_NAVEGADOR } });
-  const filas = (await res.text()).trim().split('\n').slice(1).map((l) => l.split(',')).filter(([, v]) => v && v !== '.');
+  const filas = await serieFred('IRLTLT01DEM156N');
   const [fecha, v] = filas[filas.length - 1];
-  return { valor: parseFloat(v) / 100, fecha, fuente: 'Bund alemán a 10 años (OCDE, vía FRED, media mensual)' };
+  return { valor: v / 100, fecha, fuente: 'Bund alemán a 10 años (OCDE, vía FRED, media mensual)' };
 }
 
 export async function tipoLibre(monedaPrecio) {
