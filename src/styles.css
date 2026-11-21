@@ -2432,6 +2432,7 @@ tr.ficha-row > td { padding: 0 !important; }
 
 /* Cartera: vista Sencilla */
 .segmented.vista-toggle { margin: 0 0 12px; }
+.cartera-selectores { display: flex; flex-wrap: wrap; gap: 0 10px; align-items: flex-start; }
 .frase-cartera { font-size: 15px; line-height: 1.6; margin: 4px 0 14px; color: var(--ink); }
 .frase-cartera .chip-tono { vertical-align: 1px; }
 .botones-grandes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 16px; max-width: 520px; }
@@ -2485,7 +2486,6 @@ tr.ficha-row > td { padding: 0 !important; }
 .hoy-fila:hover, .hoy-fila:focus-visible { background: var(--bg-raised); }
 .hoy-fila.sin-dato { cursor: default; color: var(--ink-dim); }
 .hoy-fila .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.hoy-fila .chip-tono { justify-self: end; }
 .hoy-ticker { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hoy-pista { position: relative; height: 14px; }
 .hoy-pista::before { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line); }
@@ -2501,11 +2501,11 @@ tr.ficha-row > td { padding: 0 !important; }
 .mapa-aviso { min-height: 40px; margin-top: 8px; font-size: 13px; line-height: 1.5; }
 @media (max-width: 900px) {
   .hoy-grid { grid-template-columns: 1fr; }
+  .hoy-grid > section:last-child { order: -1; } /* en el móvil, primero el mapa */
   .mapa { aspect-ratio: 1 / 1; }
 }
 @media (max-width: 420px) {
   .hoy-fila { grid-template-columns: 54px minmax(0, 1fr) 76px 70px; gap: 6px; font-size: 12px; }
-  .hoy-fila .chip-tono { font-size: 11.5px; }
 }
 
 /* Resumen › Dividendos */

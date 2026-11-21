@@ -15,6 +15,7 @@ import ExchangeFilter from './ExchangeFilter';
 import ObjetivoVista from './ObjetivoVista';
 import AnalistasVista from './AnalistasVista';
 import ZonaBar from './ZonaBar';
+import { GraficosPosiciones } from './ResumenHoy';
 
 function agruparPorSimbolo(openLots) {
   const grupos = {};
@@ -52,6 +53,14 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
   const sencilla = vista === 'sencilla';
   const [eligiendoVenta, setEligiendoVenta] = useState(false);
   const [desplegada, setDesplegada] = useState(null); // fila abierta en la lista simple
+  // Sencilla › Hoy y Total: en lista o en gráficos (barras y mapa); cada dispositivo lo recuerda
+  const [presenta, setPresentaState] = useState(() => {
+    try { return localStorage.getItem('cartera_presenta') === 'graficos' ? 'graficos' : 'lista'; } catch { return 'lista'; }
+  });
+  function setPresenta(v) {
+    try { localStorage.setItem('cartera_presenta', v); } catch { /* sin almacenamiento */ }
+    setPresentaState(v);
+  }
 
   const grupos = useMemo(() => agruparPorSimbolo(openLots), [openLots]);
   const fxBce = useFxToday(grupos.map((g) => g.currency));
@@ -191,7 +200,17 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
 
       <ZonaBar lotes={todosLosLotes} prices={prices} fx={fx} exchangeFilter={exchangeFilter} onCambiarExchangeFilter={onCambiarExchangeFilter} />
 
-      {filas.length > 0 && sencilla && <SelectorModo modo={modo} setModo={setModo} />}
+      {filas.length > 0 && sencilla && (
+        <div className="cartera-selectores">
+          <SelectorModo modo={modo} setModo={setModo} />
+          {!vistaEspecial && (
+            <div className="segmented segmented-global val-filtro" role="tablist" aria-label="Cómo verlo">
+              <button role="tab" aria-selected={presenta === 'lista'} className={presenta === 'lista' ? 'active' : ''} onClick={() => setPresenta('lista')}>Lista</button>
+              <button role="tab" aria-selected={presenta === 'graficos'} className={presenta === 'graficos' ? 'active' : ''} onClick={() => setPresenta('graficos')}>Gráficos</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {filas.length > 0 && !sencilla && (
         <div className="obj-toggle table-only-desktop" role="tablist" aria-label="Vista">
@@ -218,6 +237,8 @@ export default function Cartera({ openLots, todosLosLotes, exchangeFilter, onCam
           onCambiarComision={onCambiarComisionObjetivo}
           onAbrir={miPosicionDe}
         />
+      ) : sencilla && presenta === 'graficos' ? (
+        <GraficosPosiciones filas={filasSinOrdenar} modo={modo} onAbrir={abrirMiPosicion} />
       ) : sencilla ? (
         <ListaSimple
           modo={modo}

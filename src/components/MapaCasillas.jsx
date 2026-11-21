@@ -3,12 +3,12 @@ import { fmtPercent } from '../lib/format';
 import { tono } from '../lib/tonos';
 import { repartirMapa } from '../lib/mapa';
 
-// Mapa de casillas (treemap): tamaño por `valor`, color por el cambio de hoy (`pct`, escala de 5 tonos).
+// Mapa de casillas (treemap): tamaño por `valor`, color por `pct` (escala de 5 tonos; contexto 'dia' o 'total').
 // Ratón: al pasar se ve el detalle y el clic abre la ficha. Dedo: el primer toque enseña
 // el detalle y el segundo abre la ficha.
 // items: [{ symbol, name, valor, pct }]; detalle(item) devuelve lo que se ve bajo el mapa;
 // etiqueta(item), el texto de la casilla.
-export default function MapaCasillas({ items, onAbrir, detalle, ayuda, etiqueta = (f) => f.symbol }) {
+export default function MapaCasillas({ items, onAbrir, detalle, ayuda, etiqueta = (f) => f.symbol, contexto = 'dia' }) {
   const ref = useRef(null);
   const [tam, setTam] = useState({ w: 0, h: 0 });
   const [elegida, setElegida] = useState(null);
@@ -35,7 +35,7 @@ export default function MapaCasillas({ items, onAbrir, detalle, ayuda, etiqueta 
     <>
       <div className="mapa" ref={ref} onMouseLeave={() => !tactil.current && setElegida(null)}>
         {casillas.map(({ x, y, w, h, item: f }) => {
-          const t = tono(f.pct, 'dia');
+          const t = tono(f.pct, contexto);
           return (
             <button
               key={f.symbol}
@@ -44,7 +44,7 @@ export default function MapaCasillas({ items, onAbrir, detalle, ayuda, etiqueta 
               onPointerDown={(e) => { tactil.current = e.pointerType !== 'mouse'; }}
               onMouseEnter={() => !tactil.current && setElegida(f.symbol)}
               onClick={() => pulsar(f)}
-              aria-label={`${f.symbol}: ${f.pct != null ? fmtPercent(f.pct) : 'sin dato'} hoy`}
+              aria-label={`${f.symbol}: ${f.pct != null ? fmtPercent(f.pct) : 'sin dato'} ${contexto === 'total' ? 'en total' : 'hoy'}`}
             >
               {w >= 34 && h >= 18 && <span className="mapa-ticker">{etiqueta(f)}</span>}
               {w >= 56 && h >= 36 && f.pct != null && <span className="mapa-pct">{fmtPercent(f.pct)}</span>}
