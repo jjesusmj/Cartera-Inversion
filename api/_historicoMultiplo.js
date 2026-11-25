@@ -151,6 +151,8 @@ export const TIPOS_YAHOO_HIST = [
   'trailingDilutedEPS',
   'annualFreeCashFlow',
   'trailingFreeCashFlow',
+  'annualNetIncomeCommonStockholders',
+  'trailingNetIncomeCommonStockholders',
   'annualOrdinarySharesNumber',
   'quarterlyOrdinarySharesNumber',
 ];
@@ -195,7 +197,7 @@ function accionesCerca(series, fecha) {
  * BPA: el de 12 meses de cada trimestre (trailingDilutedEPS, unos 3 años) y el anual (unos 4).
  * FCF por acción: FCF / acciones del balance más cercano, ajustadas por splits.
  */
-export function historicoDesdeYahoo(series, { splits = [], fx = 1, accionesActuales = null } = {}) {
+export function historicoDesdeYahoo(series, { splits = [], fx = 1, fxFcf = fx, accionesActuales = null } = {}) {
   const avisos = ['Con datos de Yahoo el histórico es corto (unos 4 años).'];
   const anualBpa = ajustarSplitsPorContinuidad(
     (series.annualDilutedEPS || []).map((e) => ({ fin: e.fecha, val: e.valor })),
@@ -218,14 +220,33 @@ export function historicoDesdeYahoo(series, { splits = [], fx = 1, accionesActua
   }));
   const bpaAnual = anualBpa.map((p) => ({ fin: p.fin, val: r4(p.val * fx) }));
 
+  // FCF por acción en la misma base que el BPA (divisa, ADR y splits): FCF × BPA / beneficio
+  // del mismo periodo. Si no hay beneficio útil, FCF / acciones del balance más cercano.
   const ref = accionesActuales ?? ultimo(series.quarterlyOrdinarySharesNumber)?.valor ?? ultimo(series.annualOrdinarySharesNumber)?.valor ?? null;
+  const bpaEn = new Map([...ttm.map((p) => [p.fin, p.val])]);
+  const beneficios = [...(series.trailingNetIncomeCommonStockholders || []), ...(series.annualNetIncomeCommonStockholders || [])];
+  const ratioEn = (fecha) => {
+    const ni = beneficios.find((x) => x.fecha === fecha);
+    const e = bpaEn.get(fecha);
+    if (!ni || !esNum(e) || !esNum(ni.valor) || Math.abs(ni.valor) < 1) return null;
+    const r = e / ni.valor;
+    return r > 0 ? r : null;
+  };
+  // Ratio de respaldo: el del último año con beneficio y BPA del mismo signo
+  const respaldo = [...anualBpa].reverse().map((p) => ratioEn(p.fin)).find((r) => r != null) ?? null;
   const fcfPorFin = new Map();
+  const anualesFcf = new Set((series.annualFreeCashFlow || []).map((x) => x.fecha));
   for (const e of [...(series.trailingFreeCashFlow || []), ...(series.annualFreeCashFlow || [])]) {
-    const a = accionesCerca(series, e.fecha);
-    const n = a ? aBaseActual(a.valor, a.fecha, splits, ref) : ref;
-    if (!esNum(n) || n <= 0) continue;
-    const anual = (series.annualFreeCashFlow || []).some((x) => x.fecha === e.fecha);
-    fcfPorFin.set(e.fecha, { fin: e.fecha, disp: estimada(e.fecha, anual ? RETRASO_ANUAL : RETRASO_TRIMESTRE), val: r4((e.valor / n) * fx) });
+    let val = null;
+    const r = ratioEn(e.fecha) ?? respaldo;
+    if (r != null) val = e.valor * r * fx;
+    else {
+      const a = accionesCerca(series, e.fecha);
+      const n = a ? aBaseActual(a.valor, a.fecha, splits, ref) : ref;
+      if (esNum(n) && n > 0) val = (e.valor / n) * fxFcf;
+    }
+    if (!esNum(val)) continue;
+    fcfPorFin.set(e.fecha, { fin: e.fecha, disp: estimada(e.fecha, anualesFcf.has(e.fecha) ? RETRASO_ANUAL : RETRASO_TRIMESTRE), val: r4(val) });
   }
   const fcfAccion = [...fcfPorFin.values()].sort((a, b) => (a.fin < b.fin ? -1 : 1));
   return { bpa, fcfAccion, bpaAnual, avisos };

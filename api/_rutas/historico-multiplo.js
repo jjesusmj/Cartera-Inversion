@@ -54,7 +54,7 @@ async function tipoCambio(desde, hasta) {
 const segundos = (fecha) => Math.floor(new Date(fecha + 'T00:00:00Z').getTime() / 1000);
 
 export default async function handler(req, res) {
-  const { symbol, currency, market, debug } = req.query;
+  const { symbol, currency, market, debug, resumen: soloResumen } = req.query;
   if (!symbol) return res.status(400).json({ error: 'Falta el parámetro symbol' });
   const esUS = market === 'us';
   const sym = esUS ? symbol.replace('.', '-') : symbol;
@@ -108,14 +108,22 @@ export default async function handler(req, res) {
 
     // Una empresa que cambió de entidad en la SEC puede tener muy pocos datos: se prueba Yahoo
     const desdeYahoo = async () => {
-      const url =
-        `https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(sym)}` +
-        `?symbol=${encodeURIComponent(sym)}&type=${TIPOS_YAHOO_HIST.join(',')}&period1=${ahora - 12 * 365 * 86400}&period2=${ahora}&merge=false&padTimeSeries=true`;
-      const series = seriesYahoo(await yahooJson(url));
-      const divisaInformes =
-        series.annualDilutedEPS?.slice(-1)[0]?.divisa || series.annualFreeCashFlow?.slice(-1)[0]?.divisa || resumen?.financialData?.financialCurrency || divisaPrecio;
-      const fx = await tipoCambio(typeof divisaInformes === 'string' ? divisaInformes : divisaPrecio, divisaPrecio);
-      return historicoDesdeYahoo(series, { splits, fx, accionesActuales: resumen?.defaultKeyStatistics?.sharesOutstanding?.raw ?? null });
+      // Yahoo recorta las series si se mezclan anuales y trimestrales en una petición: van por separado
+      const pedirTipos = (tipos) =>
+        yahooJson(
+          `https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(sym)}` +
+            `?symbol=${encodeURIComponent(sym)}&type=${tipos.join(',')}&period1=${ahora - 12 * 365 * 86400}&period2=${ahora}&merge=false&padTimeSeries=true`
+        ).then(seriesYahoo);
+      const [anuales, trimestrales] = await Promise.all([
+        pedirTipos(TIPOS_YAHOO_HIST.filter((x) => x.startsWith('annual'))),
+        pedirTipos(TIPOS_YAHOO_HIST.filter((x) => !x.startsWith('annual'))),
+      ]);
+      const series = { ...anuales, ...trimestrales };
+      const divisaFinanciera = typeof resumen?.financialData?.financialCurrency === 'string' ? resumen.financialData.financialCurrency : null;
+      const divisaBpa = series.annualDilutedEPS?.slice(-1)[0]?.divisa || divisaFinanciera || divisaPrecio;
+      const divisaFcf = series.annualFreeCashFlow?.slice(-1)[0]?.divisa || divisaFinanciera || divisaPrecio;
+      const [fx, fxFcf] = await Promise.all([tipoCambio(divisaBpa, divisaPrecio), tipoCambio(divisaFcf, divisaPrecio)]);
+      return historicoDesdeYahoo(series, { splits, fx, fxFcf, accionesActuales: resumen?.defaultKeyStatistics?.sharesOutstanding?.raw ?? null });
     };
     if (!datos) {
       datos = await desdeYahoo();
@@ -166,6 +174,8 @@ export default async function handler(req, res) {
       avisos: [...avisos, ...(datos.avisos || [])],
       fetchedAt: new Date().toISOString(),
     };
+    // &resumen=1: sin la serie de precios (para revisar datos)
+    if (soloResumen === '1') salida.precios = salida.precios.length;
     if (debug === '1') salida.debug = { yahooSymbol: sym, crumb: hayCrumb(), puntosPrecio: precios.length, conceptosBpa: datos.conceptosBpa };
 
     // Los beneficios cambian una vez por trimestre; el precio, a diario: caché de 6 horas
