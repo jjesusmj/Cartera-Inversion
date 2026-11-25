@@ -494,3 +494,16 @@ export async function obtenerMapa(lista, propia = '') {
   if (!res.ok) throw new Error('Yahoo no ha devuelto los datos del mapa.');
   return res.json();
 }
+
+// Histórico de PER y P/FCF (Valoración › Histórico de la ficha). Se guarda mientras la app siga abierta.
+const cacheHistoricoMultiplo = new Map();
+export async function obtenerHistoricoMultiplo(symbol, currency, market) {
+  const clave = `${symbol}|${currency}|${market}`;
+  if (cacheHistoricoMultiplo.has(clave)) return cacheHistoricoMultiplo.get(clave);
+  const res = await fetch(`/api/historico-multiplo?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency || '')}&market=${encodeURIComponent(market || '')}`);
+  if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+  const d = await res.json();
+  if (d.error) throw new Error(d.error);
+  cacheHistoricoMultiplo.set(clave, d);
+  return d;
+}

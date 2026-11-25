@@ -7,6 +7,7 @@ import { FichaResultados, FichaDividendos } from './FichaFinanzas';
 import { FichaDirectivos } from './Insiders';
 import { DetalleValoracionCuerpo } from './Valoracion';
 import FichaDCF from './FichaDCF';
+import FichaHistoricoMultiplo from './FichaHistoricoMultiplo';
 import {
   obtenerCotizaciones,
   obtenerPerfiles,
@@ -65,7 +66,10 @@ export const SECCIONES = [
   {
     id: 'valoracion',
     label: 'Valoración',
-    subs: [{ id: 'justo', label: 'Valor justo' }],
+    subs: [
+      { id: 'justo', label: 'Valor justo' },
+      { id: 'historico', label: 'Histórico PER / P/FCF' },
+    ],
   },
   {
     id: 'analistas',
@@ -299,6 +303,8 @@ export default function FichaValor({
           />
         ) : subsec.id === 'justo' ? (
           <ValorJusto symbol={symbol} currency={currency} exchangeId={exchangeId} precio={q?.price ?? null} perfil={perfil} owner={owner} />
+        ) : subsec.id === 'historico' ? (
+          <FichaHistoricoMultiplo symbol={symbol} currency={currency} exchangeId={exchangeId} perfil={perfil} objetivo={ajuste.targetPrice ?? null} />
         ) : null}
       </div>
     </div>

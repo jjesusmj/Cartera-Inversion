@@ -2954,3 +2954,50 @@ tr.ficha-row > td { padding: 0 !important; }
 .qrow.is-open { background: var(--bg-raised); }
 .qrow-desp { padding: 4px 12px 14px; background: var(--bg-raised); border-bottom: 1px solid var(--line-soft); }
 .qrow-desp.row-alert { background: var(--warn-bg); }
+
+/* ---------- Ficha › Valoración › Histórico PER / P/FCF ---------- */
+.hm-controles { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.hm-controles .segmented { margin-bottom: 0; }
+.hm-seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+.hm-ciclica {
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid var(--warn-borde); background: var(--warn-bg); color: var(--ink);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px;
+}
+.hm-ciclica strong { color: var(--warn); }
+.hm-ciclica span { color: var(--ink-dim); font-size: 12px; }
+.hm-explica summary { cursor: pointer; font-size: 12px; color: var(--accent); margin-top: 2px; }
+.hm-explica p { font-size: 12.5px; line-height: 1.5; margin: 6px 0 0; color: var(--ink-dim); }
+.hm-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 12.5px; min-height: 22px; }
+.hm-head b { font-family: var(--font-mono); color: var(--ink); }
+.hm-c-valor b { color: var(--accent); }
+.hm-zona.barata { fill: var(--gain); fill-opacity: 0.16; }
+.hm-zona.cara { fill: var(--loss); fill-opacity: 0.14; }
+.hm-linea-precio { stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
+.hm-linea-valor { stroke: var(--accent); stroke-width: 1.8; stroke-linejoin: round; }
+.hm-proy { stroke-dasharray: 5 4; }
+.hm-linea-multiplo { stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
+.hm-mediana { stroke: var(--accent); stroke-width: 1.4; stroke-dasharray: 6 4; }
+.hm-banda { fill: var(--accent); fill-opacity: 0.08; }
+.hm-punto { fill: var(--ink); stroke: var(--bg); stroke-width: 2; }
+.hm-leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.hm-l { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+.hm-l-precio, .hm-l-multiplo { background: var(--ink); }
+.hm-l-valor { background: var(--accent); }
+.hm-l-proy { background: repeating-linear-gradient(90deg, var(--accent) 0 4px, transparent 4px 7px); }
+.hm-l-mediana { background: repeating-linear-gradient(90deg, var(--accent) 0 5px, transparent 5px 8px); }
+.hm-l-barata { background: var(--gain); opacity: 0.45; height: 9px; }
+.hm-l-cara { background: var(--loss); opacity: 0.4; height: 9px; }
+.hm-l-banda { background: var(--accent); opacity: 0.2; height: 9px; }
+.hm-datos { margin-top: 4px; }
+.hm-objetivos { margin: 14px 0 4px; display: flex; flex-direction: column; gap: 6px; }
+.hm-obj-fila {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px;
+  padding: 8px 10px; border-radius: 8px; background: var(--bg-raised); font-size: 13px;
+}
+.hm-obj-fila b { font-family: var(--font-mono); }
+.hm-notas { margin-top: 10px; }
+@media (max-width: 520px) {
+  .hm-controles .segmented.val-filtro button { padding: 6px 10px; font-size: 12px; }
+  .hm-obj-fila { flex-direction: column; }
+}

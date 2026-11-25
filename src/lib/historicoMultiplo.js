@@ -56,7 +56,10 @@ export function estadisticas(serie, { hoy = null } = {}) {
   const desde5 = sumarAnios(fin, -5);
   const ms = validos.map((d) => d.m);
   const actual = esNum(ultimoDia.m) ? ultimoDia.m : null;
+  const media = ms.reduce((a, b) => a + b, 0) / ms.length;
+  const desv = Math.sqrt(ms.reduce((a, b) => a + (b - media) ** 2, 0) / ms.length);
   return {
+    desv,
     desde: validos[0].f,
     dias: validos.length,
     mediana: mediana(ms),
@@ -181,4 +184,20 @@ export function detectarCiclica({ sector = null, industry = null, bpaAnual = [],
     anios: anios.length,
     desde: anios[0]?.fin || null,
   };
+}
+
+// Menos puntos para dibujar (el móvil no necesita 4.700): uno de cada k, siempre el último
+export function aligerar(lista, maximo = 900) {
+  if (lista.length <= maximo) return lista;
+  const k = Math.ceil(lista.length / maximo);
+  const out = lista.filter((_, i) => i % k === 0);
+  if (out[out.length - 1] !== lista[lista.length - 1]) out.push(lista[lista.length - 1]);
+  return out;
+}
+
+// Texto del percentil: «más barato que el 85 % de los días» o «más caro que el 70 %…»
+export function textoPercentil(p) {
+  if (!esNum(p)) return null;
+  const pct = Math.round(p * 100);
+  return pct >= 50 ? `más barato que el ${pct} % de los días` : `más caro que el ${100 - pct} % de los días`;
 }
