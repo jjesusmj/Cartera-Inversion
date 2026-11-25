@@ -83,6 +83,12 @@ export default async function handler(req, res) {
           const fx = await tipoCambio(unidadBpa(facts)?.divisa, divisaPrecio);
           datos = historicoDesdeEdgar(facts, { splits, fx });
           fuente = 'edgar';
+          if (debug === '1') {
+            const gaap = facts?.facts?.['us-gaap'] || {};
+            datos.conceptosBpa = Object.keys(gaap)
+              .filter((k) => /EarningsPerShare/.test(k))
+              .map((k) => ({ k, units: Object.fromEntries(Object.entries(gaap[k].units || {}).map(([u, l]) => [u, [l.length, l.at(-1)]])) }));
+          }
         } catch (e) {
           avisos.push(`EDGAR no disponible (${e.message}): se usa Yahoo.`);
         }
@@ -116,7 +122,7 @@ export default async function handler(req, res) {
       avisos: [...avisos, ...(datos.avisos || [])],
       fetchedAt: new Date().toISOString(),
     };
-    if (debug === '1') salida.debug = { yahooSymbol: sym, crumb: hayCrumb(), puntosPrecio: precios.length };
+    if (debug === '1') salida.debug = { yahooSymbol: sym, crumb: hayCrumb(), puntosPrecio: precios.length, conceptosBpa: datos.conceptosBpa };
 
     // Los beneficios cambian una vez por trimestre; el precio, a diario: caché de 6 horas
     res.setHeader('Cache-Control', debug === '1' ? 'no-store' : 's-maxage=21600');
