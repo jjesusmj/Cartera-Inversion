@@ -226,6 +226,8 @@ test('detección de cíclica', () => {
   assert.equal(detectarCiclica({ bpaAnual: anual([1, 1.1, -0.2, 1.2, -0.1, 1.3]) }).porHistorial, true);
   // Pocos años: no se juzga el historial
   assert.equal(detectarCiclica({ bpaAnual: anual([4, 1, 4]) }).porHistorial, null);
+  // Solo cuentan los últimos 10 años
+  assert.equal(detectarCiclica({ bpaAnual: anual([4, 2, 2, 4, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]) }).porHistorial, false);
   // La caída del último año cuenta sin confirmar
   const d = detectarCiclica({ bpaAnual: anual([4, 2, 2.1, 4, 2]) });
   assert.deepEqual(d.caidas.map((x) => x.confirmada), [true, false]);
@@ -235,6 +237,7 @@ test('factor ADR', () => {
   assert.equal(factorAdr([{ val: 2 }], 10.1), 5);
   assert.equal(factorAdr([{ val: 2 }], 2.05), 1);
   assert.equal(factorAdr([{ val: 2 }], 3.1), 1); // 1,55: no es un entero
+  assert.equal(factorAdr([{ val: 8 }], 1), 1 / 8); // split reciente sin reexpresar
   assert.equal(factorAdr([{ val: 2 }], null), 1);
   assert.equal(factorAdr([], 5), 1);
 });

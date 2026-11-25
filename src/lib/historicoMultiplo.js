@@ -140,16 +140,17 @@ export const INDUSTRIAS_CICLICAS = [
  * bpaAnual: [{ fin, val }]. umbral: caída anual que cuenta como fuerte (0,3 = 30 %).
  *
  * Cíclica por sector: su sector o industria lo es (listas de arriba).
- * Beneficios irregulares (historial, hacen falta 4 años):
+ * Beneficios irregulares (historial de los últimos 10 años; hacen falta 4):
  *   - 2 o más caídas fuertes SOSTENIDAS: el BPA cae más del umbral y al año siguiente
  *     sigue por debajo del 85 % del nivel previo (un cargo puntual se recupera en un año
  *     y no cuenta). La caída del último año cuenta aunque no se pueda confirmar todavía.
  *   - o 2 o más años con pérdidas después de haber ganado dinero (las pérdidas de una
  *     empresa joven que aún no ha llegado a beneficios no cuentan).
  */
-export function detectarCiclica({ sector = null, industry = null, bpaAnual = [], umbral = 0.3, recuperacion = 0.85, minimo = 2 } = {}) {
+export function detectarCiclica({ sector = null, industry = null, bpaAnual = [], umbral = 0.3, recuperacion = 0.85, minimo = 2, ventana = 10 } = {}) {
   const porSector = SECTORES_CICLICOS.includes(sector) || INDUSTRIAS_CICLICAS.includes(industry);
-  const anios = (bpaAnual || []).filter((x) => esNum(x.val)).sort((a, b) => (a.fin < b.fin ? -1 : 1));
+  // Solo los últimos `ventana` años: lo que pasó hace 15 años dice poco del negocio actual
+  const anios = (bpaAnual || []).filter((x) => esNum(x.val)).sort((a, b) => (a.fin < b.fin ? -1 : 1)).slice(-ventana);
   const caidas = [];
   for (let i = 1; i < anios.length; i++) {
     const prev = anios[i - 1].val;

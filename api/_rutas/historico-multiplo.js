@@ -156,7 +156,12 @@ export default async function handler(req, res) {
       datos.bpa = escalar(datos.bpa, k);
       datos.fcfAccion = escalar(datos.fcfAccion, k);
       datos.bpaAnual = escalar(datos.bpaAnual, k);
-      datos.avisos = [...(datos.avisos || []), `ADR: cada título equivale a ${k} acciones; el BPA y el FCF se muestran por ADR.`];
+      datos.avisos = [
+        ...(datos.avisos || []),
+        k > 1
+          ? `ADR: cada título equivale a ${k} acciones; el BPA y el FCF se muestran por ADR.`
+          : `Split reciente sin reexpresar en Yahoo: el BPA y el FCF se pasan a la base actual (÷${Math.round(1 / k)}).`,
+      ];
     }
 
     const salida = {

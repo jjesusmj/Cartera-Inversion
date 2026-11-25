@@ -323,12 +323,17 @@ export function estimacionesBpa(resumen) {
 // Un ADR puede representar varias acciones ordinarias (TSM: 1 ADR = 5 acciones) y las
 // cuentas dan el BPA por acción ordinaria. Se compara el último BPA calculado con el BPA
 // de 12 meses que da Yahoo para el ADR: si la relación es un entero entre 2 y 20, se aplica.
+// También corrige el caso contrario: series de Yahoo sin reexpresar tras un split reciente
+// (el BPA de Yahoo ya va en la base nueva y la serie es k veces mayor): factor 1/k.
 export function factorAdr(puntos, bpaYahoo) {
   const ult = puntos?.[puntos.length - 1]?.val;
   if (!esNum(ult) || !esNum(bpaYahoo) || ult === 0 || bpaYahoo === 0) return 1;
   const f = bpaYahoo / ult;
   const k = Math.round(f);
-  return k >= 2 && k <= 20 && Math.abs(f / k - 1) < 0.06 ? k : 1;
+  if (k >= 2 && k <= 20 && Math.abs(f / k - 1) < 0.06) return k;
+  const j = Math.round(1 / f);
+  if (j >= 2 && j <= 20 && Math.abs(1 / f / j - 1) < 0.06) return 1 / j;
+  return 1;
 }
 
 export function escalar(puntos, k) {
