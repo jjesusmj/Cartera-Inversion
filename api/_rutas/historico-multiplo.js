@@ -18,6 +18,7 @@ import {
   unidadBpa,
   factorAdr,
   escalar,
+  completarConYahoo,
   TIPOS_YAHOO_HIST,
 } from '../_historicoMultiplo.js';
 import { pedir, yahooJson, hayCrumb } from '../_yahoo.js';
@@ -34,10 +35,18 @@ async function cikDe(ticker, ua) {
   return cik ? String(cik).padStart(10, '0') : null;
 }
 
+// Tipo de cambio del BCE (Frankfurter); para divisas que el BCE no publica (TWD…), el de Yahoo
 async function tipoCambio(desde, hasta) {
   if (!desde || !hasta || desde === hasta) return 1;
-  const res = await pedir(`https://api.frankfurter.dev/v1/latest?from=${desde}&to=${hasta}`);
-  const r = (await res.json())?.rates?.[hasta];
+  try {
+    const res = await pedir(`https://api.frankfurter.dev/v1/latest?from=${desde}&to=${hasta}`);
+    const r = (await res.json())?.rates?.[hasta];
+    if (r) return r;
+  } catch {
+    // se prueba Yahoo
+  }
+  const j = await yahooJson(`https://query2.finance.yahoo.com/v8/finance/chart/${desde}${hasta}=X?range=5d&interval=1d`, false);
+  const r = j?.chart?.result?.[0]?.meta?.regularMarketPrice;
   if (!r) throw new Error(`Sin tipo de cambio ${desde}→${hasta}`);
   return r;
 }
@@ -104,27 +113,37 @@ export default async function handler(req, res) {
         `?symbol=${encodeURIComponent(sym)}&type=${TIPOS_YAHOO_HIST.join(',')}&period1=${ahora - 12 * 365 * 86400}&period2=${ahora}&merge=false&padTimeSeries=true`;
       const series = seriesYahoo(await yahooJson(url));
       const divisaInformes =
-        series.annualNetIncomeCommonStockholders?.slice(-1)[0]?.divisa || resumen?.financialData?.financialCurrency?.raw || resumen?.financialData?.financialCurrency || divisaPrecio;
+        series.annualDilutedEPS?.slice(-1)[0]?.divisa || series.annualFreeCashFlow?.slice(-1)[0]?.divisa || resumen?.financialData?.financialCurrency || divisaPrecio;
       const fx = await tipoCambio(typeof divisaInformes === 'string' ? divisaInformes : divisaPrecio, divisaPrecio);
       return historicoDesdeYahoo(series, { splits, fx, accionesActuales: resumen?.defaultKeyStatistics?.sharesOutstanding?.raw ?? null });
     };
     if (!datos) {
       datos = await desdeYahoo();
       fuente = 'yahoo';
-    } else if (datos.bpa.length < 4) {
-      try {
-        const y = await desdeYahoo();
-        if (y.bpa.length > datos.bpa.length) {
-          datos = { ...y, avisos: ['EDGAR tiene muy pocos datos de esta empresa (cambio de entidad en la SEC o salida reciente a bolsa): se usa Yahoo.', ...y.avisos] };
-          fuente = 'yahoo';
+    } else {
+      // EDGAR con muy pocos datos (cambio de entidad) o sin datos recientes (cambio de etiquetas): Yahoo
+      const ultimoEdgar = datos.bpa[datos.bpa.length - 1]?.disp || '';
+      const haceUnAnio = new Date(Date.now() - 400 * 86400e3).toISOString().slice(0, 10);
+      if (datos.bpa.length < 4 || ultimoEdgar < haceUnAnio) {
+        try {
+          const y = await desdeYahoo();
+          if (datos.bpa.length < 4 && y.bpa.length > datos.bpa.length) {
+            datos = { ...y, avisos: ['EDGAR tiene muy pocos datos de esta empresa (cambio de entidad en la SEC o salida reciente a bolsa): se usa Yahoo.', ...y.avisos] };
+            fuente = 'yahoo';
+          } else if (datos.bpa.length >= 4) {
+            datos = completarConYahoo(datos, y);
+            datos.avisos = [...(datos.avisos || []), 'EDGAR no tiene los últimos trimestres: se completan con Yahoo.'];
+            fuente = 'edgar+yahoo';
+          }
+        } catch {
+          // se queda con lo que da EDGAR
         }
-      } catch {
-        // se queda con lo poco que da EDGAR
       }
     }
 
     // ADR: ajustar a «por ADR» si las cuentas van por acción ordinaria
-    const k = factorAdr(datos.bpa, resumen?.defaultKeyStatistics?.trailingEps?.raw ?? null);
+    // (solo con datos de Yahoo: los ADR no presentan cuentas en us-gaap a la SEC)
+    const k = fuente === 'yahoo' ? factorAdr(datos.bpa, resumen?.defaultKeyStatistics?.trailingEps?.raw ?? null) : 1;
     if (k !== 1) {
       datos.bpa = escalar(datos.bpa, k);
       datos.fcfAccion = escalar(datos.fcfAccion, k);

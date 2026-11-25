@@ -114,7 +114,7 @@ export function historicoDesdeEdgar(facts, { splits = [], fx = 1 } = {}) {
   if (!u) throw new Error('EDGAR no tiene BPA de la empresa');
 
   // BPA
-  const serieBpa = ajustarPorAccion(serieEdgar(facts, CONCEPTOS_BPA, u.unidad), splits);
+  const serieBpa = ajustarPorAccion(sinAtipicos(serieEdgar(facts, CONCEPTOS_BPA, u.unidad)), splits);
   const presBpa = primerasPresentaciones(facts, CONCEPTOS_BPA, u.unidad);
   const bpa = puntosTTM(serieBpa, presBpa).map((p) => ({ ...p, val: r4(p.val * fx) }));
   const bpaAnual = anuales(serieBpa).map((e) => ({ fin: e.end, val: r4(e.val * fx) }));
@@ -147,10 +147,8 @@ export function historicoDesdeEdgar(facts, { splits = [], fx = 1 } = {}) {
 // ===================================================================
 
 export const TIPOS_YAHOO_HIST = [
-  'annualNetIncomeCommonStockholders',
-  'trailingNetIncomeCommonStockholders',
-  'annualDilutedAverageShares',
-  'quarterlyDilutedAverageShares',
+  'annualDilutedEPS',
+  'trailingDilutedEPS',
   'annualFreeCashFlow',
   'trailingFreeCashFlow',
   'annualOrdinarySharesNumber',
@@ -159,42 +157,102 @@ export const TIPOS_YAHOO_HIST = [
 
 const ultimo = (l) => (l && l.length ? l[l.length - 1] : null);
 
+// Yahoo no dice si un BPA anterior a un split está reexpresado. Se decide por continuidad:
+// un split cambia el BPA de golpe (×2, ×4…) y el beneficio real casi nunca lo hace.
+// Si el BPA de antes del split, dividido por el ratio, queda más cerca del primer BPA
+// posterior al split que sin dividir, se divide. Splits menores de 1,5 (dividendos en
+// acciones) no se tocan.
+export function ajustarSplitsPorContinuidad(puntos, splits) {
+  const grandes = (splits || []).filter((x) => x.ratio >= 1.5 || x.ratio <= 1 / 1.5);
+  if (!grandes.length) return puntos;
+  const out = puntos.map((p) => ({ ...p }));
+  for (const sp of grandes) {
+    const despues = out.find((p) => p.fin >= sp.fecha && esNum(p.val) && p.val !== 0);
+    if (!despues) continue;
+    for (const p of out) {
+      if (p.fin >= sp.fecha || !esNum(p.val) || p.val === 0) continue;
+      const sin = Math.abs(Math.log(Math.abs(p.val / despues.val)));
+      const con = Math.abs(Math.log(Math.abs(p.val / sp.ratio / despues.val)));
+      if (con < sin) p.val = p.val / sp.ratio;
+    }
+  }
+  return out;
+}
+
+// Acciones del balance más cercano a una fecha (anual o trimestral)
+function accionesCerca(series, fecha) {
+  const todas = [...(series.quarterlyOrdinarySharesNumber || []), ...(series.annualOrdinarySharesNumber || [])];
+  let mejor = null;
+  for (const a of todas) {
+    const d = Math.abs(dias(a.fecha, fecha));
+    if (d <= 120 && (!mejor || d < mejor.d)) mejor = { d, a };
+  }
+  return mejor?.a || null;
+}
+
 /**
- * series: salida de seriesYahoo. accionesActuales: para ajustar splits.
- * El BPA se calcula como beneficio / acciones diluidas ajustadas por splits
- * (así no importa si Yahoo reexpresa o no el BPA tras un split).
+ * series: salida de seriesYahoo (tipos TIPOS_YAHOO_HIST).
+ * BPA: el de 12 meses de cada trimestre (trailingDilutedEPS, unos 3 años) y el anual (unos 4).
+ * FCF por acción: FCF / acciones del balance más cercano, ajustadas por splits.
  */
 export function historicoDesdeYahoo(series, { splits = [], fx = 1, accionesActuales = null } = {}) {
-  const avisos = ['Fuera de EE. UU. el histórico es corto (≈4 años) y anual.'];
+  const avisos = ['Con datos de Yahoo el histórico es corto (unos 4 años).'];
+  const anualBpa = ajustarSplitsPorContinuidad(
+    (series.annualDilutedEPS || []).map((e) => ({ fin: e.fecha, val: e.valor })),
+    splits
+  );
+  const finesAnuales = new Set(anualBpa.map((e) => e.fin));
+  let ttm = ajustarSplitsPorContinuidad(
+    (series.trailingDilutedEPS || []).map((e) => ({ fin: e.fecha, val: e.valor })),
+    splits
+  );
+  // Cada fecha, una vez: si el anual y el de 12 meses coinciden, manda el anual
+  const porFin = new Map();
+  for (const p of ttm) porFin.set(p.fin, p);
+  for (const p of anualBpa) porFin.set(p.fin, p);
+  ttm = [...porFin.values()].sort((a, b) => (a.fin < b.fin ? -1 : 1));
+  const bpa = ttm.map((p) => ({
+    fin: p.fin,
+    disp: estimada(p.fin, finesAnuales.has(p.fin) ? RETRASO_ANUAL : RETRASO_TRIMESTRE),
+    val: r4(p.val * fx),
+  }));
+  const bpaAnual = anualBpa.map((p) => ({ fin: p.fin, val: r4(p.val * fx) }));
+
   const ref = accionesActuales ?? ultimo(series.quarterlyOrdinarySharesNumber)?.valor ?? ultimo(series.annualOrdinarySharesNumber)?.valor ?? null;
-  const acc = (lista, fecha) => {
-    const a = (lista || []).find((x) => x.fecha === fecha);
-    return a ? aBaseActual(a.valor, a.fecha, splits, ref) : null;
-  };
-
-  const construir = (anual, trailing) => {
-    const out = [];
-    for (const e of anual || []) {
-      const n = acc(series.annualDilutedAverageShares, e.fecha) ?? acc(series.annualOrdinarySharesNumber, e.fecha);
-      if (!esNum(n) || n <= 0) continue;
-      out.push({ fin: e.fecha, disp: estimada(e.fecha, RETRASO_ANUAL), val: r4((e.valor / n) * fx), anual: true });
-    }
-    const tr = ultimo(trailing);
-    if (tr && (!out.length || tr.fecha > out[out.length - 1].fin)) {
-      const n =
-        acc(series.quarterlyDilutedAverageShares, tr.fecha) ??
-        acc(series.quarterlyOrdinarySharesNumber, tr.fecha) ??
-        (ref && esNum(ref) ? ref : null);
-      if (esNum(n) && n > 0) out.push({ fin: tr.fecha, disp: estimada(tr.fecha, RETRASO_TRIMESTRE), val: r4((tr.valor / n) * fx) });
-    }
-    return out;
-  };
-
-  const bpa = construir(series.annualNetIncomeCommonStockholders, series.trailingNetIncomeCommonStockholders);
-  const fcfAccion = construir(series.annualFreeCashFlow, series.trailingFreeCashFlow);
-  const bpaAnual = bpa.filter((p) => p.anual).map(({ fin, val }) => ({ fin, val }));
-  for (const lista of [bpa, fcfAccion]) for (const p of lista) delete p.anual;
+  const fcfPorFin = new Map();
+  for (const e of [...(series.trailingFreeCashFlow || []), ...(series.annualFreeCashFlow || [])]) {
+    const a = accionesCerca(series, e.fecha);
+    const n = a ? aBaseActual(a.valor, a.fecha, splits, ref) : ref;
+    if (!esNum(n) || n <= 0) continue;
+    const anual = (series.annualFreeCashFlow || []).some((x) => x.fecha === e.fecha);
+    fcfPorFin.set(e.fecha, { fin: e.fecha, disp: estimada(e.fecha, anual ? RETRASO_ANUAL : RETRASO_TRIMESTRE), val: r4((e.valor / n) * fx) });
+  }
+  const fcfAccion = [...fcfPorFin.values()].sort((a, b) => (a.fin < b.fin ? -1 : 1));
   return { bpa, fcfAccion, bpaAnual, avisos };
+}
+
+// Completa una serie de EDGAR con los puntos de Yahoo posteriores a su último dato
+// (empresas que dejaron de etiquetar el BPA en EDGAR o lo cambiaron de concepto)
+export function completarConYahoo(edgar, yahoo) {
+  const unir = (a, b) => {
+    const ult = a[a.length - 1]?.fin || '';
+    return [...a, ...b.filter((p) => p.fin > ult)];
+  };
+  return {
+    ...edgar,
+    bpa: unir(edgar.bpa, yahoo.bpa),
+    fcfAccion: unir(edgar.fcfAccion, yahoo.fcfAccion),
+    bpaAnual: unir(edgar.bpaAnual, yahoo.bpaAnual),
+  };
+}
+
+// Quita datos absurdos de EDGAR (p. ej. un número de acciones etiquetado como BPA):
+// más de 100 veces la mediana de los valores absolutos de la serie
+export function sinAtipicos(serie) {
+  const abs = serie.map((e) => Math.abs(e.val)).filter((x) => x > 0).sort((a, b) => a - b);
+  if (abs.length < 3) return serie;
+  const med = abs[Math.floor(abs.length / 2)];
+  return serie.filter((e) => Math.abs(e.val) <= 100 * med);
 }
 
 // ===================================================================

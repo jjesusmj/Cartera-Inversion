@@ -9,6 +9,10 @@ import {
   preciosDiarios,
   estimacionesBpa,
   factorAdr,
+  ajustarSplitsPorContinuidad,
+  historicoDesdeYahoo,
+  completarConYahoo,
+  sinAtipicos,
 } from '../api/_historicoMultiplo.js';
 import {
   serieMultiplo,
@@ -233,4 +237,39 @@ test('factor ADR', () => {
   assert.equal(factorAdr([{ val: 2 }], 3.1), 1); // 1,55: no es un entero
   assert.equal(factorAdr([{ val: 2 }], null), 1);
   assert.equal(factorAdr([], 5), 1);
+});
+
+test('Yahoo: ajuste de splits por continuidad', () => {
+  const pts = [{ fin: '2019-12-31', val: 8 }, { fin: '2020-12-31', val: 9 }, { fin: '2021-12-31', val: 2.4 }];
+  const r = ajustarSplitsPorContinuidad(pts, [{ fecha: '2021-06-01', ratio: 4 }]);
+  assert.deepEqual(r.map((p) => p.val), [2, 2.25, 2.4]);
+  // Ya reexpresado: no se toca
+  const r2 = ajustarSplitsPorContinuidad([{ fin: '2020-12-31', val: 2.2 }, { fin: '2021-12-31', val: 2.4 }], [{ fecha: '2021-06-01', ratio: 4 }]);
+  assert.deepEqual(r2.map((p) => p.val), [2.2, 2.4]);
+  // Split pequeño (dividendo en acciones): no se toca
+  const r3 = ajustarSplitsPorContinuidad([{ fin: '2020-12-31', val: 1 }, { fin: '2021-12-31', val: 1 }], [{ fecha: '2021-06-01', ratio: 1.04 }]);
+  assert.deepEqual(r3.map((p) => p.val), [1, 1]);
+});
+
+test('Yahoo: BPA de 12 meses y anual sin duplicar fechas', () => {
+  const s = (pares) => pares.map(([fecha, valor]) => ({ fecha, valor }));
+  const h = historicoDesdeYahoo({
+    annualDilutedEPS: s([['2023-12-31', 1], ['2024-12-31', 2]]),
+    trailingDilutedEPS: s([['2024-06-30', 1.5], ['2024-12-31', 2.01], ['2025-06-30', 2.5]]),
+    annualFreeCashFlow: s([['2024-12-31', 300]]),
+    annualOrdinarySharesNumber: s([['2024-12-31', 100]]),
+  });
+  assert.deepEqual(h.bpa.map((p) => [p.fin, p.val]), [['2023-12-31', 1], ['2024-06-30', 1.5], ['2024-12-31', 2], ['2025-06-30', 2.5]]);
+  assert.deepEqual(h.bpaAnual.map((p) => p.val), [1, 2]);
+  assert.equal(h.fcfAccion[0].val, 3);
+});
+
+test('EDGAR: completar con Yahoo y quitar atípicos', () => {
+  const e = { bpa: [{ fin: '2022-12-31', val: 1 }], fcfAccion: [], bpaAnual: [{ fin: '2022-12-31', val: 1 }] };
+  const y = { bpa: [{ fin: '2022-12-31', val: 9 }, { fin: '2024-12-31', val: 2 }], fcfAccion: [{ fin: '2024-12-31', val: 3 }], bpaAnual: [] };
+  const c = completarConYahoo(e, y);
+  assert.deepEqual(c.bpa.map((p) => p.val), [1, 2]);
+  assert.equal(c.fcfAccion.length, 1);
+  const s = sinAtipicos([{ val: -2 }, { val: -1.5 }, { val: -70400024 }, { val: -3 }]);
+  assert.equal(s.length, 3);
 });

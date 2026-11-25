@@ -117,6 +117,7 @@ export const SECTORES_CICLICOS = ['Energy', 'Basic Materials'];
 export const INDUSTRIAS_CICLICAS = [
   'Semiconductors',
   'Semiconductor Equipment & Materials',
+  'Computer Hardware',
   'Auto Manufacturers',
   'Auto Parts',
   'Recreational Vehicles',
