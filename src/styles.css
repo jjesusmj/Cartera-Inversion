@@ -3001,3 +3001,4 @@ tr.ficha-row > td { padding: 0 !important; }
   .hm-controles .segmented.val-filtro button { padding: 6px 10px; font-size: 12px; }
   .hm-obj-fila { flex-direction: column; }
 }
+.hm-zoom { margin: 2px 0 6px; }

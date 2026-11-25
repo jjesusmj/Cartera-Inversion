@@ -26,6 +26,8 @@ const PAD_Y = 12;
 const EJE_Y = 50;
 
 const PERIODOS = [
+  { id: '1', label: '1A', anios: 1 },
+  { id: '3', label: '3A', anios: 3 },
   { id: '5', label: '5A', anios: 5 },
   { id: '10', label: '10A', anios: 10 },
   { id: 'todo', label: 'Todo', anios: null },
@@ -226,14 +228,24 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
     }
 
     const proyD = proy.length ? proy.map((p, i) => `${i ? 'L' : 'M'}${x(p.f).toFixed(1)},${yc(p.valor).toFixed(1)}`).join('') : '';
-    // Años en el eje X, sin montarse
-    const anios = [];
-    for (let a = anioDe(filas[0].f) + 1; a <= anioDe(proy.length ? proy[proy.length - 1].f : filas[filas.length - 1].f); a++) anios.push(`${a}-01-01`);
-    const paso = Math.max(1, Math.ceil(anios.length / Math.max(2, Math.floor(anchoG / 52))));
-    const marcasX = anios.filter((_, i) => i % paso === 0);
+    // Eje X: años; con 3 años o menos, trimestres (ene, abr, jul, oct). Sin montarse.
+    const fIni = filas[0].f;
+    const fFin = proy.length ? proy[proy.length - 1].f : filas[filas.length - 1].f;
+    const corto = anioDe(fFin) - anioDe(fIni) <= 3;
+    const candidatas = [];
+    for (let a = anioDe(fIni); a <= anioDe(fFin); a++) {
+      for (const m of corto ? ['01', '04', '07', '10'] : ['01']) {
+        const f = `${a}-${m}-01`;
+        if (f > fIni && f <= fFin) candidatas.push(f);
+      }
+    }
+    const paso = Math.max(1, Math.ceil(candidatas.length / Math.max(2, Math.floor(anchoG / 52))));
+    const marcasX = candidatas.filter((_, i) => i % paso === 0);
+    const MESES = { '01': 'ene', '04': 'abr', '07': 'jul', '10': 'oct' };
+    const etiquetaX = (f) => (corto ? `${MESES[f.slice(5, 7)]} ${f.slice(2, 4)}` : f.slice(0, 4));
 
     return {
-      anchoG, x, y: yc, log, filas, zonas, proyD, proy, marcasX,
+      anchoG, x, y: yc, log, filas, zonas, proyD, proy, marcasX, etiquetaX,
       marcasY: marcasY(min, max, log),
       precio: vista === 'valor' ? tramo('p') : '',
       valor: vista === 'valor' ? tramo('val') : '',
@@ -358,6 +370,12 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
               ))}
             </div>
 
+            <p className="hint hm-zoom">
+              {periodo === 'todo'
+                ? `El periodo solo cambia el zoom del gráfico. Mediana, percentil y valor normal se calculan siempre con todo el histórico (desde ${calc.stats?.desde?.slice(0, 4) ?? calc.serie[0].f.slice(0, 4)}).`
+                : `Zoom de ${PERIODOS.find((p) => p.id === periodo).label.replace('A', '')} ${periodo === '1' ? 'año' : 'años'}. Mediana, percentil y valor normal siguen calculados con todo el histórico (desde ${calc.stats?.desde?.slice(0, 4) ?? calc.serie[0].f.slice(0, 4)}).`}
+            </p>
+
             <div className="pchart-head hm-head">
               {fila ? (
                 <>
@@ -441,7 +459,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
                 <div className="pchart-axis-x" style={{ width: g.anchoG }}>
                   {g.marcasX.map((f, i) => (
                     <span key={f} style={{ left: g.x(f) }} className={i === 0 && g.x(f) < 20 ? 'is-first' : ''}>
-                      {f.slice(0, 4)}
+                      {g.etiquetaX(f)}
                     </span>
                   ))}
                 </div>
