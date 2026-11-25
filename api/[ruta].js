@@ -15,6 +15,7 @@ const RUTAS = {
   'finanzas': () => import('./_rutas/finanzas.js'),
   'fundamentals': () => import('./_rutas/fundamentals.js'),
   'history': () => import('./_rutas/history.js'),
+  'historico-multiplo': () => import('./_rutas/historico-multiplo.js'),
   'ideas': () => import('./_rutas/ideas.js'),
   'insiders': () => import('./_rutas/insiders.js'),
   'mapa': () => import('./_rutas/mapa.js'),
