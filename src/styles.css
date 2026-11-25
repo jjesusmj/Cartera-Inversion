@@ -3007,3 +3007,6 @@ tr.ficha-row > td { padding: 0 !important; }
 .hm-pub-texto { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-dim); }
 .hm-l-pub { color: var(--ink-faint); font-size: 10px; margin-right: 3px; }
 .hm-c-pub { color: var(--ink-dim); }
+.hm-sep-est { stroke: var(--line); stroke-width: 1; }
+.hm-est-punto { fill: var(--accent); stroke: var(--bg); stroke-width: 1.5; }
+.hm-est-texto { font-family: var(--font-mono); font-size: 10px; fill: var(--accent); }

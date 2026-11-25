@@ -175,12 +175,18 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
     const anchoG = ancho - EJE_Y;
     const t = (f) => Date.parse(`${f}T00:00:00Z`);
     const filas = vis.filas;
-    const proy = vista === 'valor' ? calc.proy : [];
+    // Estimaciones (sin el primer punto, que es hoy). En zooms cortos no entran en el gráfico:
+    // solo una etiqueta en el borde. En los largos, puntos en una franja estrecha a la derecha
+    // (no a escala de tiempo, para no estirar el eje dos años).
+    const estimadas = vista === 'valor' ? calc.proy.slice(1) : [];
+    const zoomCorto = ['3m', '6m', '1'].includes(periodo);
+    const conPuntos = estimadas.length > 0 && !zoomCorto;
+    const anchoDatos = conPuntos ? anchoG * 0.86 : anchoG;
     const t0 = t(filas[0].f);
-    const t1 = proy.length ? t(proy[proy.length - 1].f) : t(filas[filas.length - 1].f);
-    const x = (f) => ((t(f) - t0) / (t1 - t0 || 1)) * anchoG;
+    const t1 = t(filas[filas.length - 1].f);
+    const x = (f) => ((t(f) - t0) / (t1 - t0 || 1)) * anchoDatos;
     let valores;
-    if (vista === 'valor') valores = [...filas.map((d) => d.p), ...filas.map((d) => d.val).filter(esNum), ...proy.map((p) => p.valor)];
+    if (vista === 'valor') valores = [...filas.map((d) => d.p), ...filas.map((d) => d.val).filter(esNum), ...(conPuntos ? estimadas.map((p) => p.valor) : [])];
     else valores = filas.map((d) => d.m).filter(esNum);
     if (vista === 'multiplo' && calc.stats) valores.push(calc.stats.mediana, Math.max(0.1, calc.stats.mediana - calc.stats.desv), calc.stats.mediana + calc.stats.desv);
     valores = valores.filter((v) => esNum(v) && v > 0);
@@ -236,10 +242,27 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
       cerrar();
     }
 
-    const proyD = proy.length ? proy.map((p, i) => `${i ? 'L' : 'M'}${x(p.f).toFixed(1)},${yc(p.valor).toFixed(1)}`).join('') : '';
+    const ultFila = filas[filas.length - 1];
+    const xHoy = x(ultFila.f);
+    const puntosEst = conPuntos
+      ? estimadas.map((p, i) => ({ ...p, x: anchoDatos + ((anchoG - anchoDatos) * (i + 1)) / (estimadas.length + 1), y: yc(p.valor) }))
+      : [];
+    const proyD = puntosEst.length && esNum(ultFila.val)
+      ? `M${xHoy.toFixed(1)},${yc(ultFila.val).toFixed(1)}` + puntosEst.map((p) => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join('')
+      : '';
+    // Zoom corto: etiqueta en el borde derecho con la última estimación (dentro del alto del gráfico)
+    const finalEst = estimadas.length ? estimadas[estimadas.length - 1] : null;
+    let etiquetaEst = null;
+    if (zoomCorto && finalEst) {
+      const yv = y(finalEst.valor);
+      const fuera = yv < PAD_Y ? 'arriba' : yv > ALTO - PAD_Y ? 'abajo' : null;
+      // Por debajo de los textos de las publicaciones (y = 11)
+      etiquetaEst = { ...finalEst, y: Math.min(ALTO - 16, Math.max(28, yv)), fuera };
+    }
+    const proy = puntosEst;
     // Eje X: años; con 3 años o menos, trimestres (ene, abr, jul, oct). Sin montarse.
     const fIni = filas[0].f;
-    const fFin = proy.length ? proy[proy.length - 1].f : filas[filas.length - 1].f;
+    const fFin = filas[filas.length - 1].f;
     // Eje X: meses si se ven 9 meses o menos; trimestres hasta 3 años; si no, años
     const diasVistos = (t(fFin) - t(fIni)) / 864e5;
     const meses = diasVistos <= 270 ? ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'] : anioDe(fFin) - anioDe(fIni) <= 3 ? ['01', '04', '07', '10'] : ['01'];
@@ -260,13 +283,13 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
       .map((p) => ({ ...p, x: x(p.disp) }));
 
     return {
-      anchoG, x, y: yc, log, filas, zonas, proyD, proy, marcasX, etiquetaX, publicaciones,
+      anchoG, anchoDatos, x, y: yc, log, filas, zonas, proyD, proy, marcasX, etiquetaX, publicaciones, etiquetaEst,
       marcasY: marcasY(min, max, log),
       precio: vista === 'valor' ? tramo('p') : '',
       valor: vista === 'valor' ? tramo('val') : '',
       multiplo: vista === 'multiplo' ? tramo('m') : '',
     };
-  }, [vis, vista, ancho, calc]);
+  }, [vis, vista, ancho, calc, periodo]);
 
   function onPointer(e) {
     if (!g) return;
@@ -441,7 +464,27 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
                     <>
                       {g.zonas.map((z, i) => <path key={i} d={z.d} className={`hm-zona ${z.barata ? 'barata' : 'cara'}`} />)}
                       <path d={g.valor} className="hm-linea-valor" fill="none" />
-                      {g.proyD && <path d={g.proyD} className="hm-linea-valor hm-proy" fill="none" />}
+                      {g.proyD && (
+                        <>
+                          <line x1={g.anchoDatos} x2={g.anchoDatos} y1="0" y2={ALTO} className="hm-sep-est" />
+                          <text x={g.anchoDatos + 3} y={ALTO - 4} className="hm-pub-texto">est.</text>
+                          <path d={g.proyD} className="hm-linea-valor hm-proy" fill="none" />
+                          {g.proy.map((p) => (
+                            <g key={p.f}>
+                              <circle cx={p.x} cy={p.y} r="3.5" className="hm-est-punto">
+                                <title>{`Valor normal estimado ${p.f.slice(0, 4)}: ${fmtCotizacion(p.valor, datos.currency)} (BPA ${fmtNumber(p.valor / calc.mult, 2)} × ${fmtNumber(calc.mult, 1)})`}</title>
+                              </circle>
+                              <text x={p.x} y={p.y - 8} textAnchor="middle" className="hm-est-texto">{p.f.slice(0, 4)}</text>
+                            </g>
+                          ))}
+                        </>
+                      )}
+                      {g.etiquetaEst && (
+                        <text x={g.anchoG - 4} y={g.etiquetaEst.y} textAnchor="end" className="hm-est-texto">
+                          → est. {g.etiquetaEst.f.slice(0, 4)}: {fmtCotizacion(g.etiquetaEst.valor, datos.currency)}
+                          {g.etiquetaEst.fuera === 'arriba' ? ' ↑' : g.etiquetaEst.fuera === 'abajo' ? ' ↓' : ''}
+                        </text>
+                      )}
                       <path d={g.precio} className="hm-linea-precio" fill="none" />
                     </>
                   ) : (
@@ -504,7 +547,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
                   <span><i className="hm-l hm-l-valor" /> valor ({etiquetaValor} × {esNum(calc.mult) ? fmtNumber(calc.mult, 1) : '—'})</span>
                   <span><i className="hm-l hm-l-barata" /> por debajo del valor</span>
                   <span><i className="hm-l hm-l-cara" /> por encima</span>
-                  {g?.proyD && <span><i className="hm-l hm-l-proy" /> estimación de analistas</span>}
+                  {(g?.proyD || g?.etiquetaEst) && <span><i className="hm-l hm-l-proy" /> valor con el BPA estimado por los analistas{g?.proyD ? ' (franja «est.», fuera de escala de tiempo)' : ''}</span>}
                   {g?.publicaciones.length > 0 && <span><span className="hm-l-pub">▲</span> publicación de resultados</span>}
                   {g?.log && <span>escala logarítmica</span>}
                 </>
