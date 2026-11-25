@@ -26,10 +26,12 @@ const PAD_Y = 12;
 const EJE_Y = 50;
 
 const PERIODOS = [
-  { id: '1', label: '1A', anios: 1 },
-  { id: '3', label: '3A', anios: 3 },
-  { id: '5', label: '5A', anios: 5 },
-  { id: '10', label: '10A', anios: 10 },
+  { id: '3m', label: '3M', meses: 3, nombre: '3 meses' },
+  { id: '6m', label: '6M', meses: 6, nombre: '6 meses' },
+  { id: '1', label: '1A', anios: 1, nombre: '1 año' },
+  { id: '3', label: '3A', anios: 3, nombre: '3 años' },
+  { id: '5', label: '5A', anios: 5, nombre: '5 años' },
+  { id: '10', label: '10A', anios: 10, nombre: '10 años' },
   { id: 'todo', label: 'Todo', anios: null },
 ];
 
@@ -64,6 +66,13 @@ function Dato({ label, value, sub = null, clase = '' }) {
 
 const anioDe = (f) => Number(f.slice(0, 4));
 const restarAnios = (f, n) => `${anioDe(f) - n}${f.slice(4)}`;
+const restarMeses = (f, n) => {
+  const d = new Date(`${f}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() - n);
+  return d.toISOString().slice(0, 10);
+};
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const diaCorto = (f) => `${Number(f.slice(8, 10))} ${MESES_CORTOS[Number(f.slice(5, 7)) - 1]}${f.slice(2, 4) ? ` ${f.slice(2, 4)}` : ''}`;
 
 // Marcas redondas para el eje vertical (lineal o logarítmico)
 function marcasY(min, max, log) {
@@ -140,7 +149,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
     if (!datos) return null;
     const puntos = tipoEf === 'fcf' ? datos.fcfAccion : base === 'normalizado' ? normalizables : datos.bpa;
     const serie = serieMultiplo(datos.precios, puntos);
-    if (!serie.length) return { serie, stats: null };
+    if (!serie.length) return { serie, stats: null, puntos };
     const stats = estadisticas(serie);
     const modo = tipoEf === 'fcf' && normal === 'per15' ? 'mediana' : normal;
     const mult = multiploNormal(stats, modo);
@@ -148,14 +157,14 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
     const ult = serie[serie.length - 1];
     const proy = tipoEf === 'per' && base === 'ttm' ? proyeccion(datos.estimaciones, mult, ult) : [];
     const negativos = serie.filter((d) => !(d.v > 0)).length;
-    return { serie, stats, mult, valor, ult, proy, negativos, modo };
+    return { serie, stats, mult, valor, ult, proy, negativos, modo, puntos };
   }, [datos, tipoEf, base, normal, normalizables]);
 
   // Tramo visible
   const vis = useMemo(() => {
     if (!calc?.serie?.length) return null;
     const per = PERIODOS.find((p) => p.id === periodo);
-    const desde = per.anios ? restarAnios(calc.ult.f, per.anios) : calc.serie[0].f;
+    const desde = per.meses ? restarMeses(calc.ult.f, per.meses) : per.anios ? restarAnios(calc.ult.f, per.anios) : calc.serie[0].f;
     const idx = calc.serie.map((d, i) => i).filter((i) => calc.serie[i].f >= desde);
     const filas = aligerar(idx, Math.max(300, Math.min(900, ancho * 2))).map((i) => ({ ...calc.serie[i], val: calc.valor[i] }));
     return { filas, desde };
@@ -231,21 +240,27 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
     // Eje X: años; con 3 años o menos, trimestres (ene, abr, jul, oct). Sin montarse.
     const fIni = filas[0].f;
     const fFin = proy.length ? proy[proy.length - 1].f : filas[filas.length - 1].f;
-    const corto = anioDe(fFin) - anioDe(fIni) <= 3;
+    // Eje X: meses si se ven 9 meses o menos; trimestres hasta 3 años; si no, años
+    const diasVistos = (t(fFin) - t(fIni)) / 864e5;
+    const meses = diasVistos <= 270 ? ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'] : anioDe(fFin) - anioDe(fIni) <= 3 ? ['01', '04', '07', '10'] : ['01'];
     const candidatas = [];
     for (let a = anioDe(fIni); a <= anioDe(fFin); a++) {
-      for (const m of corto ? ['01', '04', '07', '10'] : ['01']) {
+      for (const m of meses) {
         const f = `${a}-${m}-01`;
         if (f > fIni && f <= fFin) candidatas.push(f);
       }
     }
     const paso = Math.max(1, Math.ceil(candidatas.length / Math.max(2, Math.floor(anchoG / 52))));
     const marcasX = candidatas.filter((_, i) => i % paso === 0);
-    const MESES = { '01': 'ene', '04': 'abr', '07': 'jul', '10': 'oct' };
-    const etiquetaX = (f) => (corto ? `${MESES[f.slice(5, 7)]} ${f.slice(2, 4)}` : f.slice(0, 4));
+    const etiquetaX = (f) => (meses.length > 1 ? `${MESES_CORTOS[Number(f.slice(5, 7)) - 1]} ${f.slice(2, 4)}` : f.slice(0, 4));
+
+    // Publicaciones de resultados visibles (cada nuevo dato de beneficio, el día que se conoció)
+    const publicaciones = (calc.puntos || [])
+      .filter((p) => p.disp >= fIni && p.disp <= filas[filas.length - 1].f)
+      .map((p) => ({ ...p, x: x(p.disp) }));
 
     return {
-      anchoG, x, y: yc, log, filas, zonas, proyD, proy, marcasX, etiquetaX,
+      anchoG, x, y: yc, log, filas, zonas, proyD, proy, marcasX, etiquetaX, publicaciones,
       marcasY: marcasY(min, max, log),
       precio: vista === 'valor' ? tramo('p') : '',
       valor: vista === 'valor' ? tramo('val') : '',
@@ -276,6 +291,9 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
   const valorHoy = ult && esNum(calc.mult) && ult.v > 0 ? ult.v * calc.mult : null;
   const distancia = esNum(valorHoy) ? ult.p / valorHoy - 1 : null;
   const fila = g && hover != null ? g.filas[hover] : null;
+  const etiquetaValorCorta = tipoEf === 'fcf' ? 'FCF/acc.' : base === 'normalizado' ? 'BPA norm.' : 'BPA';
+  // Publicación más cercana al día señalado (a 5 días o menos)
+  const pubCerca = fila && g ? g.publicaciones.find((p) => Math.abs(Date.parse(p.disp) - Date.parse(fila.f)) <= 5 * 864e5) : null;
 
   const implicito = (precio) => {
     const m = multiploImplicito(precio, ult?.v);
@@ -363,7 +381,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
         <>
           <div className="pchart hm-chart">
             <div className="pchart-tabs" role="tablist" aria-label="Periodo">
-              {PERIODOS.filter((p) => !p.anios || anioDe(calc.serie[0].f) <= anioDe(calc.ult.f) - p.anios).map((p) => (
+              {PERIODOS.filter((p) => !p.anios || calc.serie[0].f <= restarAnios(calc.ult.f, p.anios)).map((p) => (
                 <button key={p.id} role="tab" aria-selected={periodo === p.id} className={periodo === p.id ? 'active' : ''} onClick={() => { setPeriodo(p.id); setHover(null); }}>
                   {p.label}
                 </button>
@@ -373,7 +391,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
             <p className="hint hm-zoom">
               {periodo === 'todo'
                 ? `El periodo solo cambia el zoom del gráfico. Mediana, percentil y valor normal se calculan siempre con todo el histórico (desde ${calc.stats?.desde?.slice(0, 4) ?? calc.serie[0].f.slice(0, 4)}).`
-                : `Zoom de ${PERIODOS.find((p) => p.id === periodo).label.replace('A', '')} ${periodo === '1' ? 'año' : 'años'}. Mediana, percentil y valor normal siguen calculados con todo el histórico (desde ${calc.stats?.desde?.slice(0, 4) ?? calc.serie[0].f.slice(0, 4)}).`}
+                : `Zoom de ${PERIODOS.find((p) => p.id === periodo).nombre}. Mediana, percentil y valor normal siguen calculados con todo el histórico (desde ${calc.stats?.desde?.slice(0, 4) ?? calc.serie[0].f.slice(0, 4)}).`}
             </p>
 
             <div className="pchart-head hm-head">
@@ -383,6 +401,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
                   <span>Precio <b>{fmtCotizacion(fila.p, datos.currency)}</b></span>
                   {esNum(fila.val) && <span className="hm-c-valor">Valor <b>{fmtCotizacion(fila.val, datos.currency)}</b></span>}
                   <span>{etiquetaMult} <b>{esNum(fila.m) ? fmtNumber(fila.m, 1) : '—'}</b></span>
+                  {pubCerca && <span className="hm-c-pub">▲ resultados {diaCorto(pubCerca.disp)}: {etiquetaValorCorta} <b>{fmtNumber(pubCerca.val, 2)}</b> (cierre {diaCorto(pubCerca.fin)})</span>}
                 </>
               ) : (
                 <span className="pchart-when">
@@ -441,6 +460,18 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
                     )
                   )}
 
+                  {g.publicaciones.map((p) => (
+                    <g key={p.disp} className="hm-pub">
+                      {g.publicaciones.length <= 8 && <line x1={p.x} x2={p.x} y1="0" y2={ALTO} className="hm-pub-linea" />}
+                      <path d={`M${p.x - 4},${ALTO} L${p.x + 4},${ALTO} L${p.x},${ALTO - 7} Z`} className="hm-pub-marca" />
+                      {g.publicaciones.length <= 4 && (
+                        <text x={Math.min(p.x + 3, g.anchoG - 4)} y="11" textAnchor={p.x > g.anchoG - 90 ? 'end' : 'start'} className="hm-pub-texto">
+                          {diaCorto(p.disp)} · {etiquetaValorCorta} {fmtNumber(p.val, 2)}
+                        </text>
+                      )}
+                    </g>
+                  ))}
+
                   {fila && (
                     <>
                       <line x1={g.x(fila.f)} x2={g.x(fila.f)} y1="0" y2={ALTO} style={{ stroke: 'var(--ink-dim)' }} strokeWidth="0.8" />
@@ -474,6 +505,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
                   <span><i className="hm-l hm-l-barata" /> por debajo del valor</span>
                   <span><i className="hm-l hm-l-cara" /> por encima</span>
                   {g?.proyD && <span><i className="hm-l hm-l-proy" /> estimación de analistas</span>}
+                  {g?.publicaciones.length > 0 && <span><span className="hm-l-pub">▲</span> publicación de resultados</span>}
                   {g?.log && <span>escala logarítmica</span>}
                 </>
               ) : (
@@ -481,6 +513,7 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
                   <span><i className="hm-l hm-l-multiplo" /> {etiquetaMult}</span>
                   <span><i className="hm-l hm-l-mediana" /> mediana {st ? fmtNumber(st.mediana, 1) : ''}</span>
                   <span><i className="hm-l hm-l-banda" /> ±1 desviación</span>
+                  {g?.publicaciones.length > 0 && <span><span className="hm-l-pub">▲</span> publicación de resultados</span>}
                 </>
               )}
             </div>
@@ -546,6 +579,12 @@ export default function FichaHistoricoMultiplo({ symbol, currency, exchangeId, p
             {tipoEf === 'per' && base === 'ttm' && !calc.proy.length && (
               <p className="hint">Sin estimaciones de BPA de los analistas en Yahoo: no se dibuja la proyección.</p>
             )}
+            <p className="hint">
+              ▲ Marcas de resultados:{' '}
+              {datos.fuente === 'yahoo'
+                ? 'fecha aproximada (cierre del trimestre + 45 días; + 75 en el anual), porque Yahoo no da la fecha de publicación.'
+                : 'fecha en que el informe llegó a la SEC; el anuncio de resultados a la prensa puede ser unos días antes.'}
+            </p>
             {(datos.avisos || []).map((a) => <p key={a} className="hint">{a}</p>)}
             <p className="hint">
               Precios: Yahoo Finance. Beneficios y flujo de caja: {datos.fuente?.startsWith('edgar') ? 'SEC EDGAR (cuentas oficiales)' : 'Yahoo Finance'}
