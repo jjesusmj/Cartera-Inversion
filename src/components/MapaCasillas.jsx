@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { fmtPercent } from '../lib/format';
 import { tono } from '../lib/tonos';
 import { repartirConMinimo } from '../lib/mapa';
+import LeyendaTonos from './LeyendaTonos';
 
 // Mapa de casillas (treemap): tamaño por `valor`, color por `pct` (escala de 5 tonos; contexto 'dia' o 'total').
 // Toda casilla mide al menos MIN_W × MIN_H para que se lean el nombre y el %; si no caben, el mapa crece hacia abajo.
@@ -62,6 +63,7 @@ export default function MapaCasillas({ items, onAbrir, detalle, ayuda, etiqueta 
           );
         })}
       </div>
+      <LeyendaTonos contexto={contexto} />
       <div className="mapa-aviso" aria-live="polite">
         {sel ? (
           <>

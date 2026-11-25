@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { cambios, tablaDias, tablaSemanas, tablaMeses } from '../lib/evolucion';
 import { claseCalor, claseTexto } from '../lib/tonos';
+import LeyendaTonos from './LeyendaTonos';
 import { fmtNumber } from '../lib/format';
 
 // Resumen › Evolución › Rentabilidad por días, semanas o meses, en % o en €.
@@ -96,6 +97,7 @@ export default function RentabilidadCalor({ ag }) {
         ))}
       </div>
 
+      <LeyendaTonos contexto={CONTEXTO[vista]} variante="calor" />
       <div className="calor-detalle" aria-live="polite">
         {sel || <span className="hint-inline">Pasa el ratón o toca una casilla para ver el % y los €.</span>}
       </div>

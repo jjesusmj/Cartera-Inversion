@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { obtenerMensual } from '../lib/api';
 import { tablaMensual, estadisticas, INDICES } from '../lib/mensual';
 import { claseCalor, claseTexto } from '../lib/tonos';
+import LeyendaTonos from './LeyendaTonos';
 import { fmtNumber } from '../lib/format';
 
 // Precio › Rentabilidad mensual: tabla por meses del valor y de su índice, y estadísticas.
@@ -102,6 +103,7 @@ function Tabla({ filas, provisional }) {
           </tbody>
         </table>
       </div>
+      <LeyendaTonos contexto="mes" variante="calor" />
       <p className="hint">
         Solo precio, sin dividendos: cierre del mes frente al del mes anterior. Año: último cierre del año frente al de diciembre anterior.
         {hayProv && ' * Mes en curso, provisional hasta su cierre.'}
