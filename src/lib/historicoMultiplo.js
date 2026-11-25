@@ -137,25 +137,43 @@ export const INDUSTRIAS_CICLICAS = [
 
 /**
  * bpaAnual: [{ fin, val }]. umbral: caída anual que cuenta como fuerte (0,3 = 30 %).
- * Cíclica si su sector o industria lo es, o si en su historial hay 2+ caídas fuertes
- * del BPA anual o algún año con pérdidas (hacen falta 4 años para juzgar el historial).
+ *
+ * Cíclica por sector: su sector o industria lo es (listas de arriba).
+ * Beneficios irregulares (historial, hacen falta 4 años):
+ *   - 2 o más caídas fuertes SOSTENIDAS: el BPA cae más del umbral y al año siguiente
+ *     sigue por debajo del 85 % del nivel previo (un cargo puntual se recupera en un año
+ *     y no cuenta). La caída del último año cuenta aunque no se pueda confirmar todavía.
+ *   - o 2 o más años con pérdidas después de haber ganado dinero (las pérdidas de una
+ *     empresa joven que aún no ha llegado a beneficios no cuentan).
  */
-export function detectarCiclica({ sector = null, industry = null, bpaAnual = [], umbral = 0.3, minimoCaidas = 2 } = {}) {
+export function detectarCiclica({ sector = null, industry = null, bpaAnual = [], umbral = 0.3, recuperacion = 0.85, minimo = 2 } = {}) {
   const porSector = SECTORES_CICLICOS.includes(sector) || INDUSTRIAS_CICLICAS.includes(industry);
   const anios = (bpaAnual || []).filter((x) => esNum(x.val)).sort((a, b) => (a.fin < b.fin ? -1 : 1));
   const caidas = [];
   for (let i = 1; i < anios.length; i++) {
     const prev = anios[i - 1].val;
     const cur = anios[i].val;
-    if (prev > 0 && (cur - prev) / prev <= -umbral) caidas.push({ fin: anios[i].fin, cambio: (cur - prev) / prev });
+    if (!(prev > 0) || cur > (1 - umbral) * prev) continue;
+    const sig = anios[i + 1];
+    if (sig && sig.val > recuperacion * prev) continue; // se recuperó: cargo puntual
+    caidas.push({ fin: anios[i].fin, cambio: (cur - prev) / prev, confirmada: !!sig });
   }
-  const perdidas = anios.filter((x) => x.val < 0).map((x) => x.fin);
+  const primerBeneficio = anios.findIndex((x) => x.val > 0);
+  const perdidas = primerBeneficio < 0 ? [] : anios.slice(primerBeneficio).filter((x) => x.val < 0).map((x) => x.fin);
   const juzgable = anios.length >= 4;
-  const porHistorial = juzgable ? caidas.length >= minimoCaidas || perdidas.length > 0 : null;
+  const porHistorial = juzgable ? caidas.length >= minimo || perdidas.length >= minimo : null;
+  const etiqueta = porSector && porHistorial
+    ? 'Cíclica por sector y por beneficios'
+    : porSector
+      ? 'Cíclica por sector'
+      : porHistorial
+        ? 'Beneficios irregulares'
+        : null;
   return {
     ciclica: porSector || porHistorial === true,
     porSector,
     porHistorial,
+    etiqueta,
     caidas,
     perdidas,
     anios: anios.length,

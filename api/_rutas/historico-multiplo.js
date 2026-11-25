@@ -16,6 +16,8 @@ import {
   preciosDiarios,
   estimacionesBpa,
   unidadBpa,
+  factorAdr,
+  escalar,
   TIPOS_YAHOO_HIST,
 } from '../_historicoMultiplo.js';
 import { pedir, yahooJson, hayCrumb } from '../_yahoo.js';
@@ -95,7 +97,8 @@ export default async function handler(req, res) {
       }
     }
 
-    if (!datos) {
+    // Una empresa que cambió de entidad en la SEC puede tener muy pocos datos: se prueba Yahoo
+    const desdeYahoo = async () => {
       const url =
         `https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(sym)}` +
         `?symbol=${encodeURIComponent(sym)}&type=${TIPOS_YAHOO_HIST.join(',')}&period1=${ahora - 12 * 365 * 86400}&period2=${ahora}&merge=false&padTimeSeries=true`;
@@ -103,8 +106,30 @@ export default async function handler(req, res) {
       const divisaInformes =
         series.annualNetIncomeCommonStockholders?.slice(-1)[0]?.divisa || resumen?.financialData?.financialCurrency?.raw || resumen?.financialData?.financialCurrency || divisaPrecio;
       const fx = await tipoCambio(typeof divisaInformes === 'string' ? divisaInformes : divisaPrecio, divisaPrecio);
-      datos = historicoDesdeYahoo(series, { splits, fx, accionesActuales: resumen?.defaultKeyStatistics?.sharesOutstanding?.raw ?? null });
+      return historicoDesdeYahoo(series, { splits, fx, accionesActuales: resumen?.defaultKeyStatistics?.sharesOutstanding?.raw ?? null });
+    };
+    if (!datos) {
+      datos = await desdeYahoo();
       fuente = 'yahoo';
+    } else if (datos.bpa.length < 4) {
+      try {
+        const y = await desdeYahoo();
+        if (y.bpa.length > datos.bpa.length) {
+          datos = { ...y, avisos: ['EDGAR tiene muy pocos datos de esta empresa (cambio de entidad en la SEC o salida reciente a bolsa): se usa Yahoo.', ...y.avisos] };
+          fuente = 'yahoo';
+        }
+      } catch {
+        // se queda con lo poco que da EDGAR
+      }
+    }
+
+    // ADR: ajustar a «por ADR» si las cuentas van por acción ordinaria
+    const k = factorAdr(datos.bpa, resumen?.defaultKeyStatistics?.trailingEps?.raw ?? null);
+    if (k !== 1) {
+      datos.bpa = escalar(datos.bpa, k);
+      datos.fcfAccion = escalar(datos.fcfAccion, k);
+      datos.bpaAnual = escalar(datos.bpaAnual, k);
+      datos.avisos = [...(datos.avisos || []), `ADR: cada título equivale a ${k} acciones; el BPA y el FCF se muestran por ADR.`];
     }
 
     const salida = {

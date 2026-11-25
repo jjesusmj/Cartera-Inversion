@@ -8,6 +8,7 @@ import {
   primerasPresentaciones,
   preciosDiarios,
   estimacionesBpa,
+  factorAdr,
 } from '../api/_historicoMultiplo.js';
 import {
   serieMultiplo,
@@ -200,24 +201,36 @@ test('BPA normalizado: media de hasta 10 años, mínimo 5', () => {
 });
 
 test('detección de cíclica', () => {
-  const anual = (vals) => vals.map((v, i) => ({ fin: `${2018 + i}-12-31`, val: v }));
-  // Ejemplo de la explicación: 2 caídas de más del 30 %
-  const a = detectarCiclica({ bpaAnual: anual([4, 2.4, 3.5, 5, 3.2, 3]) });
-  assert.equal(a.ciclica, true);
+  const anual = (vals) => vals.map((v, i) => ({ fin: `${2015 + i}-12-31`, val: v }));
+  // Caídas sostenidas: 4 → 2,4 → 2,5 (sigue abajo) y 5 → 3,2 → 3 (sigue abajo)
+  const a = detectarCiclica({ bpaAnual: anual([4, 2.4, 2.5, 3.5, 5, 3.2, 3]) });
   assert.equal(a.porHistorial, true);
-  assert.equal(a.porSector, false);
-  assert.deepEqual(a.caidas.map((c) => c.fin), ['2019-12-31', '2022-12-31']);
-  // Estable y sector defensivo
-  const b = detectarCiclica({ sector: 'Consumer Defensive', bpaAnual: anual([2, 2.1, 2.2, 2.0, 2.3]) });
-  assert.equal(b.ciclica, false);
-  // Sector cíclico aunque los beneficios sean estables
+  assert.equal(a.etiqueta, 'Beneficios irregulares');
+  assert.deepEqual(a.caidas.map((c) => c.fin), ['2016-12-31', '2020-12-31']);
+  // Cargos puntuales que se recuperan al año siguiente: no cuentan (caso Microsoft 2015/2018)
+  const b = detectarCiclica({ bpaAnual: anual([2.6, 1.5, 2.6, 2.7, 1.7, 3.2, 3.5]) });
+  assert.equal(b.porHistorial, false);
+  assert.equal(b.caidas.length, 0);
+  // Sector cíclico con beneficios estables
   const c = detectarCiclica({ sector: 'Energy', bpaAnual: anual([2, 2.1, 2.2, 2.3]) });
   assert.equal(c.ciclica, true);
-  assert.equal(c.porHistorial, false);
-  // Pérdidas
-  assert.equal(detectarCiclica({ bpaAnual: anual([1, -0.5, 1, 1.2]) }).porHistorial, true);
+  assert.equal(c.etiqueta, 'Cíclica por sector');
+  // Pérdidas antes del primer beneficio (empresa joven): no cuentan
+  assert.equal(detectarCiclica({ bpaAnual: anual([-2, -1, -0.5, 0.5, 1, 1.5]) }).porHistorial, false);
+  // Una sola pérdida tras beneficios no basta; dos sí
+  assert.equal(detectarCiclica({ bpaAnual: anual([1, 1.1, -0.2, 1.2, 1.3]) }).porHistorial, false);
+  assert.equal(detectarCiclica({ bpaAnual: anual([1, 1.1, -0.2, 1.2, -0.1, 1.3]) }).porHistorial, true);
   // Pocos años: no se juzga el historial
   assert.equal(detectarCiclica({ bpaAnual: anual([4, 1, 4]) }).porHistorial, null);
-  // Umbral configurable
-  assert.equal(detectarCiclica({ bpaAnual: anual([4, 2.4, 3.5, 5, 3.2, 3]), umbral: 0.4 }).porHistorial, false);
+  // La caída del último año cuenta sin confirmar
+  const d = detectarCiclica({ bpaAnual: anual([4, 2, 2.1, 4, 2]) });
+  assert.deepEqual(d.caidas.map((x) => x.confirmada), [true, false]);
+});
+
+test('factor ADR', () => {
+  assert.equal(factorAdr([{ val: 2 }], 10.1), 5);
+  assert.equal(factorAdr([{ val: 2 }], 2.05), 1);
+  assert.equal(factorAdr([{ val: 2 }], 3.1), 1); // 1,55: no es un entero
+  assert.equal(factorAdr([{ val: 2 }], null), 1);
+  assert.equal(factorAdr([], 5), 1);
 });
